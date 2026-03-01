@@ -98,7 +98,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                 scale: 1.05,
                 transition: { duration: 1, ease: [0.23, 1, 0.32, 1] }
             }}
-            className="fixed inset-0 z-[99999] bg-white dark:bg-black flex items-center justify-center overflow-hidden"
+            className="fixed inset-0 z-[99999] bg-white dark:bg-[#000000] flex items-center justify-center overflow-hidden"
             style={{ isolation: 'isolate' }}
         >
             <AnimatePresence mode="wait">
@@ -112,7 +112,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                             duration: 0.6,
                             ease: [0.23, 1, 0.32, 1]
                         }}
-                        className="text-7xl md:text-9xl font-black text-text-main dark:text-white tracking-tighter relative z-10"
+                        className="text-7xl md:text-9xl font-black text-gray-900 dark:text-white tracking-tighter relative z-10"
                     >
                         {greetings[index].text}
                         <span className="text-primary">.</span>
@@ -129,7 +129,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.2, duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
-                            className="text-5xl md:text-7xl font-black text-text-main dark:text-white tracking-tighter leading-tight"
+                            className="text-5xl md:text-7xl font-black text-gray-900 dark:text-white tracking-tighter leading-tight"
                         >
                             Hey, {userName}
                         </motion.h1>
@@ -137,7 +137,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.5, duration: 0.6 }}
-                            className="text-lg md:text-xl text-text-muted dark:text-gray-400 font-medium"
+                            className="text-lg md:text-xl text-gray-600 dark:text-gray-300 font-medium"
                         >
                             Welcome back to your dashboard
                         </motion.p>
@@ -146,7 +146,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 1, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
                             onClick={() => onComplete()}
-                            className="group relative px-10 py-5 bg-text-main dark:bg-white text-white dark:text-black rounded-full font-black uppercase tracking-[0.2em] text-[10px] hover:bg-primary dark:hover:bg-primary transition-all shadow-2xl active:scale-95 cursor-pointer overflow-hidden"
+                            className="group relative px-10 py-5 bg-gray-900 dark:bg-white text-white dark:text-black rounded-full font-black uppercase tracking-[0.2em] text-[10px] hover:bg-primary dark:hover:bg-primary hover:text-white transition-all shadow-2xl active:scale-95 cursor-pointer overflow-hidden"
                         >
                             <span className="relative z-10">Get Started</span>
                             <div className="absolute inset-0 bg-primary translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[0.16, 1, 0.3, 1]" />
@@ -162,7 +162,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                     animate={{ opacity: 0.4 }}
                     whileHover={{ opacity: 1 }}
                     onClick={() => onComplete()}
-                    className="absolute top-12 right-12 text-[9px] font-black uppercase tracking-[0.3em] text-text-dim dark:text-gray-500 hover:text-text-main dark:hover:text-white transition-all z-20 cursor-pointer"
+                    className="absolute top-12 right-12 text-[9px] font-black uppercase tracking-[0.3em] text-gray-400 dark:text-gray-600 hover:text-gray-900 dark:hover:text-white transition-all z-20 cursor-pointer"
                 >
                     Skip Intro
                 </motion.button>
@@ -179,7 +179,7 @@ const AppleIntro = ({ onComplete, userName, preferredLanguage = 'Mixed' }) => {
                     repeat: Infinity,
                     ease: "linear"
                 }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] pointer-events-none opacity-40 dark:opacity-20"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] pointer-events-none opacity-40 dark:opacity-10"
             >
                 <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-google-blue/10 rounded-full blur-[120px]" />
                 <div className="absolute bottom-1/4 left-0 w-[600px] h-[600px] bg-google-red/10 rounded-full blur-[150px]" />
