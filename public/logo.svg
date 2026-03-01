@@ -1,0 +1,10 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Green Arrow (Bottom-Left to Top-Right) -->
+  <path d="M150 450 L150 350 L250 350 L250 250 L150 250 L150 150 L50 150 L50 450 Z" fill="#138808"/>
+  
+  <!-- Saffron Arrow (Top-Left to Bottom-Right) -->
+  <path d="M362 62 L362 162 L262 162 L262 262 L362 262 L362 362 L462 362 L462 62 Z" fill="#FF9933"/>
+  
+  <!-- White X Center -->
+  <path d="M200 200 L256 256 L200 312 L256 368 L312 312 L368 368 L424 312 L368 256 L424 200 L368 144 L312 200 L256 144 Z" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="2"/>
+</svg>

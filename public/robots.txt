@@ -1,0 +1,9 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Only disallow sensitive API endpoints
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://yourdomain.com/sitemap.xml

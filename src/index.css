@@ -1,0 +1,331 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@100..900&family=Noto+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;500;600;700;800;900&family=Noto+Sans+Tamil:wght@400;500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+@import "./optimized-styles.css";
+
+:root {
+  --royal-blue: #1a73e8;
+  --royal-blue-hover: #1557b0;
+
+  --bg-main: #ffffff;
+  --bg-surface: #f8f9fa;
+  --border-main: #e5e7eb;
+
+  --text-primary: #111827;
+  --text-muted: #4b5563;
+}
+
+/* Incognito-style Dark Mode - Mildly Dark */
+.dark {
+  --bg-main: #2d2d2d;
+  --bg-surface: #3a3a3a;
+  --border-main: #4a4a4a;
+
+  --text-primary: #e8eaed;
+  --text-muted: #9aa0a6;
+  
+  /* Enhanced colors for dark mode */
+  --royal-blue: #4a9eff;
+  --royal-blue-hover: #6bb0ff;
+}
+
+/* Dark mode enhancements */
+.dark .glass-card {
+  background: rgba(53, 53, 53, 0.7);
+  border-color: rgba(74, 74, 74, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.dark .glass-panel {
+  background: #3a3a3a;
+  border-color: #4a4a4a;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background: #353535;
+  border-color: #4a4a4a;
+  color: #e8eaed;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #4a9eff;
+  background: #3a3a3a;
+}
+
+.dark .btn-secondary {
+  background: #3a3a3a;
+  border-color: #4a4a4a;
+  color: #e8eaed;
+}
+
+.dark .btn-secondary:hover {
+  background: #404040;
+}
+
+@theme {
+  --font-sans: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* ── Institutionally Professional Palette (Royal System) ── */
+  --color-primary: var(--royal-blue);
+  --color-primary-hover: var(--royal-blue-hover);
+
+  --color-bg-light: var(--bg-main);
+  --color-bg-dark: #2d2d2d;
+
+  --color-surface-light: var(--bg-surface);
+  --color-surface-dark: #3a3a3a;
+
+  --color-border-light: var(--border-main);
+  --color-border-dark: #4a4a4a;
+
+  --color-text-main: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+
+  /* ── Structural Scale ── */
+  --spacing-base: 8px;
+
+  /* ── Utitily Colors ── */
+  --color-success: #1db954;
+  --color-warning: #fbbc04;
+  --color-danger: #ea4335;
+  --color-info: #1a73e8;
+
+  /* ── Refined Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+
+  /* ── Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+}
+
+/* ─── Base Styles ─────────────────────────────────────────── */
+@layer base {
+  body {
+    @apply bg-bg-light text-text-main antialiased min-h-screen selection:bg-primary/20 selection:text-primary;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv05", "cv08", "cv09", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    @apply tracking-tight;
+  }
+}
+
+/* ─── Component Surfaces ────────────────────────────────── */
+.glass-panel {
+  @apply bg-surface-light border border-border-light shadow-sm;
+}
+
+.glass-card {
+  @apply border border-border-light/30 shadow-lg transition-all duration-300;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ─── Background Animations ─────────────────────────────── */
+.mesh-grid {
+  background-image: radial-gradient(circle at 1px 1px, var(--color-border-light) 1px, transparent 0);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent);
+  opacity: 0.5;
+}
+
+/* ─── Interactive Elements ──────────────────────────────── */
+
+/* Ensure all obvious click targets use the pointer cursor */
+button,
+[type="button"],
+[type="submit"],
+[type="reset"],
+a,
+.btn-primary,
+.btn-secondary {
+  cursor: pointer;
+}
+
+.btn-primary {
+  @apply px-6 h-11 bg-primary text-white font-black rounded-xl hover:bg-primary-hover active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[11px];
+  position: relative;
+  overflow: hidden;
+}
+
+/* Tricolor underline animation on hover for important buttons */
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, #FF9933 33.33%, #FFFFFF 33.33%, #FFFFFF 66.66%, #138808 66.66%);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.btn-primary:hover::after {
+  transform: scaleX(1);
+}
+
+.btn-secondary {
+  @apply px-6 h-11 bg-surface-light border border-border-light text-text-main font-black rounded-xl hover:bg-surface-light/80 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[11px];
+}
+
+.input-modern {
+  @apply w-full h-11 px-4 bg-white border border-border-light rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all font-medium text-sm;
+}
+
+/*  UIverse Hamburger refined  */
+.hamburger {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger input {
+  display: none;
+}
+
+.hamburger svg {
+  height: 2em;
+  transition: transform 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--color-text-muted);
+}
+
+.hamburger:hover svg {
+  color: var(--color-primary);
+}
+
+.line {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  transition: stroke-dasharray 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke-dashoffset 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.line-top-bottom {
+  stroke-dasharray: 12 63;
+}
+
+.hamburger input:checked+svg {
+  transform: rotate(-45deg);
+  color: var(--color-primary) !important;
+}
+
+.hamburger input:checked+svg .line-top-bottom {
+  stroke-dasharray: 20 300;
+  stroke-dashoffset: -32.42;
+}
+
+/* Modal backdrop blur */
+.modal-backdrop {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Modal glow effect */
+.modal-glow {
+  animation: modalGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes modalGlow {
+  from {
+    box-shadow: 0 0 30px rgba(26, 115, 232, 0.3), 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  }
+  to {
+    box-shadow: 0 0 50px rgba(26, 115, 232, 0.5), 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Dark mode glow - cyan/blue glow */
+.dark .modal-glow {
+  animation: modalGlowDark 2s ease-in-out infinite alternate;
+}
+
+@keyframes modalGlowDark {
+  from {
+    box-shadow: 0 0 30px rgba(74, 158, 255, 0.4), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  }
+  to {
+    box-shadow: 0 0 50px rgba(107, 176, 255, 0.6), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Sidebar backdrop overlay */
+.backdrop-blur-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  transition: background 0.3s ease;
+  z-index: 40;
+}
+
+.backdrop-blur-overlay.active {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-800 rounded-full border-4 border-transparent bg-clip-padding;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300 dark:bg-slate-700;
+}
+
+/* Hide horizontal scrollbar globally */
+body {
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* Bell shake animation */
+@keyframes shake {
+  0%, 100% { transform: rotate(0deg); }
+  10%, 30%, 50%, 70%, 90% { transform: rotate(-10deg); }
+  20%, 40%, 60%, 80% { transform: rotate(10deg); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out infinite;
+}
