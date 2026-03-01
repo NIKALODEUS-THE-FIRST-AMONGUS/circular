@@ -163,10 +163,35 @@ a,
   cursor: pointer;
 }
 
+/* Mobile touch optimization */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  [type="button"],
+  [type="submit"],
+  a {
+    -webkit-tap-highlight-color: rgba(26, 115, 232, 0.1);
+    touch-action: manipulation;
+  }
+  
+  /* Larger touch targets on mobile */
+  button,
+  [type="button"],
+  [type="submit"] {
+    min-height: 44px;
+  }
+  
+  /* Disable hover effects on touch devices */
+  .btn-primary:hover::after {
+    transform: scaleX(0);
+  }
+}
+
 .btn-primary {
   @apply px-6 h-11 bg-primary text-white font-black rounded-xl hover:bg-primary-hover active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[11px];
   position: relative;
   overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Tricolor underline animation on hover for important buttons */
@@ -189,10 +214,21 @@ a,
 
 .btn-secondary {
   @apply px-6 h-11 bg-surface-light border border-border-light text-text-main font-black rounded-xl hover:bg-surface-light/80 transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[11px];
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .input-modern {
   @apply w-full h-11 px-4 bg-white border border-border-light rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all font-medium text-sm;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile-specific input improvements */
+@media (max-width: 640px) {
+  .input-modern {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
 }
 
 /*  UIverse Hamburger refined  */
@@ -313,10 +349,18 @@ a,
 /* Hide horizontal scrollbar globally */
 body {
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 html {
   overflow-x: hidden;
+}
+
+/* Mobile viewport fix */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
 }
 
 /* Bell shake animation */
