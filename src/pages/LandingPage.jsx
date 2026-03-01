@@ -174,6 +174,7 @@ const LandingPage = () => {
     const handleProfileSubmit = async (e) => {
         if (e) e.preventDefault();
         setLoading(true);
+        setError(null);
         try {
             let finalRole = formData.role;
             let finalStatus = 'pending';
@@ -232,7 +233,10 @@ const LandingPage = () => {
                     graduation_batch: formData.graduationBatch
                 }]);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Profile creation error:', error);
+                throw error;
+            }
 
             await supabase.from('audit_logs').insert({
                 action: 'onboarding_complete',
@@ -242,6 +246,9 @@ const LandingPage = () => {
 
             await refreshProfile();
             navigate('/dashboard');
+        } catch (err) {
+            console.error('Onboarding error:', err);
+            setError(err.message || 'Failed to complete onboarding');
         } finally {
             complete();
             setTimeout(() => setLoading(false), 500);
