@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, ArrowRight, ChevronRight, GraduationCap, Building2, Check } from 'lucide-react';
+import { Lock, ArrowRight, ChevronRight, GraduationCap, Building2, Check, AlertTriangle } from 'lucide-react';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
 import { getBrandName, getSlogan } from '../config/branding';
@@ -46,6 +46,16 @@ const LandingPage = () => {
     const { progress, complete } = useSimulatedProgress(loading, { slowdownPoint: 92 });
 
     const [emailData, setEmailData] = useState({ email: '', password: '' });
+    const [deletionMessage, setDeletionMessage] = useState(null);
+
+    useEffect(() => {
+        // Check for deletion message
+        const message = sessionStorage.getItem('deletion_message');
+        if (message) {
+            setDeletionMessage(message);
+            sessionStorage.removeItem('deletion_message');
+        }
+    }, []);
 
     useEffect(() => {
         // Only skip onboarding if user has a complete profile (not pending)
@@ -125,9 +135,10 @@ const LandingPage = () => {
     });
 
     const [step, setStep] = useState(1); // Onboarding step
+    const [nameInitialized, setNameInitialized] = useState(false); // Track if name was set from user metadata
 
     useEffect(() => {
-        if (user && !formData.fullName) {
+        if (user && !nameInitialized) {
             setFormData(prev => ({
                 ...prev,
                 fullName: user.user_metadata?.full_name || '',
@@ -135,8 +146,9 @@ const LandingPage = () => {
                 role: user.user_metadata?.role || 'student',
                 dept: user.user_metadata?.department || 'CSE'
             }));
+            setNameInitialized(true);
         }
-    }, [user, formData.fullName]);
+    }, [user, nameInitialized]);
 
     const handleSkip = async () => {
         setLoading(true);
@@ -546,6 +558,26 @@ const LandingPage = () => {
                 className="w-full md:w-2/5 p-4 sm:p-6 md:p-12 flex flex-col items-center justify-center bg-[#F8FAFC]"
             >
                 <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8 md:p-10 border border-gray-100 relative">
+                    {deletionMessage && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10 }} 
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium flex items-start gap-3"
+                        >
+                            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold mb-1">Account Removed</p>
+                                <p className="text-xs">{deletionMessage}</p>
+                            </div>
+                            <button 
+                                onClick={() => setDeletionMessage(null)}
+                                className="ml-auto text-red-400 hover:text-red-600"
+                            >
+                                ×
+                            </button>
+                        </motion.div>
+                    )}
+                    
                     <div className="mb-6 sm:mb-8">
                         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Institutional Access</h2>
                         <p className="text-xs sm:text-sm text-gray-500">Please enter your credentials to access the dashboard.</p>

@@ -199,7 +199,12 @@ export const AuthProvider = ({ children }) => {
                     localStorage.setItem('user_profile', JSON.stringify(data))
                     return data
                 } else {
-                    setProfile(null)
+                    // Profile not found - user was deleted by admin
+                    // Sign out and show message
+                    await supabase.auth.signOut()
+                    localStorage.clear()
+                    sessionStorage.setItem('deletion_message', 'Your account was removed by an administrator. Please sign up again if you need access.')
+                    window.location.href = '/'
                     return null
                 }
             } catch (err) {
