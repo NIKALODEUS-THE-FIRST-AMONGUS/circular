@@ -18,23 +18,6 @@ let _lastMeasuredAt = 0;       // timestamp
 const CACHE_TTL = 60_000; // re-measure after 60 s
 
 /**
- * Detect if on mobile device to use proxy
- */
-const isMobileDevice = () => {
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-};
-
-/**
- * Get the correct URL (proxy or direct)
- */
-const getHealthCheckUrl = () => {
-  if (isMobileDevice()) {
-    return `/api/supabase-proxy?path=${encodeURIComponent('/rest/v1/')}`;
-  }
-  return `${SUPABASE_URL}/rest/v1/`;
-};
-
-/**
  * Returns the last measured RTT (ms), or null if never measured.
  */
 export function getCachedRtt() { return _cachedRtt; }
@@ -56,7 +39,7 @@ export async function measureRtt() {
     const t0 = performance.now();
 
     try {
-        await fetch(getHealthCheckUrl(), {
+        await fetch(`${SUPABASE_URL}/rest/v1/`, {
             method: 'GET',
             signal: controller.signal,
             headers: { apikey: ANON_KEY },
