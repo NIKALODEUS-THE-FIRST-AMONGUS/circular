@@ -42,10 +42,16 @@ async function exportCollection(tableName) {
   console.log(`📦 Exporting ${tableName}...`);
   
   try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('*')
-      .order('created_at', { ascending: true });
+    // Some tables don't have created_at, so don't order by it
+    const tablesWithoutCreatedAt = ['circular_acknowledgments', 'circular_views'];
+    
+    let query = supabase.from(tableName).select('*');
+    
+    if (!tablesWithoutCreatedAt.includes(tableName)) {
+      query = query.order('created_at', { ascending: true });
+    }
+    
+    const { data, error } = await query;
     
     if (error) {
       console.error(`❌ Error exporting ${tableName}:`, error.message);
