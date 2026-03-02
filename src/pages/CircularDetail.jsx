@@ -321,7 +321,7 @@ const CircularDetail = () => {
 
             if (error) throw error;
             setCircular(data);
-            notify('✅ Circular updated successfully', 'success');
+            notify('☁️ Circular updated', 'success');
             setShowEditModal(false);
         } catch (err) {
             notify(`❌ Update failed: ${err.message}`, 'error');

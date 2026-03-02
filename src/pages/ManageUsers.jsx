@@ -419,7 +419,7 @@ const ManageUsers = () => {
 
             if (error) throw error;
 
-            notify("✅ Profile updated successfully", "success");
+            notify("☁️ Profile updated", "success");
             setIsEditing(false);
             refetch();
             // Update selected member local state

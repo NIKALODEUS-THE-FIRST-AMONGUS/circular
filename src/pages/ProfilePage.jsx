@@ -123,7 +123,7 @@ const ProfilePage = () => {
             await refreshProfile();
             
             setShowAvatarModal(false);
-            notify("Avatar updated successfully", "success");
+            notify("☁️ Avatar updated", "success");
         } catch (error) {
             notify(error.message, "error");
         } finally {
@@ -152,7 +152,7 @@ const ProfilePage = () => {
             await refreshProfile();
             
             setShowAvatarModal(false);
-            notify("Avatar removed successfully", "success");
+            notify("☁️ Avatar removed", "success");
         } catch (error) {
             notify(error.message, "error");
         } finally {
@@ -203,7 +203,7 @@ const ProfilePage = () => {
         try {
             const { error } = await supabase.auth.updateUser({ password: passwordData.new });
             if (error) throw error;
-            notify("Security updated", "success");
+            notify("☁️ Security updated", "success");
             setShowPasswordModal(false);
             setPasswordData({ current: '', new: '', confirm: '' });
         } catch (err) {

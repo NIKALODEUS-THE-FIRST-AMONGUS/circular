@@ -173,7 +173,7 @@ const Feedback = () => {
 
             if (error) throw error;
 
-            notify('✅ Feedback submitted successfully!', 'success');
+            notify('☁️ Feedback submitted', 'success');
 
             // Reset form
             setTitle('');
@@ -243,7 +243,7 @@ const Feedback = () => {
 
             if (error) throw error;
 
-            notify('✅ Comment added successfully', 'success');
+            notify('☁️ Comment added', 'success');
             setComment('');
             setShowCommentModal(false);
             setSelectedFeedback(null);
