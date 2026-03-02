@@ -106,6 +106,8 @@ const ProfilePage = () => {
             const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
             const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
             
+            console.log('Cloudinary config:', { cloudName, uploadPreset });
+            
             if (!cloudName || !uploadPreset) {
                 throw new Error("Cloudinary not configured. Please check .env file.");
             }
@@ -114,7 +116,6 @@ const ProfilePage = () => {
             formData.append('file', file);
             formData.append('upload_preset', uploadPreset);
             formData.append('folder', 'avatars');
-            formData.append('transformation', 'c_fill,g_face,h_200,w_200'); // Auto-crop to face, 200x200
 
             const response = await fetch(
                 `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -127,7 +128,21 @@ const ProfilePage = () => {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 console.error('Cloudinary upload error:', errorData);
-                throw new Error(errorData.error?.message || 'Upload failed. Check if upload preset is configured as "unsigned" in Cloudinary settings.');
+                
+                // Show helpful error message
+                let errorMessage = 'Upload failed. ';
+                if (errorData.error?.message) {
+                    errorMessage += errorData.error.message;
+                    
+                    // Add helpful hints based on error
+                    if (errorData.error.message.includes('preset')) {
+                        errorMessage += '\n\nFix: Go to Cloudinary Console → Settings → Upload → Find "circular_attachments" preset → Set Signing Mode to "Unsigned" → Save';
+                    }
+                } else {
+                    errorMessage += 'Check if upload preset is configured as "unsigned" in Cloudinary settings.';
+                }
+                
+                throw new Error(errorMessage);
             }
             
             const data = await response.json();

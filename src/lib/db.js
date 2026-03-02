@@ -138,8 +138,46 @@ class FirestoreQueryBuilder {
     return this;
   }
 
+  // Update method for Supabase compatibility
+  update(updates) {
+    this.updateData = updates;
+    this.isUpdate = true;
+    return this;
+  }
+
   async execute() {
     try {
+      // Handle UPDATE operations
+      if (this.isUpdate) {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        
+        // If we have constraints, we need to query first to get the doc IDs
+        if (this.constraints.length > 0) {
+          const constraints = [...this.constraints];
+          const q = query(collection(firestore, this.tableName), ...constraints);
+          const querySnapshot = await getDocs(q);
+          
+          // Update all matching documents
+          const updatePromises = [];
+          querySnapshot.forEach((docSnapshot) => {
+            const docRef = doc(firestore, this.tableName, docSnapshot.id);
+            updatePromises.push(updateDoc(docRef, this.updateData));
+          });
+          
+          await Promise.all(updatePromises);
+          
+          return { 
+            data: null, 
+            error: null, 
+            count: querySnapshot.size 
+          };
+        } else {
+          // No constraints means we need a document ID
+          throw new Error('Update requires either constraints or a document ID');
+        }
+      }
+
+      // Handle SELECT operations
       const constraints = [...this.constraints];
 
       if (this.orderByField) {
