@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './lib/globalFetchProxy' // Enable fetch proxy for blocked networks
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary'
 
