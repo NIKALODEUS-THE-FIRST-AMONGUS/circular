@@ -36,13 +36,32 @@ export default async function handler(request) {
   const targetUrl = `${supabaseUrl}${path}`;
 
   try {
-    // Forward the request to Supabase
-    const headers = new Headers(request.headers);
-    headers.set('apikey', supabaseKey);
-    headers.set('Authorization', `Bearer ${supabaseKey}`);
+    // Get headers from original request
+    const headers = new Headers();
     
-    // Remove host header to avoid conflicts
-    headers.delete('host');
+    // Copy important headers from the original request
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers.set('Authorization', authHeader);
+    } else {
+      // Use anon key as fallback
+      headers.set('Authorization', `Bearer ${supabaseKey}`);
+    }
+    
+    // Always set apikey
+    headers.set('apikey', supabaseKey);
+    
+    // Copy content-type if present
+    const contentType = request.headers.get('content-type');
+    if (contentType) {
+      headers.set('Content-Type', contentType);
+    }
+    
+    // Copy other Supabase-specific headers
+    const prefer = request.headers.get('prefer');
+    if (prefer) {
+      headers.set('Prefer', prefer);
+    }
 
     const response = await fetch(targetUrl, {
       method: request.method,
@@ -55,8 +74,9 @@ export default async function handler(request) {
     // Clone response and add CORS headers
     const responseHeaders = new Headers(response.headers);
     responseHeaders.set('Access-Control-Allow-Origin', '*');
-    responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey');
+    responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, prefer, x-client-info');
+    responseHeaders.set('Access-Control-Expose-Headers', 'content-range, x-supabase-api-version');
 
     return new Response(response.body, {
       status: response.status,
