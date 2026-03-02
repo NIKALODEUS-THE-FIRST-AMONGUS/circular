@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "migrate:export": "node scripts/export-from-supabase.js",
+    "migrate:import": "node scripts/import-to-firebase.js",
+    "migrate:all": "npm run migrate:export && npm run migrate:import",
+    "deploy:rules": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
