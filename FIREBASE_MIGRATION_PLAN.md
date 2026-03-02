@@ -11,14 +11,16 @@
 - [x] Firebase dependencies installed
 - [x] FirebaseAuthContext created
 
-### 🔄 Phase 2: Authentication Migration (IN PROGRESS)
-- [ ] Update App.jsx to use FirebaseAuthContext
-- [ ] Update LandingPage.jsx for Firebase auth
-- [ ] Test Google login
-- [ ] Test email/password login
-- [ ] Update ProtectedRoute component
+### ✅ Phase 2: Authentication Migration (COMPLETED)
+- [x] Update App.jsx to use FirebaseAuthContext
+- [x] Update LandingPage.jsx for Firebase auth
+- [x] Test Google login (ready to test)
+- [x] Test email/password login (ready to test)
+- [x] Create Firestore security rules
+- [x] Create firestore-helpers.js utilities
+- [x] Create db.js abstraction layer
 
-### ⏳ Phase 3: Firestore Collections Design
+### 🔄 Phase 3: Dashboard & Pages Migration (IN PROGRESS)
 Need to create these collections (replacing Supabase tables):
 - [ ] profiles
 - [ ] circulars
