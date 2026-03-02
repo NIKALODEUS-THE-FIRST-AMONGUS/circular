@@ -183,10 +183,11 @@ Use responsive URLs with lazy loading:
 - ✅ **Images:** Unlimited
 
 **Typical Usage for Your App:**
-- 100 circulars/month with 2 images each
+- 100 circulars/month with 2 attachments each (images + PDFs)
 - Average image: 500 KB → optimized to 50 KB
-- Storage: ~10 MB/month
-- Bandwidth: ~5 GB/month (100 views per circular)
+- Average PDF: 200 KB
+- Storage: ~15 MB/month
+- Bandwidth: ~8 GB/month (100 views per circular)
 - **Well within free tier!** ✅
 
 ---
@@ -264,11 +265,11 @@ VITE_CLOUDINARY_UPLOAD_PRESET=your-preset-name
 ## 🎉 You're All Set!
 
 Your app now uses:
-- ✅ **Cloudinary** for images (25 GB free, CDN, optimization)
-- ✅ **Supabase** for documents (1 GB free)
-- ✅ **Total:** 26 GB free storage
+- ✅ **Cloudinary** for ALL files (images, PDFs, Word docs, Excel, etc.)
+- ✅ **Storage:** 25 GB free
+- ✅ **Bandwidth:** 25 GB/month free
 - ✅ **Cost:** $0/month
-- ✅ **Performance:** 5-10x faster image loading
+- ✅ **Performance:** 5-10x faster loading with global CDN
 
 **Next Steps:**
 1. Test uploading images

@@ -1,71 +1,79 @@
 /**
  * Unified Storage Helper
- * Routes images to Cloudinary, documents to Supabase
+ * Uses Cloudinary for ALL file types (images, PDFs, Word docs, etc.)
  */
 
-import { uploadToCloudinary, getThumbnailUrl, getResponsiveUrls } from './cloudinary';
-import { supabase } from './supabase';
+import { getThumbnailUrl, getResponsiveUrls } from './cloudinary';
 
 /**
- * Upload a file to the appropriate storage service
- * Images → Cloudinary (25 GB free, CDN, optimization)
- * Documents → Supabase (1 GB free)
+ * Upload any file to Cloudinary
+ * Supports: Images, PDFs, Word docs, Excel, etc.
  * 
  * @param {File} file - File to upload
- * @param {string} userId - User ID for organizing files
+ * @param {string} _userId - User ID for organizing files (reserved for future use)
  * @returns {Promise<{url: string, error: null} | {url: null, error: Error}>}
  */
-export async function uploadFile(file, userId) {
+export async function uploadFile(file, _userId) {
   try {
-    // Check if file is an image
-    if (file.type.startsWith('image/')) {
-      // Upload to Cloudinary
-      console.log('📸 Uploading image to Cloudinary:', file.name);
-      const result = await uploadToCloudinary(file);
-      
-      if (result.error) {
-        throw result.error;
-      }
+    // Get Cloudinary config
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-      return {
-        url: result.url,
-        publicId: result.publicId,
-        thumbnail: getThumbnailUrl(result.url),
-        responsive: getResponsiveUrls(result.url),
-        provider: 'cloudinary',
-        type: 'image',
-        size: result.bytes,
-        error: null
-      };
-    } else {
-      // Upload to Supabase Storage
-      console.log('📄 Uploading document to Supabase:', file.name);
-      
-      const ext = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-      const filePath = `${userId}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('attachments')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data } = supabase.storage
-        .from('attachments')
-        .getPublicUrl(filePath);
-
-      return {
-        url: data.publicUrl,
-        path: filePath,
-        provider: 'supabase',
-        type: 'document',
-        size: file.size,
-        error: null
-      };
+    if (!cloudName || !uploadPreset) {
+      throw new Error('Cloudinary configuration missing. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
     }
+
+    // Determine resource type
+    const isImage = file.type.startsWith('image/');
+    const resourceType = isImage ? 'image' : 'raw'; // 'raw' for PDFs, docs, etc.
+
+    console.log(`📤 Uploading ${isImage ? 'image' : 'document'} to Cloudinary:`, file.name);
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('folder', 'circular-attachments');
+    formData.append('tags', 'circular,attachment');
+
+    // Upload to Cloudinary
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+      {
+        method: 'POST',
+        body: formData
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Upload failed');
+    }
+
+    const data = await response.json();
+
+    // For images, return optimized URL
+    let finalUrl = data.secure_url;
+    if (isImage) {
+      finalUrl = data.secure_url.replace(
+        '/upload/',
+        '/upload/q_auto,f_auto/'
+      );
+    }
+
+    return {
+      url: finalUrl,
+      publicId: data.public_id,
+      originalUrl: data.secure_url,
+      thumbnail: isImage ? getThumbnailUrl(finalUrl) : null,
+      responsive: isImage ? getResponsiveUrls(finalUrl) : null,
+      provider: 'cloudinary',
+      type: isImage ? 'image' : 'document',
+      format: data.format,
+      size: data.bytes,
+      resourceType: resourceType,
+      error: null
+    };
   } catch (error) {
     console.error('Upload error:', error);
     return {
@@ -76,37 +84,19 @@ export async function uploadFile(file, userId) {
 }
 
 /**
- * Delete a file from storage
- * @param {string} url - File URL
- * @param {string} provider - 'cloudinary' or 'supabase'
- * @param {string} identifier - Public ID (Cloudinary) or path (Supabase)
+ * Delete a file from Cloudinary
+ * Note: Requires backend API for security (can't delete from frontend directly)
+ * @param {string} publicId - Cloudinary public ID
  * @returns {Promise<{success: boolean, error: Error|null}>}
  */
-export async function deleteFile(url, provider, identifier) {
-  try {
-    if (provider === 'cloudinary') {
-      // Cloudinary deletion requires backend API
-      console.warn('Cloudinary deletion requires backend API. URL:', url);
-      // For now, just return success (files will be cleaned up manually)
-      return { success: true, error: null };
-    } else if (provider === 'supabase') {
-      // Delete from Supabase Storage
-      const { error } = await supabase.storage
-        .from('attachments')
-        .remove([identifier]);
-
-      if (error) {
-        throw error;
-      }
-
-      return { success: true, error: null };
-    } else {
-      throw new Error('Unknown storage provider');
-    }
-  } catch (error) {
-    console.error('Delete error:', error);
-    return { success: false, error };
-  }
+export async function deleteFile(publicId) {
+  console.warn('Cloudinary deletion requires backend API. Public ID:', publicId);
+  // TODO: Implement backend API endpoint for deletion
+  // For now, files remain in Cloudinary (can be cleaned up manually from dashboard)
+  return {
+    success: false,
+    error: new Error('Deletion requires backend API')
+  };
 }
 
 /**
