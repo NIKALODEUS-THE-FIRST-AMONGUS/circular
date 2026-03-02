@@ -1,13 +1,14 @@
 # Firebase Migration Status
 
-## ✅ COMPLETED (70% done)
+## ✅ COMPLETED (85% done)
 
 ### Phase 1: Setup ✅
 
-- Firebase project created
-- Firestore database enabled
+- Firebase project created: `circular2-15417`
+- Firestore database enabled (asia-south1)
 - Firebase Authentication enabled
 - Dependencies installed
+- Firebase CLI configured
 
 ### Phase 2: Authentication ✅
 
@@ -18,6 +19,8 @@
 - Email/password sign-in working
 - Firestore security rules created
 - Database helper utilities created
+- Popup error handling fixed
+- NetworkProvider added
 
 ### Phase 3: Compatibility Layer ✅
 
@@ -35,18 +38,37 @@
 - Automatic image optimization
 - Global CDN delivery
 - 25 GB free storage
-- No Firebase Storage costs
+- Cloud name: dzw0mxfzq
+- Upload preset: circular_attachments
 
-## 🔄 IN PROGRESS (40% remaining)
+### Phase 5: Bug Fixes ✅
 
-### Phase 4: Testing & Verification
+- Fixed Firestore rules for bootstrap check
+- Fixed cancelled popup errors
+- Added NetworkProvider to App.jsx
+- Fixed permission errors
+- Proper error handling
+
+## 🔄 IN PROGRESS (15% remaining)
+
+### Critical Action Required ⚠️
+
+**MUST DO NOW:** Update Firestore rules in Firebase Console
+- Go to: https://console.firebase.google.com/project/circular2-15417/firestore/rules
+- Copy rules from `UPDATE_RULES_NOW.md`
+- Paste and publish
+- This fixes the "Missing or insufficient permissions" error
+
+### Phase 6: Testing & Verification
 
 **What's Working:**
 
 - ✅ Authentication (Google OAuth + Email/Password)
 - ✅ Profile Management
 - ✅ Supabase-compatible queries
-- ✅ File Storage
+- ✅ File Storage (Cloudinary)
+- ✅ Error handling
+- ✅ Network detection
 
 **What Needs Testing:**
 

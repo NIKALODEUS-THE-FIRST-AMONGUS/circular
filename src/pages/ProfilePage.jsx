@@ -6,6 +6,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useNotify } from '../components/Toaster';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProgressLoader from '../components/ProgressLoader';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase-config';
 import {
     UserCircle, GraduationCap, Building2, Check, ChevronRight, ChevronLeft,
     ShieldCheck, Loader2, Save, Star, Layers, Phone, ArrowRight, MapPin,
@@ -100,24 +102,42 @@ const ProfilePage = () => {
             if (!allowedExtensions.includes(fileExt)) throw new Error("Invalid format.");
             if (file.size > 2 * 1024 * 1024) throw new Error("Max 2MB.");
 
-            const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            // Use Cloudinary for avatar uploads (free 25GB, automatic optimization)
+            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+            const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
             
-            // Update database
-            const { error: updateError } = await supabase.from('profiles').update({ 
-                avatar_url: publicUrl,
+            if (!cloudName || !uploadPreset) {
+                throw new Error("Cloudinary not configured. Please check .env file.");
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', uploadPreset);
+            formData.append('folder', 'avatars');
+            formData.append('transformation', 'c_fill,g_face,h_200,w_200'); // Auto-crop to face, 200x200
+
+            const response = await fetch(
+                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+                {
+                    method: 'POST',
+                    body: formData
+                }
+            );
+
+            if (!response.ok) throw new Error('Upload failed');
+            
+            const data = await response.json();
+            const avatarUrl = data.secure_url;
+            
+            // Update Firestore database
+            const profileRef = doc(db, 'profiles', user.uid);
+            await setDoc(profileRef, { 
+                avatar_url: avatarUrl,
                 updated_at: new Date().toISOString()
-            }).eq('id', user.id);
-            if (updateError) throw updateError;
+            }, { merge: true });
 
             // Update local state immediately for instant feedback
-            setFormData(prev => ({ ...prev, avatarUrl: publicUrl }));
-            
-            // Small delay to ensure database has committed the change
-            await new Promise(resolve => setTimeout(resolve, 300));
+            setFormData(prev => ({ ...prev, avatarUrl }));
             
             // Force refresh profile from database to update everywhere
             await refreshProfile();
