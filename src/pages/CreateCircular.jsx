@@ -268,7 +268,7 @@ const CreateCircular = () => {
             const circularData = {
                 title,
                 content,
-                author_id: user.id,
+                author_id: user.uid,
                 author_name: authorName,
                 department_target: targetType === 'universal' ? 'ALL' : dept,
                 target_year: targetType === 'universal' ? 'ALL' : targetYear,

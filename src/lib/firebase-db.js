@@ -38,8 +38,13 @@ export const fromTimestamp = (timestamp) => {
 // CREATE - Add new document
 export const createDocument = async (collectionName, data, docId = null) => {
   try {
+    // Remove undefined values (Firestore doesn't allow them)
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => value !== undefined)
+    );
+    
     const dataWithTimestamp = {
-      ...data,
+      ...cleanData,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp()
     };
@@ -132,9 +137,14 @@ export const getDocuments = async (collectionName, filters = {}) => {
 // UPDATE - Update existing document
 export const updateDocument = async (collectionName, docId, updates) => {
   try {
+    // Remove undefined values (Firestore doesn't allow them)
+    const cleanUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    );
+    
     const docRef = doc(db, collectionName, docId);
     const dataWithTimestamp = {
-      ...updates,
+      ...cleanUpdates,
       updated_at: serverTimestamp()
     };
     
