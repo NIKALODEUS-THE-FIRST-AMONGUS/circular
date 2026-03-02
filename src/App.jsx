@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/FirebaseAuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { NetworkProvider } from './context/NetworkContext';
 import { ToastProvider } from './components/Toaster';
 import { setupGlobalErrorHandling } from './utils/errorTracking';
 import { performanceMonitor } from './utils/performanceMonitor';
@@ -85,8 +86,10 @@ function App() {
         <AuthProvider>
           <ThemeProvider>
             <LanguageProvider>
-              <OfflineBanner />
-              <AppContent />
+              <NetworkProvider>
+                <OfflineBanner />
+                <AppContent />
+              </NetworkProvider>
             </LanguageProvider>
           </ThemeProvider>
         </AuthProvider>
