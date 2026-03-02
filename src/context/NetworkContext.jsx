@@ -1,48 +1,29 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from 'react';
 
-import { checkSupabaseConnectivity } from '../lib/connectivity';
-import { setMockMode } from '../lib/supabase';
-
 const NetworkContext = createContext();
 
 export const NetworkProvider = ({ children }) => {
-    const [isOffline, setIsOffline] = useState(false);
-    const [isChecking, setIsChecking] = useState(true);
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
     useEffect(() => {
-        const checkConnectivity = async () => {
-            // Check if user explicitly wants mock mode
-            const explicitMock = import.meta.env.VITE_USE_MOCK_AUTH === 'true';
+        // Check online/offline status
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
 
-            if (explicitMock) {
-                console.warn('🎭 Explicit Mock Mode enabled via .env');
-                setMockMode(true);
-                setIsOffline(true);
-                setIsChecking(false);
-                return;
-            }
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
 
-            const isAvailable = await checkSupabaseConnectivity();
-
-            if (!isAvailable) {
-                console.warn('⚠️ Supabase unreachable or timed out. Enabling Adaptive Mock Mode for stability.');
-                setMockMode(true);
-                setIsOffline(true);
-            } else {
-                setMockMode(false);
-                setIsOffline(false);
-            }
-            setIsChecking(false);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
         };
-
-        checkConnectivity();
     }, []);
 
     const value = {
         isOffline,
-        isChecking,
-        isMockMode: isOffline // Alias for clarity
+        isChecking: false,
+        isMockMode: false // No mock mode with Firebase
     };
 
     return (
