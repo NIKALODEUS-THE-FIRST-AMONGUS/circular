@@ -46,7 +46,7 @@ export const checkSupabaseConnectivity = async (options = {}) => {
         if (error.name === 'AbortError') {
             console.error('🌐 Supabase check timed out after 10s. Your network might be slow or blocking the connection.');
         } else {
-            console.error('🌐 Supabase connectivity check failed:', error.message);
+            console.error('🌐 Supabase connectivity check failed:', error?.message || error || 'Unknown error');
         }
         clearTimeout(timeoutId);
         lastCheckAt = Date.now();

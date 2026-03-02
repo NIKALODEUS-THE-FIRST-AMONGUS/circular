@@ -59,7 +59,7 @@ const LandingPage = () => {
 
         // Check Supabase connectivity on mobile
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) {
+        if (isMobile && import.meta.env.VITE_SUPABASE_URL) {
             fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/health`, { 
                 method: 'GET',
                 signal: AbortSignal.timeout(3000)
@@ -97,23 +97,26 @@ const LandingPage = () => {
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
             // Test Supabase connectivity first (with timeout)
-            const connectivityTest = new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => reject(new Error('timeout')), 5000);
-                fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/health`, { 
-                    method: 'GET',
-                    signal: AbortSignal.timeout(5000)
-                })
-                    .then(() => {
-                        clearTimeout(timeout);
-                        resolve(true);
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            if (supabaseUrl) {
+                const connectivityTest = new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('timeout')), 5000);
+                    fetch(`${supabaseUrl}/auth/v1/health`, { 
+                        method: 'GET',
+                        signal: AbortSignal.timeout(5000)
                     })
-                    .catch(() => {
-                        clearTimeout(timeout);
-                        reject(new Error('blocked'));
-                    });
-            });
+                        .then(() => {
+                            clearTimeout(timeout);
+                            resolve(true);
+                        })
+                        .catch(() => {
+                            clearTimeout(timeout);
+                            reject(new Error('blocked'));
+                        });
+                });
 
-            await connectivityTest;
+                await connectivityTest;
+            }
             
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
