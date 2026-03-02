@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { getDocuments } from '../lib/firebase-db';
 
 /**
  * Notification Manager Hook
@@ -17,19 +17,20 @@ export const useNotificationManager = (userId, profile) => {
 
         setLoading(true);
         try {
-            let query = supabase
-                .from('circulars')
-                .select('id, title, created_at, author_name, priority')
-                .order('created_at', { ascending: false });
+            const filters = {
+                orderBy: ['created_at', 'desc'],
+                limit: 20
+            };
 
+            let data = await getDocuments('circulars', filters);
+
+            // Filter by department for students
             if (profile.role === 'student') {
-                query = query.in('department_target', ['ALL', profile.department]).limit(20);
-            } else {
-                query = query.limit(20);
+                data = data.filter(circular => 
+                    circular.department_target === 'ALL' || 
+                    circular.department_target === profile.department
+                );
             }
-
-            const { data, error } = await query;
-            if (error) throw error;
 
             // Get read status from localStorage
             const readNotifications = JSON.parse(localStorage.getItem(`read_notifications_${userId}`) || '[]');
@@ -99,39 +100,17 @@ export const useNotificationManager = (userId, profile) => {
         setHasNewNotification(false);
     }, []);
 
-    // Subscribe to realtime updates
+    // Poll for updates (Firebase doesn't have realtime subscriptions like Supabase)
     useEffect(() => {
         if (!userId || !profile) return;
 
         fetchNotifications();
 
-        // Set up realtime subscription
-        const channel = supabase
-            .channel('circulars-changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'circulars'
-                },
-                (payload) => {
-                    // Check if this circular is relevant to the user
-                    const circular = payload.new;
-                    const isRelevant = 
-                        circular.department_target === 'ALL' ||
-                        circular.department_target === profile.department;
-
-                    if (isRelevant) {
-                        setHasNewNotification(true);
-                        fetchNotifications();
-                    }
-                }
-            )
-            .subscribe();
+        // Poll every 30 seconds for new notifications
+        const intervalId = setInterval(fetchNotifications, 30000);
 
         return () => {
-            supabase.removeChannel(channel);
+            clearInterval(intervalId);
         };
     }, [userId, profile, fetchNotifications]);
 

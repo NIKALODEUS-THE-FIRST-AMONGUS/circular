@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { getDocuments, createDocument, updateDocument, deleteDocument } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
 import {
     MessageSquare, Bug, Lightbulb, Sparkles, Send, Loader2,
@@ -78,42 +78,50 @@ const Feedback = () => {
     const fetchFeedback = async () => {
         setLoading(true);
         try {
-            let query = supabase
-                .from('feedback')
-                .select(`
-                    *,
-                    feedback_votes(count),
-                    feedback_comments(
-                        id,
-                        comment,
-                        user_name,
-                        is_admin,
-                        created_at
-                    )
-                `)
-                .order('created_at', { ascending: false });
-
+            // Fetch feedback with filters
+            const filters = {
+                orderBy: ['created_at', 'desc']
+            };
+            
+            const whereConditions = [];
             if (filterType !== 'all') {
-                query = query.eq('type', filterType);
+                whereConditions.push(['type', '==', filterType]);
             }
-
             if (filterStatus !== 'all') {
-                query = query.eq('status', filterStatus);
+                whereConditions.push(['status', '==', filterStatus]);
+            }
+            
+            if (whereConditions.length > 0) {
+                filters.where = whereConditions;
             }
 
-            const { data, error } = await query;
+            const feedbackData = await getDocuments('feedback', filters);
 
-            if (error) throw error;
+            // Fetch all votes and comments separately
+            const [allVotes, allComments] = await Promise.all([
+                getDocuments('feedback_votes'),
+                getDocuments('feedback_comments', {
+                    orderBy: ['created_at', 'asc']
+                })
+            ]);
 
-            // Process data to hide user info for anonymous feedback
-            const processedData = data.map(item => ({
-                ...item,
-                user_name: item.is_anonymous && !isAdmin ? 'Anonymous' : item.user_name,
-                user_email: item.is_anonymous && !isAdmin ? null : item.user_email,
-                user_id: item.is_anonymous && !isAdmin ? null : item.user_id
-            }));
+            // Combine data client-side
+            const enrichedData = feedbackData.map(item => {
+                const votes = allVotes.filter(v => v.feedback_id === item.id);
+                const comments = allComments.filter(c => c.feedback_id === item.id);
+                
+                return {
+                    ...item,
+                    feedback_votes: [{ count: votes.length }],
+                    feedback_comments: comments,
+                    // Hide user info for anonymous feedback
+                    user_name: item.is_anonymous && !isAdmin ? 'Anonymous' : item.user_name,
+                    user_email: item.is_anonymous && !isAdmin ? null : item.user_email,
+                    user_id: item.is_anonymous && !isAdmin ? null : item.user_id
+                };
+            });
 
-            setFeedbackList(processedData);
+            setFeedbackList(enrichedData);
         } catch (err) {
             notify(`❌ Failed to load feedback: ${err.message}`, 'error');
         } finally {
@@ -154,7 +162,7 @@ const Feedback = () => {
             }
 
             const feedbackData = {
-                user_id: user.id,
+                user_id: user.uid,
                 user_name: profile?.full_name || user.email,
                 user_email: user.email,
                 type,
@@ -164,14 +172,10 @@ const Feedback = () => {
                 is_anonymous: isAnonymous,
                 has_profanity: profanityResult.hasProfanity,
                 profanity_severity: severity,
-                priority: severity === 'medium' ? 'low' : 'medium' // Lower priority if profanity detected
+                priority: severity === 'medium' ? 'low' : 'medium'
             };
 
-            const { error } = await supabase
-                .from('feedback')
-                .insert([feedbackData]);
-
-            if (error) throw error;
+            await createDocument('feedback', feedbackData);
 
             notify('☁️ Feedback submitted', 'success');
 
@@ -195,25 +199,23 @@ const Feedback = () => {
     const handleUpvote = async (feedbackId) => {
         try {
             // Check if already voted
-            const { data: existingVote } = await supabase
-                .from('feedback_votes')
-                .select('id')
-                .eq('feedback_id', feedbackId)
-                .eq('user_id', user.id)
-                .single();
+            const existingVotes = await getDocuments('feedback_votes', {
+                where: [
+                    ['feedback_id', '==', feedbackId],
+                    ['user_id', '==', user.uid]
+                ]
+            });
 
-            if (existingVote) {
+            if (existingVotes.length > 0) {
                 // Remove vote
-                await supabase
-                    .from('feedback_votes')
-                    .delete()
-                    .eq('id', existingVote.id);
+                await deleteDocument('feedback_votes', existingVotes[0].id);
                 notify('👍 Vote removed', 'info');
             } else {
                 // Add vote
-                await supabase
-                    .from('feedback_votes')
-                    .insert([{ feedback_id: feedbackId, user_id: user.id }]);
+                await createDocument('feedback_votes', { 
+                    feedback_id: feedbackId, 
+                    user_id: user.uid 
+                });
                 notify('👍 Upvoted!', 'success');
             }
 
@@ -231,17 +233,13 @@ const Feedback = () => {
 
         setSubmittingComment(true);
         try {
-            const { error } = await supabase
-                .from('feedback_comments')
-                .insert([{
-                    feedback_id: selectedFeedback.id,
-                    user_id: user.id,
-                    user_name: profile?.full_name || user.email,
-                    comment: comment.trim(),
-                    is_admin: isAdmin
-                }]);
-
-            if (error) throw error;
+            await createDocument('feedback_comments', {
+                feedback_id: selectedFeedback.id,
+                user_id: user.uid,
+                user_name: profile?.full_name || user.email,
+                comment: comment.trim(),
+                is_admin: isAdmin
+            });
 
             notify('☁️ Comment added', 'success');
             setComment('');
@@ -263,16 +261,11 @@ const Feedback = () => {
 
             // If marking as resolved, add resolved info
             if (newStatus === 'resolved') {
-                updateData.resolved_by = user.id;
+                updateData.resolved_by = user.uid;
                 updateData.resolved_at = new Date().toISOString();
             }
 
-            const { error } = await supabase
-                .from('feedback')
-                .update(updateData)
-                .eq('id', feedbackId);
-
-            if (error) throw error;
+            await updateDocument('feedback', feedbackId, updateData);
 
             notify(`✅ Status updated to ${newStatus}`, 'success');
             fetchFeedback();
@@ -284,12 +277,7 @@ const Feedback = () => {
     const handleDelete = async (feedbackId) => {
         setDeleting(true);
         try {
-            const { error } = await supabase
-                .from('feedback')
-                .delete()
-                .eq('id', feedbackId);
-
-            if (error) throw error;
+            await deleteDocument('feedback', feedbackId);
 
             notify('✅ Feedback deleted successfully', 'success');
             setShowDeleteConfirm(null);

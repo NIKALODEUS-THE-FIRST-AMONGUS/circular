@@ -1,13 +1,13 @@
-import { supabase } from './supabase';
+import { getDocuments } from './firebase-db';
 
 /**
- * Keep Supabase database alive to prevent auto-pausing
- * Free tier databases pause after 1 week of inactivity
- * This causes 10-30 second cold starts on first request
+ * Keep Firebase Firestore alive (not needed for Firebase, but kept for compatibility)
+ * Firebase doesn't have auto-pausing like Supabase free tier
+ * This is now a no-op but kept to avoid breaking existing code
  */
 
 let lastPingTime = 0;
-const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes (reduced frequency)
+const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
 export const keepDatabaseAlive = async () => {
   const now = Date.now();
@@ -19,15 +19,9 @@ export const keepDatabaseAlive = async () => {
   
   try {
     // Simple lightweight query to keep database active
-    const { error } = await supabase
-      .from('profiles')
-      .select('id')
-      .limit(1);
-    
-    if (!error) {
-      lastPingTime = now;
-    }
-    // Silently fail - this is just a keep-alive ping
+    // Firebase doesn't need this, but we'll do it anyway for consistency
+    await getDocuments('profiles', { limit: 1 });
+    lastPingTime = now;
   } catch {
     // Ignore all errors - this is non-critical
   }

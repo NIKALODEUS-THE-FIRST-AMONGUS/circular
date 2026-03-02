@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useEffect, useState, useContext } from 'react';
-import { supabase } from '../lib/supabase';
+import { updateDocument } from '../lib/firebase-db';
 import { AuthContext } from './AuthContext';
 
 export const LanguageContext = createContext();
@@ -39,7 +39,7 @@ export const LanguageProvider = ({ children }) => {
         // 2. Background database sync (non-blocking)
         if (user) {
             try {
-                await supabase.from('profiles').update({ app_language: newLanguage }).eq('id', user.id);
+                await updateDocument('profiles', user.uid, { app_language: newLanguage });
             } catch (err) {
                 console.warn("Language sync failed, will retry on next reload", err);
             }

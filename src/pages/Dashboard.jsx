@@ -27,7 +27,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationManager } from '../hooks/useNotificationManager';
 import { useLocation } from 'react-router-dom';
 import AppleIntro from '../components/AppleIntro';
-import { supabase } from '../lib/supabase';
+import { getDocuments } from '../lib/firebase-db';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
 import { useParallelFetch } from '../hooks/useFastFetch';
@@ -184,11 +184,10 @@ const Dashboard = () => {
                     if (!user || !profile) return null;
                     let pendingCount = 0;
                     if (profile.role === 'admin') {
-                        const { count } = await supabase
-                            .from('profiles')
-                            .select('*', { count: 'exact', head: true })
-                            .eq('status', 'pending');
-                        pendingCount = count || 0;
+                        const pendingProfiles = await getDocuments('profiles', {
+                            where: [['status', '==', 'pending']]
+                        });
+                        pendingCount = pendingProfiles.length;
                     }
                     return { pendingApprovals: pendingCount };
                 }

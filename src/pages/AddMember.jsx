@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 import { useNotify } from '../components/Toaster';
+import { createDocument, createProfile, createAuditLog } from '../lib/firebase-db';
+import { auth } from '../lib/firebase-config';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
     Mail, Zap, Shuffle, Lock, CheckCircle2, AlertCircle,
     Loader2, Eye, EyeOff, QrCode, ArrowLeft
@@ -84,53 +86,56 @@ const AddMember = () => {
         setLoading(true);
         try {
             if (provisionMode === 'instant') {
-                const { data, error: signUpError } = await supabase.auth.signUp({
-                    email: email.toLowerCase(),
-                    password: password,
-                    options: {
-                        data: {
-                            full_name: email.split('@')[0],
-                            role: role,
-                            department: dept,
-                            year_of_study: year,
-                            section: section,
-                            status: 'active'
-                        }
-                    }
-                });
+                // Create user with Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth,
+                    email.toLowerCase(),
+                    password
+                );
 
-                if (signUpError) throw signUpError;
-
-                if (!data?.user?.id) {
-                    throw new Error('This email is already registered. Use Invite Mode instead.');
+                if (!userCredential?.user?.uid) {
+                    throw new Error('Failed to create user account');
                 }
+
+                // Create profile in Firestore
+                await createProfile(userCredential.user.uid, {
+                    email: email.toLowerCase(),
+                    full_name: email.split('@')[0],
+                    role: role,
+                    department: dept,
+                    year_of_study: year,
+                    section: section,
+                    status: 'active'
+                });
 
                 setGeneratedCredentials({ email, password });
                 setShowQr(true);
                 notify(`Identity Created: ${email} is now Active`, 'success');
             } else {
-                const { error } = await supabase
-                    .from('profile_pre_approvals')
-                    .upsert({
-                        email: email.toLowerCase(),
-                        role,
-                        department: dept,
-                        year_of_study: year,
-                        section: section
-                    });
+                // Create pre-approval invitation
+                await createDocument('profile_pre_approvals', {
+                    email: email.toLowerCase(),
+                    role,
+                    department: dept,
+                    year_of_study: year,
+                    section: section
+                });
 
-                if (error) throw error;
                 notify(`Successfully provisioned access for ${email}`, 'success');
             }
 
-            await supabase.from('audit_logs').insert({
+            await createAuditLog({
                 action: provisionMode === 'instant' ? 'instant_create' : 'provision_member',
                 details: { target: email, role, dept, mode: provisionMode }
             });
 
             setIsSuccess(true);
         } catch (err) {
-            notify(err.message, 'error');
+            if (err.code === 'auth/email-already-in-use') {
+                notify('This email is already registered. Use Invite Mode instead.', 'error');
+            } else {
+                notify(err.message, 'error');
+            }
         } finally {
             setLoading(false);
         }

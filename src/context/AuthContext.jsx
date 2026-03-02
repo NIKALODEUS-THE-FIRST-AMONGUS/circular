@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { auth } from '../lib/firebase-config'
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
+import { getProfile } from '../lib/firebase-db'
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress'
 import ProgressLoader from '../components/ProgressLoader'
 
@@ -48,11 +50,11 @@ export const AuthProvider = ({ children }) => {
             isFetching = true;
 
             try {
-                const { data: { session } } = await withTimeout(supabase.auth.getSession(), 60000)
+                // Firebase Auth - get current user
+                const currentUser = auth.currentUser;
                 
                 if (!mounted) return;
                 
-                const currentUser = session?.user ?? null
                 setUser(currentUser)
 
                 if (currentUser) {
@@ -63,13 +65,13 @@ export const AuthProvider = ({ children }) => {
                             const cachedProfile = JSON.parse(cached);
                             setProfile(cachedProfile);
                             // Fetch fresh data in background
-                            fetchProfile(currentUser.id);
+                            fetchProfile(currentUser.uid);
                         } catch {
                             // Invalid cache, fetch fresh
-                            await fetchProfile(currentUser.id);
+                            await fetchProfile(currentUser.uid);
                         }
                     } else {
-                        await fetchProfile(currentUser.id);
+                        await fetchProfile(currentUser.uid);
                     }
                 } else {
                     localStorage.removeItem('user_profile')
@@ -79,20 +81,12 @@ export const AuthProvider = ({ children }) => {
                 console.error('Auth Init Error:', {
                     message: err?.message || 'Unknown error',
                     code: err?.code,
-                    details: err?.details,
-                    hint: err?.hint,
                     error: err
                 });
             } finally {
                 if (mounted) {
                     complete();
-                    const hasAuthHash = window.location.hash.includes('access_token');
-
-                    if (hasAuthHash) {
-                        setTimeout(() => mounted && setLoading(false), 1000);
-                    } else {
-                        setTimeout(() => mounted && setLoading(false), 500);
-                    }
+                    setTimeout(() => mounted && setLoading(false), 500);
                 }
                 isFetching = false;
             }
@@ -100,67 +94,24 @@ export const AuthProvider = ({ children }) => {
 
         initAuth()
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        // Firebase Auth state listener
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (!mounted) return;
             
-            const currentUser = session?.user ?? null
             setUser(currentUser)
 
             if (currentUser) {
-                await fetchProfile(currentUser.id)
+                await fetchProfile(currentUser.uid)
             } else {
                 localStorage.removeItem('user_profile')
                 setProfile(null)
                 setLoading(false)
             }
-
-            if (event === 'SIGNED_OUT') {
-                localStorage.clear()
-                window.location.href = '/'
-            }
-        })
-
-        // Real-time subscription for profile changes
-        let profileChannel = null;
-        if (user?.id) {
-            profileChannel = supabase
-                .channel(`profile_${user.id}`)
-                .on('postgres_changes', {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'profiles',
-                    filter: `id=eq.${user.id}`
-                }, (payload) => {
-                    if (!mounted) return;
-                    const updatedProfile = payload.new;
-                    
-                    // If status changed to active, refresh profile
-                    if (updatedProfile.status === 'active' && profile?.status === 'pending') {
-                        fetchProfile(user.id, true);
-                        // Reload page to show dashboard
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1000);
-                    } else if (updatedProfile.status === 'suspended') {
-                        // Sign out if suspended
-                        supabase.auth.signOut();
-                        localStorage.clear();
-                        window.location.href = '/';
-                    } else {
-                        // Update profile for other changes
-                        setProfile(updatedProfile);
-                        localStorage.setItem('user_profile', JSON.stringify(updatedProfile));
-                    }
-                })
-                .subscribe();
-        }
+        });
 
         return () => {
             mounted = false;
-            subscription.unsubscribe();
-            if (profileChannel) {
-                supabase.removeChannel(profileChannel);
-            }
+            unsubscribe();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [complete, user?.id])
@@ -176,22 +127,16 @@ export const AuthProvider = ({ children }) => {
             try {
                 const result = await retryWithBackoff(async () => {
                     return await withTimeout(
-                        supabase
-                            .from('profiles')
-                            .select('id, email, role, department, status, full_name, class_branch, college_role, mobile_number, year_of_study, section, avatar_url, theme_preference, greeting_language, daily_intro_enabled, intro_frequency')
-                            .eq('id', uid)
-                            .maybeSingle(),
-                        15000 // Reduced to 15 seconds per attempt
+                        getProfile(uid),
+                        15000 // 15 seconds per attempt
                     );
                 }, 2, 2000); // 2 retries with 2s initial delay
 
-                const { data, error } = result;
-
-                if (error) throw error;
+                const data = result;
 
                 if (data) {
                     if (data.status === 'suspended') {
-                        supabase.auth.signOut()
+                        await firebaseSignOut(auth);
                         localStorage.clear()
                         throw new Error('Account suspended.')
                     }
@@ -201,7 +146,7 @@ export const AuthProvider = ({ children }) => {
                 } else {
                     // Profile not found - user was deleted by admin
                     // Sign out and show message
-                    await supabase.auth.signOut()
+                    await firebaseSignOut(auth);
                     localStorage.clear()
                     sessionStorage.setItem('deletion_message', 'Your account was removed by an administrator. Please sign up again if you need access.')
                     window.location.href = '/'
@@ -212,9 +157,7 @@ export const AuthProvider = ({ children }) => {
                 if (import.meta.env.DEV) {
                     console.error('Profile fetch exception:', {
                         message: err?.message || 'Unknown error',
-                        code: err?.code,
-                        details: err?.details,
-                        hint: err?.hint
+                        code: err?.code
                     });
                 }
                 
@@ -244,7 +187,7 @@ export const AuthProvider = ({ children }) => {
     const value = {
         user,
         profile,
-        refreshProfile: () => user && fetchProfile(user.id, true), // Force refresh when called manually
+        refreshProfile: () => user && fetchProfile(user.uid, true), // Force refresh when called manually
         loading,
         setLoading,
         error,
@@ -265,8 +208,8 @@ export const AuthProvider = ({ children }) => {
                 setUser(null)
                 setProfile(null)
 
-                // Trigger supabase sign out in background
-                supabase.auth.signOut()
+                // Trigger Firebase sign out in background
+                await firebaseSignOut(auth);
             } catch {
                 // Ignore errors
             } finally {

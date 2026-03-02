@@ -32,13 +32,16 @@ export const useImageOptimizer = (src, options = {}) => {
             
             // Add query parameters for optimization if supported by CDN
             let optimizedSrc = src;
-            if (src.includes('supabase.co')) {
-                const params = new URLSearchParams();
-                if (width) params.append('width', width);
-                if (height) params.append('height', height);
-                params.append('quality', quality);
-                params.append('format', 'webp');
-                optimizedSrc = `${src}?${params.toString()}`;
+            if (src.includes('cloudinary.com')) {
+                // Cloudinary optimization
+                const params = [];
+                if (width) params.push(`w_${width}`);
+                if (height) params.push(`h_${height}`);
+                params.push(`q_${quality}`);
+                params.push('f_auto'); // Auto format
+                
+                // Insert transformation parameters into Cloudinary URL
+                optimizedSrc = src.replace('/upload/', `/upload/${params.join(',')}/`);
             }
 
             img.src = optimizedSrc;

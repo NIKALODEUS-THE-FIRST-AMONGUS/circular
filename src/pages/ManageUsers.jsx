@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getDocuments, deleteDocument, createDocument, createProfile, createAuditLog } from '../lib/firebase-db';
+import { auth } from '../lib/firebase-config';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useNotify } from '../components/Toaster';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
@@ -97,27 +99,22 @@ const ManageUsers = () => {
     const { isLoading: queryFetching, refetch } = useCachedQuery(
         'manage_users_profiles',
         async () => {
-            const [profilesRes, preRes] = await Promise.all([
+            const [profiles, preApprovals] = await Promise.all([
                 withAdaptiveTimeout(
-                    supabase
-                        .from('profiles')
-                        .select('id, email, full_name, title, role, department, status, created_at, avatar_url')
-                        .order('created_at', { ascending: false }),
+                    getDocuments('profiles', {
+                        orderBy: ['created_at', 'desc']
+                    }),
                     { freshMeasure: false, multiplier: 0.5 } // Shorter timeout
                 ),
                 withAdaptiveTimeout(
-                    supabase
-                        .from('profile_pre_approvals')
-                        .select('email, role, department, created_at')
-                        .order('created_at', { ascending: false }),
+                    getDocuments('profile_pre_approvals', {
+                        orderBy: ['created_at', 'desc']
+                    }),
                     { freshMeasure: false, multiplier: 0.5 } // Shorter timeout
                 )
             ]);
 
-            if (profilesRes.error) throw profilesRes.error;
-            if (preRes.error) throw preRes.error;
-
-            return { profiles: profilesRes.data || [], preApprovals: preRes.data || [] };
+            return { profiles: profiles || [], preApprovals: preApprovals || [] };
         },
         {
             staleTime: 30000, // 30 seconds - shorter stale time
@@ -251,76 +248,69 @@ const ManageUsers = () => {
         try {
             // Check if user already exists in profiles or pre-approvals
             const emailLower = email.toLowerCase();
-            const [existingProfile, existingPreApproval] = await Promise.all([
-                supabase.from('profiles').select('email').eq('email', emailLower).maybeSingle(),
-                supabase.from('profile_pre_approvals').select('email').eq('email', emailLower).maybeSingle()
+            const [existingProfiles, existingPreApprovals] = await Promise.all([
+                getDocuments('profiles', {
+                    where: [['email', '==', emailLower]],
+                    limit: 1
+                }),
+                getDocuments('profile_pre_approvals', {
+                    where: [['email', '==', emailLower]],
+                    limit: 1
+                })
             ]);
 
-            if (existingProfile.data) {
+            if (existingProfiles.length > 0) {
                 notify(`⚠️ User already exists: ${email}`, 'error');
                 setLoading(false);
                 return;
             }
 
-            if (existingPreApproval.data && provisionMode === 'invite') {
+            if (existingPreApprovals.length > 0 && provisionMode === 'invite') {
                 notify(`⚠️ Invitation already sent to ${email}`, 'error');
                 setLoading(false);
                 return;
             }
 
             if (provisionMode === 'instant') {
-                // Instant Create account via signUp
-                // The DB trigger (handle_new_user) will auto-create the profile row
-                // using raw_user_meta_data, so we do NOT manually upsert profiles.
-                const { data, error: signUpError } = await supabase.auth.signUp({
+                // Instant Create account via Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth,
+                    emailLower,
+                    password
+                );
+
+                if (!userCredential?.user?.uid) {
+                    throw new Error('Failed to create user account');
+                }
+
+                // Create profile in Firestore
+                await createProfile(userCredential.user.uid, {
                     email: emailLower,
-                    password: password,
-                    options: {
-                        data: {
-                            full_name: email.split('@')[0],
-                            role: role,
-                            department: dept,
-                            year_of_study: year,
-                            section: section,
-                            status: 'active'
-                        }
-                    }
+                    full_name: email.split('@')[0],
+                    role: role,
+                    department: dept,
+                    year_of_study: year,
+                    section: section,
+                    status: 'active'
                 });
-
-                if (signUpError) {
-                    // Check if it's a duplicate user error
-                    if (signUpError.message.includes('already registered') || signUpError.message.includes('already exists')) {
-                        throw new Error(`⚠️ User already exists: ${email}`);
-                    }
-                    throw signUpError;
-                }
-
-                // If Supabase returns null user (e.g. email already registered),
-                // surface a clear error instead of a cryptic FK violation.
-                if (!data?.user?.id) {
-                    throw new Error(`⚠️ User already exists: ${email}. Use Invite Mode instead, or delete the existing account first.`);
-                }
 
                 setGeneratedCredentials({ email, password });
                 setShowQr(true);
                 notify(`✅ Account created successfully for ${email}`, 'success');
             } else {
                 // Provision Invite Mode
-                const { error } = await supabase
-                    .from('profile_pre_approvals')
-                    .upsert({
-                        email: emailLower,
-                        role,
-                        department: dept,
-                        year_of_study: year,
-                        section: section
-                    });
+                await createDocument('profile_pre_approvals', {
+                    email: emailLower,
+                    role,
+                    department: dept,
+                    year_of_study: year,
+                    section: section
+                });
 
-                if (error) throw error;
                 notify(`✉️ Invitation sent to ${email}`, 'success');
             }
 
-            await supabase.from('audit_logs').insert({
+            await createAuditLog({
                 action: provisionMode === 'instant' ? 'instant_create' : 'provision_member',
                 details: { target: email, role, dept, mode: provisionMode }
             });
@@ -328,7 +318,11 @@ const ManageUsers = () => {
             setIsSuccess(true);
             refetch(); // Global refetch via hook
         } catch (err) {
-            notify(`❌ Error: ${err.message}`, 'error');
+            if (err.code === 'auth/email-already-in-use') {
+                notify(`⚠️ User already exists: ${email}. Use Invite Mode instead.`, 'error');
+            } else {
+                notify(`❌ Error: ${err.message}`, 'error');
+            }
         } finally {
             setLoading(false);
         }
@@ -343,9 +337,7 @@ const ManageUsers = () => {
 
         notify('Deleting member...', 'info');
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', id);
-            if (error) throw error;
-
+            await deleteDocument('profiles', id);
             notify(`✅ ${userEmail} removed successfully`, 'success');
             refetch();
         } catch (err) {
@@ -358,13 +350,18 @@ const ManageUsers = () => {
         
         notify('Revoking invitation...', 'info');
         try {
-            const { error } = await supabase
-                .from('profile_pre_approvals')
-                .delete()
-                .eq('email', targetEmail);
-            if (error) throw error;
-            notify(`✅ Invitation revoked for ${targetEmail}`, 'success');
-            refetch();
+            // Find the pre-approval document by email
+            const preApprovals = await getDocuments('profile_pre_approvals', {
+                where: [['email', '==', targetEmail]]
+            });
+            
+            if (preApprovals.length > 0) {
+                await deleteDocument('profile_pre_approvals', preApprovals[0].id);
+                notify(`✅ Invitation revoked for ${targetEmail}`, 'success');
+                refetch();
+            } else {
+                notify('Pre-approval not found', 'error');
+            }
         } catch (err) {
             notify(`❌ Failed to revoke: ${err.message}`, 'error');
         }
@@ -379,12 +376,8 @@ const ManageUsers = () => {
         
         notify(`Updating status to ${newStatus}...`, 'info');
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update({ status: newStatus })
-                .eq('id', id);
-
-            if (error) throw error;
+            const { updateDocument } = await import('../lib/firebase-db');
+            await updateDocument('profiles', id, { status: newStatus });
 
             const statusEmoji = newStatus === 'active' ? '✅' : '⛔';
             notify(`${statusEmoji} ${userEmail} is now ${newStatus}`, newStatus === 'active' ? 'success' : 'error');
@@ -412,12 +405,8 @@ const ManageUsers = () => {
         setLoading(true);
         notify('Updating profile...', 'info');
         try {
-            const { error } = await supabase
-                .from('profiles')
-                .update(editData)
-                .eq('id', selectedMember.id);
-
-            if (error) throw error;
+            const { updateDocument } = await import('../lib/firebase-db');
+            await updateDocument('profiles', selectedMember.id, editData);
 
             notify("☁️ Profile updated", "success");
             setIsEditing(false);

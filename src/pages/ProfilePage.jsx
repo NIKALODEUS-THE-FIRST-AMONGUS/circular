@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { useLanguage } from '../hooks/useLanguage';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { updateProfile, deleteDocument } from '../lib/firebase-db';
+import { auth } from '../lib/firebase-config';
+import { updatePassword, signOut } from 'firebase/auth';
 import { useNotify } from '../components/Toaster';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProgressLoader from '../components/ProgressLoader';
@@ -175,11 +177,9 @@ const ProfilePage = () => {
             setUploading(true);
             
             // Update database to remove avatar
-            const { error: updateError } = await supabase.from('profiles').update({ 
-                avatar_url: null,
-                updated_at: new Date().toISOString()
-            }).eq('id', user.id);
-            if (updateError) throw updateError;
+            await updateProfile(user.uid, { 
+                avatar_url: null
+            });
 
             // Update local state
             setFormData(prev => ({ ...prev, avatarUrl: '' }));
@@ -201,12 +201,10 @@ const ProfilePage = () => {
 
     const _handleResetBio = async () => {
         try {
-            // Call the SQL function to reset bio
-            const { error: _error } = await supabase.rpc('reset_user_bio', {
-                user_id: user.id
+            // Reset bio using Firebase
+            await updateProfile(user.uid, {
+                bio: null
             });
-            
-            if (_error) throw _error;
             
             // Update local state
             setFormData(prev => ({ ...prev, bio: '' }));
@@ -215,22 +213,8 @@ const ProfilePage = () => {
             await refreshProfile();
             
             notify("Bio reset to default", "success");
-        } catch {
-            // Fallback to direct update if function doesn't exist
-            try {
-                const { error: updateError } = await supabase.from('profiles').update({
-                    bio: null,
-                    updated_at: new Date().toISOString()
-                }).eq('id', user.id);
-                
-                if (updateError) throw updateError;
-                
-                setFormData(prev => ({ ...prev, bio: '' }));
-                await refreshProfile();
-                notify("Bio reset to default", "success");
-            } catch (fallbackError) {
-                notify(fallbackError.message, "error");
-            }
+        } catch (error) {
+            notify(error.message, "error");
         }
     };
 
@@ -240,8 +224,7 @@ const ProfilePage = () => {
         if (passwordData.new !== passwordData.confirm) return notify("Passwords mismatch", "error");
         setLoading(true);
         try {
-            const { error } = await supabase.auth.updateUser({ password: passwordData.new });
-            if (error) throw error;
+            await updatePassword(auth.currentUser, passwordData.new);
             notify("☁️ Security updated", "success");
             setShowPasswordModal(false);
             setPasswordData({ current: '', new: '', confirm: '' });
@@ -255,9 +238,8 @@ const ProfilePage = () => {
     const handleDeleteAccount = async () => {
         setLoading(true);
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', user.id);
-            if (error) throw error;
-            await supabase.auth.signOut();
+            await deleteDocument('profiles', user.uid);
+            await signOut(auth);
             notify("Account deleted", "success");
         } catch (err) {
             notify(err.message, "error");
@@ -284,7 +266,7 @@ const ProfilePage = () => {
         try {
             const sanitizedBio = stripHtml(formData.bio).trim();
             
-            const { error } = await supabase.from('profiles').update({
+            await updateProfile(user.uid, {
                 full_name: sanitizedName,
                 title: formData.title || null,
                 gender_title: formData.genderTitle || null,
@@ -298,16 +280,14 @@ const ProfilePage = () => {
                 college_role: formData.role === 'teacher' ? stripHtml(formData.collegeRole).trim() : null,
                 mobile_number: stripHtml(formData.mobileNumber).trim(),
                 whatsapp_number: stripHtml(formData.whatsappNumber).trim(),
-                bio: sanitizedBio || null, // Set to null if empty
+                bio: sanitizedBio || null,
                 country_code: formData.countryCode,
                 daily_intro_enabled: formData.dailyIntroEnabled,
                 greeting_language: formData.greetingLanguage,
                 intro_frequency: formData.introFrequency,
-                status: 'active',
-                updated_at: new Date().toISOString()
-            }).eq('id', user.id);
+                status: 'active'
+            });
 
-            if (error) throw error;
             notify("☁️ Changes saved to cloud", "success");
             await refreshProfile();
             setIsEditMode(true);

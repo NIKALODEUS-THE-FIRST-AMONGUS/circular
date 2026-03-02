@@ -8,7 +8,7 @@ import {
     FileArchive, Film, Music, File, TrendingDown, Users, Maximize2, Trash,
     Eye, Shield
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { createDocument, deleteCircular } from '../lib/firebase-db';
 import { useNotify as useToast } from './Toaster';
 
 const DEPTS = ['ALL', 'CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
@@ -117,7 +117,7 @@ const PDFDownloader = ({ pdfUrls, circularId, userId, onDownloadRecorded }) => {
         setDownloading(index);
         try {
             if (userId) {
-                await supabase.from('circular_downloads').insert({
+                await createDocument('circular_downloads', {
                     circular_id: circularId,
                     attachment_url: url,
                     user_id: userId,
@@ -254,7 +254,7 @@ const AttachmentTile = ({ url, index, circularId, userId, onDownloadRecorded }) 
         setDownloading(true);
         try {
             if (userId) {
-                await supabase.from('circular_downloads').insert({
+                await createDocument('circular_downloads', {
                     circular_id: circularId,
                     attachment_url: url,
                     user_id: userId,
@@ -311,15 +311,16 @@ const AttachmentTile = ({ url, index, circularId, userId, onDownloadRecorded }) 
 
 /* ── ImagePreview ───────────────────────────────────────────────────────────── */
 
-const ImagePreview = ({ url, index, count, circularId, userId, onDownloadRecorded }) => {
+const ImagePreview = ({ url, index, circularId, userId, onDownloadRecorded }) => {
     const [loading, setLoading] = useState(true);
+    const [showFullSize, setShowFullSize] = useState(false);
     const fileName = getFileName(url);
 
     const handleDownload = async (e) => {
         e.stopPropagation();
         try {
             if (userId) {
-                await supabase.from('circular_downloads').insert({
+                await createDocument('circular_downloads', {
                     circular_id: circularId,
                     attachment_url: url,
                     user_id: userId,
@@ -332,35 +333,79 @@ const ImagePreview = ({ url, index, count, circularId, userId, onDownloadRecorde
         }
     };
 
+    const handleImageClick = (e) => {
+        e.stopPropagation();
+        setShowFullSize(true);
+    };
+
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className={`relative group cursor-pointer overflow-hidden rounded-[24px] border border-border-light/30 bg-surface-light ${count === 1 ? 'aspect-[16/7] max-h-[300px]' : 'aspect-square max-h-[240px]'}`}
-            onClick={handleDownload}
-        >
-            {loading && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 size={24} className="animate-spin text-primary/40" />
+        <>
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="relative group cursor-pointer overflow-hidden rounded-2xl border border-border-light/30 bg-surface-light aspect-square"
+                onClick={handleImageClick}
+            >
+                {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader2 size={20} className="animate-spin text-primary/40" />
+                    </div>
+                )}
+                <img
+                    src={url}
+                    alt={fileName}
+                    onLoad={() => setLoading(false)}
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${loading ? 'opacity-0' : 'opacity-100'}`}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="p-3 bg-white/90 dark:bg-black/90 text-text-main rounded-full shadow-lg backdrop-blur-sm">
+                        <Maximize2 size={18} />
+                    </div>
                 </div>
-            )}
-            <img
-                src={url}
-                alt={fileName}
-                onLoad={() => setLoading(false)}
-                className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${loading ? 'opacity-0' : 'opacity-100'}`}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                <span className="text-[10px] font-black text-white uppercase tracking-wider bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
-                    {fileName}
-                </span>
-                <div className="p-2 bg-primary text-white rounded-full shadow-lg">
-                    <Maximize2 size={14} />
-                </div>
-            </div>
-        </motion.div>
+            </motion.div>
+
+            {/* Full Size Modal */}
+            <AnimatePresence>
+                {showFullSize && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl"
+                        onClick={() => setShowFullSize(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="relative max-w-7xl max-h-[90vh] w-full"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => setShowFullSize(false)}
+                                className="absolute -top-12 right-0 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+                            >
+                                <X size={24} />
+                            </button>
+                            <img
+                                src={url}
+                                alt={fileName}
+                                className="w-full h-full object-contain rounded-2xl"
+                            />
+                            <button
+                                onClick={handleDownload}
+                                className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-full font-bold text-sm hover:bg-primary/90 transition-all shadow-lg"
+                            >
+                                <Download size={16} />
+                                Download
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </>
     );
 };
 
@@ -426,8 +471,7 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
         e.stopPropagation();
         setDeleting(true);
         try {
-            const { error } = await supabase.from('circulars').delete().eq('id', id);
-            if (error) throw error;
+            await deleteCircular(id);
             notify("Circular deleted.", "success");
             onDelete?.(id);
         } catch (err) {
@@ -464,22 +508,17 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
 
         setSaving(true);
         try {
-            const { data, error } = await supabase
-                .from('circulars')
-                .update({
-                    title: sanitizedTitle,
-                    content: sanitizedContent,
-                    priority: editData.priority,
-                    department_target: editData.department_target,
-                    attachments: editData.attachments,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', id)
-                .select()
-                .single();
-            if (error) throw error;
+            const { updateCircular } = await import('../lib/firebase-db');
+            const updatedData = await updateCircular(id, {
+                title: sanitizedTitle,
+                content: sanitizedContent,
+                priority: editData.priority,
+                department_target: editData.department_target,
+                attachments: editData.attachments
+            });
+            
             notify("Circular updated!", "success");
-            onUpdate?.(data);
+            onUpdate?.(updatedData);
             setShowEditModal(false);
         } catch (err) {
             notify(err.message, "error");
@@ -612,15 +651,19 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                         </div>
                     </div>
 
-                    {/* Specialized Image Display (1 or 2 images) */}
+                    {/* Specialized Image Display - Side by Side Grid */}
                     {images.length > 0 && (
-                        <div className={`grid gap-3 pt-2 ${images.length === 1 ? 'grid-cols-1 max-w-2xl' : 'grid-cols-2'}`}>
+                        <div className={`grid gap-3 pt-2 ${
+                            images.length === 1 ? 'grid-cols-1 max-w-2xl' : 
+                            images.length === 2 ? 'grid-cols-2' : 
+                            images.length === 3 ? 'grid-cols-3' : 
+                            'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+                        }`}>
                             {images.map((url, i) => (
                                 <ImagePreview
                                     key={i}
                                     url={url}
                                     index={i}
-                                    count={images.length}
                                     circularId={id}
                                     userId={profile?.id}
                                     onDownloadRecorded={null}

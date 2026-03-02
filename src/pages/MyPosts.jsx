@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { getDocuments, deleteCircular } from '../lib/firebase-db';
 import { Trash2, FileText, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -12,20 +12,18 @@ const MyPosts = () => {
 
     const fetchPosts = useCallback(async () => {
         try {
-            const { data, error } = await supabase
-                .from('circulars')
-                .select('*')
-                .eq('author_id', user.id)
-                .order('created_at', { ascending: false });
+            const data = await getDocuments('circulars', {
+                where: [['author_id', '==', user.uid]],
+                orderBy: ['created_at', 'desc']
+            });
 
-            if (error) throw error;
-            setPosts(data);
+            setPosts(data || []);
         } catch {
             // console.error();
         } finally {
             setLoading(false);
         }
-    }, [user.id]);
+    }, [user.uid]);
 
     useEffect(() => {
         if (user) fetchPosts();
@@ -34,12 +32,7 @@ const MyPosts = () => {
     const handleDelete = async (postId) => {
         if (!window.confirm("Delete this circular permanently?")) return;
         try {
-            const { error } = await supabase
-                .from('circulars')
-                .delete()
-                .eq('id', postId);
-
-            if (error) throw error;
+            await deleteCircular(postId);
             setPosts(posts.filter(p => p.id !== postId));
         } catch (_err) {
             alert("Delete failed: " + _err.message);

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { getDocuments, createDocument, updateDocument, deleteDocument } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
 
 /**
@@ -17,10 +17,20 @@ export const useCircularFeatures = (userId) => {
     const markAsRead = useCallback(async (circularId) => {
         if (!userId) return;
         try {
-            await supabase.rpc('mark_circular_read', {
-                p_circular_id: circularId,
-                p_user_id: userId
+            // Check if already marked as read
+            const existing = await getDocuments('circular_reads', {
+                where: [
+                    ['circular_id', '==', circularId],
+                    ['user_id', '==', userId]
+                ]
             });
+            
+            if (existing.length === 0) {
+                await createDocument('circular_reads', {
+                    circular_id: circularId,
+                    user_id: userId
+                });
+            }
         } catch (error) {
             console.error('Mark as read error:', error);
         }
@@ -29,12 +39,14 @@ export const useCircularFeatures = (userId) => {
     const markAsUnread = useCallback(async (circularId) => {
         if (!userId) return;
         try {
-            const { error: err } = await supabase
-                .from('circular_reads')
-                .delete()
-                .eq('circular_id', circularId)
-                .eq('user_id', userId);
-            if (err) console.error('Mark as unread error:', err);
+            const reads = await getDocuments('circular_reads', {
+                where: [
+                    ['circular_id', '==', circularId],
+                    ['user_id', '==', userId]
+                ]
+            });
+            
+            await Promise.all(reads.map(read => deleteDocument('circular_reads', read.id)));
         } catch (err) {
             console.error('Mark as unread error:', err);
         }
@@ -43,11 +55,13 @@ export const useCircularFeatures = (userId) => {
     const getUnreadCount = useCallback(async () => {
         if (!userId) return 0;
         try {
-            const { data, error: err } = await supabase.rpc('get_unread_count', {
-                p_user_id: userId
+            const allCirculars = await getDocuments('circulars');
+            const readCirculars = await getDocuments('circular_reads', {
+                where: [['user_id', '==', userId]]
             });
-            if (err) throw err;
-            return data || 0;
+            
+            const readIds = new Set(readCirculars.map(r => r.circular_id));
+            return allCirculars.filter(c => !readIds.has(c.id)).length;
         } catch (err) {
             console.error('Get unread count error:', err);
             return 0;
@@ -61,8 +75,8 @@ export const useCircularFeatures = (userId) => {
                 circular_id: id,
                 user_id: userId
             }));
-            const { error: err } = await supabase.from('circular_reads').upsert(reads);
-            if (err) throw err;
+            
+            await Promise.all(reads.map(read => createDocument('circular_reads', read)));
             notify('All marked as read', 'success');
         } catch (err) {
             console.error('Mark all as read error:', err);
@@ -79,18 +93,20 @@ export const useCircularFeatures = (userId) => {
         setLoading(true);
         try {
             if (isBookmarked) {
-                const { error: err } = await supabase
-                    .from('circular_bookmarks')
-                    .delete()
-                    .eq('circular_id', circularId)
-                    .eq('user_id', userId);
-                if (err) throw err;
+                const bookmarks = await getDocuments('circular_bookmarks', {
+                    where: [
+                        ['circular_id', '==', circularId],
+                        ['user_id', '==', userId]
+                    ]
+                });
+                
+                await Promise.all(bookmarks.map(b => deleteDocument('circular_bookmarks', b.id)));
                 notify('Removed from bookmarks', 'success');
             } else {
-                const { error: err } = await supabase
-                    .from('circular_bookmarks')
-                    .insert({ circular_id: circularId, user_id: userId });
-                if (err) throw err;
+                await createDocument('circular_bookmarks', {
+                    circular_id: circularId,
+                    user_id: userId
+                });
                 notify('Added to bookmarks', 'success');
             }
             return !isBookmarked;
@@ -106,12 +122,10 @@ export const useCircularFeatures = (userId) => {
     const getBookmarks = useCallback(async () => {
         if (!userId) return [];
         try {
-            const { data, error: err } = await supabase
-                .from('circular_bookmarks')
-                .select('circular_id')
-                .eq('user_id', userId);
-            if (err) throw err;
-            return data.map(b => b.circular_id);
+            const bookmarks = await getDocuments('circular_bookmarks', {
+                where: [['user_id', '==', userId]]
+            });
+            return bookmarks.map(b => b.circular_id);
         } catch (err) {
             console.error('Get bookmarks error:', err);
             return [];
@@ -126,19 +140,15 @@ export const useCircularFeatures = (userId) => {
         if (!userId || !content.trim()) return null;
         setLoading(true);
         try {
-            const { data, error: err } = await supabase
-                .from('circular_comments')
-                .insert({
-                    circular_id: circularId,
-                    user_id: userId,
-                    user_name: userName,
-                    content: content.trim()
-                })
-                .select()
-                .single();
-            if (err) throw err;
+            const comment = await createDocument('circular_comments', {
+                circular_id: circularId,
+                user_id: userId,
+                user_name: userName,
+                content: content.trim()
+            });
+            
             notify('Comment added', 'success');
-            return data;
+            return comment;
         } catch (err) {
             console.error('Add comment error:', err);
             notify('Failed to add comment', 'error');
@@ -151,14 +161,22 @@ export const useCircularFeatures = (userId) => {
     const deleteComment = useCallback(async (commentId) => {
         setLoading(true);
         try {
-            const { error: err } = await supabase
-                .from('circular_comments')
-                .delete()
-                .eq('id', commentId)
-                .eq('user_id', userId);
-            if (err) throw err;
-            notify('Comment deleted', 'success');
-            return true;
+            // Verify ownership before deleting
+            const comments = await getDocuments('circular_comments', {
+                where: [
+                    ['id', '==', commentId],
+                    ['user_id', '==', userId]
+                ]
+            });
+            
+            if (comments.length > 0) {
+                await deleteDocument('circular_comments', commentId);
+                notify('Comment deleted', 'success');
+                return true;
+            } else {
+                notify('Cannot delete comment', 'error');
+                return false;
+            }
         } catch (err) {
             console.error('Delete comment error:', err);
             notify('Failed to delete comment', 'error');
@@ -170,13 +188,11 @@ export const useCircularFeatures = (userId) => {
 
     const getComments = useCallback(async (circularId) => {
         try {
-            const { data, error: err } = await supabase
-                .from('circular_comments')
-                .select('*')
-                .eq('circular_id', circularId)
-                .order('created_at', { ascending: false });
-            if (err) throw err;
-            return data || [];
+            const comments = await getDocuments('circular_comments', {
+                where: [['circular_id', '==', circularId]],
+                orderBy: ['created_at', 'desc']
+            });
+            return comments || [];
         } catch (err) {
             console.error('Get comments error:', err);
             return [];
@@ -191,10 +207,10 @@ export const useCircularFeatures = (userId) => {
         if (!userId) return false;
         setLoading(true);
         try {
-            const { error: err } = await supabase
-                .from('circular_acknowledgments')
-                .insert({ circular_id: circularId, user_id: userId });
-            if (err) throw err;
+            await createDocument('circular_acknowledgments', {
+                circular_id: circularId,
+                user_id: userId
+            });
             notify('Acknowledged successfully', 'success');
             return true;
         } catch (err) {
@@ -208,12 +224,10 @@ export const useCircularFeatures = (userId) => {
 
     const getAcknowledgments = useCallback(async (circularId) => {
         try {
-            const { data, error: err } = await supabase
-                .from('circular_acknowledgments')
-                .select('user_id, acknowledged_at')
-                .eq('circular_id', circularId);
-            if (err) throw err;
-            return data || [];
+            const acks = await getDocuments('circular_acknowledgments', {
+                where: [['circular_id', '==', circularId]]
+            });
+            return acks || [];
         } catch (err) {
             console.error('Get acknowledgments error:', err);
             return [];
@@ -228,11 +242,7 @@ export const useCircularFeatures = (userId) => {
         if (!circularIds?.length) return false;
         setLoading(true);
         try {
-            const { error: err } = await supabase
-                .from('circulars')
-                .delete()
-                .in('id', circularIds);
-            if (err) throw err;
+            await Promise.all(circularIds.map(id => deleteDocument('circulars', id)));
             notify(`${circularIds.length} circular(s) deleted`, 'success');
             return true;
         } catch (err) {
@@ -248,14 +258,14 @@ export const useCircularFeatures = (userId) => {
         if (!circularIds?.length) return false;
         setLoading(true);
         try {
-            const { error: err } = await supabase
-                .from('circulars')
-                .update({ 
-                    is_archived: archive,
-                    archived_at: archive ? new Date().toISOString() : null
-                })
-                .in('id', circularIds);
-            if (err) throw err;
+            await Promise.all(
+                circularIds.map(id => 
+                    updateDocument('circulars', id, {
+                        is_archived: archive,
+                        archived_at: archive ? new Date().toISOString() : null
+                    })
+                )
+            );
             notify(`${circularIds.length} circular(s) ${archive ? 'archived' : 'unarchived'}`, 'success');
             return true;
         } catch (err) {

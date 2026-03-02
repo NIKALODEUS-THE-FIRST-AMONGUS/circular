@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useEffect, useState, useContext } from 'react';
-import { supabase } from '../lib/supabase';
+import { updateDocument } from '../lib/firebase-db';
 import { AuthContext } from './AuthContext';
 
 export const ThemeContext = createContext();
@@ -64,7 +64,7 @@ export const ThemeProvider = ({ children }) => {
         // 2. Background database sync (non-blocking)
         if (user) {
             try {
-                await supabase.from('profiles').update({ theme_preference: newTheme }).eq('id', user.id);
+                await updateDocument('profiles', user.uid, { theme_preference: newTheme });
             } catch (err) {
                 // Silently fail - theme is already applied locally
                 if (import.meta.env.DEV) {

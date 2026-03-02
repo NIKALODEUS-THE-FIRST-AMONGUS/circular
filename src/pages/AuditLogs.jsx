@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { getDocuments, deleteDocument } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
 import {
     History, Trash2, RotateCcw, Eye, Search, Filter,
@@ -44,20 +44,17 @@ const AuditLogs = () => {
         setLoading(true);
         try {
             if (activeTab === 'deleted') {
-                const { data, error } = await supabase
-                    .from('deleted_circulars')
-                    .select('*')
-                    .order('deleted_at', { ascending: false });
+                const data = await getDocuments('deleted_circulars', {
+                    orderBy: ['deleted_at', 'desc']
+                });
                 
-                if (error) throw error;
                 setDeletedCirculars(data || []);
             } else if (activeTab === 'activity') {
-                const { data, error } = await supabase
-                    .from('recent_audit_activity')
-                    .select('*')
-                    .limit(100);
+                const data = await getDocuments('audit_logs', {
+                    orderBy: ['created_at', 'desc'],
+                    limit: 100
+                });
                 
-                if (error) throw error;
                 setAuditLogs(data || []);
             }
         } catch (error) {
@@ -71,12 +68,21 @@ const AuditLogs = () => {
     const handleRestore = async (circularId) => {
         setRestoring(circularId);
         try {
-            const { error } = await supabase.rpc('restore_circular', {
-                p_circular_id: circularId,
-                p_user_id: profile.id
-            });
+            // Get the deleted circular
+            const { getDocument, createDocument } = await import('../lib/firebase-db');
+            const deletedCircular = await getDocument('deleted_circulars', circularId);
             
-            if (error) throw error;
+            if (!deletedCircular) {
+                throw new Error('Circular not found');
+            }
+            
+            // Remove deletion metadata and restore to circulars
+            // eslint-disable-next-line no-unused-vars
+            const { deleted_at, deleted_by, ...circularData } = deletedCircular;
+            await createDocument('circulars', circularData);
+            
+            // Remove from deleted_circulars
+            await deleteDocument('deleted_circulars', circularId);
             
             notify('Circular restored successfully', 'success');
             loadData();
@@ -92,12 +98,7 @@ const AuditLogs = () => {
         if (!window.confirm('Permanently delete this circular? This cannot be undone.')) return;
         
         try {
-            const { error } = await supabase
-                .from('deleted_circulars')
-                .delete()
-                .eq('id', circularId);
-            
-            if (error) throw error;
+            await deleteDocument('deleted_circulars', circularId);
             
             notify('Circular permanently deleted', 'success');
             loadData();

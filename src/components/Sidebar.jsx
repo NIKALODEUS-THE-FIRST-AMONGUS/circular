@@ -4,7 +4,8 @@ import { useNetwork } from '../context/NetworkContext';
 import { useTheme } from '../hooks/useTheme';
 import { useLanguage } from '../hooks/useLanguage';
 import { getBrandName } from '../config/branding';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase-config';
+import { signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard,
@@ -204,11 +205,11 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <button
                             onClick={async () => {
                                 // Clear local session immediately (works offline)
-                                Object.keys(localStorage).forEach(k => {
-                                    if (k.startsWith('sb-')) localStorage.removeItem(k);
-                                });
-                                // Try API signout in background (may fail on bad network)
-                                supabase.auth.signOut().catch(() => { });
+                                localStorage.clear();
+                                sessionStorage.clear();
+                                
+                                // Try Firebase signout in background (may fail on bad network)
+                                signOut(auth).catch(() => { });
                                 window.location.href = '/';
                             }}
                             className="h-12 w-12 flex items-center justify-center bg-danger/5 hover:bg-danger/10 text-danger rounded-2xl transition-all active:scale-95 border border-danger/10"

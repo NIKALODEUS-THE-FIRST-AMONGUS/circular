@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { deleteCircular, createDocument } from '../lib/firebase-db';
+import { uploadToCloudinary } from '../lib/cloudinary';
 import { useNotify } from '../components/Toaster';
 import {
     ChevronLeft, Calendar, User, Tag, Eye, ShieldAlert,
     Download, FileText, ExternalLink, Loader2,
     AlertCircle, Trash2, Pencil, X, File, Image as ImageIcon,
-    Shield, ChevronDown, ArrowRight
+    Shield, ChevronDown, ArrowRight, Maximize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
@@ -51,7 +52,7 @@ const PDFDownloader = ({ pdfUrls, circularId, userId }) => {
         setDownloading(index);
         try {
             if (userId) {
-                await supabase.from('circular_downloads').insert({
+                await createDocument('circular_downloads', {
                     circular_id: circularId,
                     attachment_url: url,
                     user_id: userId,
@@ -181,25 +182,22 @@ const CircularDetail = () => {
     useEffect(() => {
         const fetchCircular = async () => {
             try {
-                // Single consolidated fetch with all related data
-                const [circularRes, viewCountRes] = await Promise.all([
-                    // Main circular data
-                    supabase
-                        .from('circulars')
-                        .select('*')
-                        .eq('id', id)
-                        .single(),
-                    
-                    // View count
-                    supabase
-                        .from('circular_views')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('circular_id', id)
+                // Import Firebase functions
+                const { getCircular } = await import('../lib/firebase-db');
+                const { getDocuments } = await import('../lib/firebase-db');
+                
+                // Fetch circular and view count
+                const [circularData, viewCounts] = await Promise.all([
+                    getCircular(id),
+                    getDocuments('circular_views', {
+                        where: [['circular_id', '==', id]]
+                    })
                 ]);
 
-                if (circularRes.error) throw circularRes.error;
+                if (!circularData) {
+                    throw new Error('Circular not found');
+                }
                 
-                const circularData = circularRes.data;
                 setCircular(circularData);
                 setEditData({ 
                     title: circularData.title || '', 
@@ -207,23 +205,17 @@ const CircularDetail = () => {
                     attachments: circularData.attachments || []
                 });
 
-                // Set counts
-                if (!viewCountRes.error && viewCountRes.count !== null) {
-                    setViewCount(viewCountRes.count);
-                }
+                // Set view count
+                setViewCount(viewCounts.length);
 
                 // Track view and mark as read (fire and forget - don't wait)
                 if (profile?.id) {
                     Promise.all([
-                        supabase
-                            .from('circular_views')
-                            .upsert({ 
-                                circular_id: id, 
-                                viewer_id: profile.id,
-                                viewed_at: new Date().toISOString()
-                            }, { 
-                                onConflict: 'circular_id,viewer_id' 
-                            }),
+                        createDocument('circular_views', {
+                            circular_id: id, 
+                            viewer_id: profile.id,
+                            viewed_at: new Date().toISOString()
+                        }).catch(() => {}), // Ignore if already exists
                         circularFeatures.markAsRead(id)
                     ]).catch(err => console.error('Track view error:', err));
                 }
@@ -254,12 +246,10 @@ const CircularDetail = () => {
         notify('🗑️ Deleting circular...', 'info');
         try {
             // First, fetch all circulars to find the next one
-            const { data: allCirculars, error: fetchError } = await supabase
-                .from('circulars')
-                .select('id, created_at')
-                .order('created_at', { ascending: false });
-
-            if (fetchError) throw fetchError;
+            const { getDocuments } = await import('../lib/firebase-db');
+            const allCirculars = await getDocuments('circulars', {
+                orderBy: ['created_at', 'desc']
+            });
 
             // Find current circular index
             const currentIndex = allCirculars.findIndex(c => c.id === id);
@@ -275,8 +265,7 @@ const CircularDetail = () => {
             }
 
             // Delete the circular
-            const { error } = await supabase.from('circulars').delete().eq('id', id);
-            if (error) throw error;
+            await deleteCircular(id);
 
             notify('✅ Circular deleted successfully', 'success');
 
@@ -307,20 +296,14 @@ const CircularDetail = () => {
         setSaving(true);
         notify('💾 Saving changes...', 'info');
         try {
-            const { data, error } = await supabase
-                .from('circulars')
-                .update({
-                    title: nextTitle,
-                    content: nextContent,
-                    attachments: editData.attachments,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', id)
-                .select()
-                .single();
-
-            if (error) throw error;
-            setCircular(data);
+            const { updateCircular } = await import('../lib/firebase-db');
+            const updatedData = await updateCircular(id, {
+                title: nextTitle,
+                content: nextContent,
+                attachments: editData.attachments
+            });
+            
+            setCircular({ ...circular, ...updatedData });
             notify('☁️ Circular updated', 'success');
             setShowEditModal(false);
         } catch (err) {
@@ -394,24 +377,13 @@ const CircularDetail = () => {
             const uploadedUrls = [];
             
             for (const file of files) {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-                const filePath = `circular-attachments/${fileName}`;
+                const { url, error } = await uploadToCloudinary(file);
+                
+                if (error || !url) {
+                    throw new Error(`Failed to upload ${file.name}`);
+                }
 
-                const { error } = await supabase.storage
-                    .from('attachments')
-                    .upload(filePath, file, {
-                        cacheControl: '3600',
-                        upsert: false
-                    });
-
-                if (error) throw error;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('attachments')
-                    .getPublicUrl(filePath);
-
-                uploadedUrls.push(publicUrl);
+                uploadedUrls.push(url);
             }
 
             setEditData(prev => ({
@@ -525,65 +497,49 @@ const CircularDetail = () => {
                             <h3 className="text-sm font-semibold text-text-main">Attachments</h3>
                             
                             <div className="space-y-3">
-                                {/* Images */}
-                                {images.map((url, idx) => {
-                                    if (!isValidURL(url)) {
-                                        console.warn('Invalid attachment URL:', url);
-                                        return null;
-                                    }
+                                {/* Images - Grid Layout with Compressed Thumbnails */}
+                                {images.length > 0 && (
+                                    <div className={`grid gap-3 ${
+                                        images.length === 1 ? 'grid-cols-1 max-w-md' : 
+                                        images.length === 2 ? 'grid-cols-2' : 
+                                        images.length === 3 ? 'grid-cols-3' : 
+                                        'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+                                    }`}>
+                                        {images.map((url, idx) => {
+                                            if (!isValidURL(url)) {
+                                                console.warn('Invalid attachment URL:', url);
+                                                return null;
+                                            }
 
-                                    const fileName = getSafeFilename(url);
-                                    const fileExt = getFileExtension(url);
-                                    
-                                    return (
-                                        <div key={`img-${idx}`} className="group">
-                                            <div className="bg-surface-light border border-border-light rounded-xl overflow-hidden hover:shadow-md transition-all">
-                                                <div className="aspect-video w-full bg-black/5 relative overflow-hidden">
-                                                    <img 
-                                                        src={url} 
-                                                        alt={`Attachment ${idx + 1}`}
-                                                        className="w-full h-full object-contain"
-                                                        loading="lazy"
-                                                        onError={(e) => {
-                                                            e.target.style.display = 'none';
-                                                            e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-text-muted"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>';
-                                                        }}
-                                                    />
-                                                    <a
-                                                        href={url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="absolute inset-0 bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-all"
-                                                    >
-                                                        <div className="bg-white text-text-main px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
-                                                            <ExternalLink size={16} />
-                                                            View Full Size
-                                                        </div>
-                                                    </a>
-                                                </div>
-                                                <div className="p-3 flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                                            <ImageIcon size={16} />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-semibold text-text-main truncate max-w-[200px]">{fileName}</p>
-                                                            <p className="text-[10px] text-text-muted">{fileExt}</p>
+                                            const fileName = getSafeFilename(url);
+                                            
+                                            return (
+                                                <div key={`img-${idx}`} className="group relative">
+                                                    <div className="bg-surface-light border border-border-light rounded-xl overflow-hidden hover:shadow-lg transition-all aspect-square">
+                                                        <img 
+                                                            src={url} 
+                                                            alt={`Attachment ${idx + 1}`}
+                                                            className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-110"
+                                                            loading="lazy"
+                                                            onClick={() => window.open(url, '_blank')}
+                                                            onError={(e) => {
+                                                                e.target.style.display = 'none';
+                                                                e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-text-muted"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>';
+                                                            }}
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="p-3 bg-white/90 dark:bg-black/90 text-text-main rounded-full shadow-lg backdrop-blur-sm">
+                                                                <Maximize2 size={18} />
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <a
-                                                        href={url}
-                                                        download
-                                                        className="p-2 hover:bg-bg-light rounded-lg transition-all text-text-muted hover:text-primary"
-                                                        title="Download"
-                                                    >
-                                                        <Download size={16} />
-                                                    </a>
+                                                    <p className="text-[10px] font-semibold text-text-muted truncate mt-1 px-1">{fileName}</p>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }).filter(Boolean)}
+                                            );
+                                        }).filter(Boolean)}
+                                    </div>
+                                )}
                                 
                                 {/* PDF Downloader */}
                                 {pdfs.length > 0 && (

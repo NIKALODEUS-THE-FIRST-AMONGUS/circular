@@ -1,10 +1,10 @@
 /**
- * Optimized API Layer
+ * Optimized API Layer - Firebase Version
  * Single call approach for fetch, post, update, delete operations
  * Reduces backend calls by batching and using efficient queries
  */
 
-import { supabase } from './supabase';
+import { getDocuments, createDocument, updateDocument, deleteDocument } from './firebase-db';
 
 /**
  * Batch fetch multiple resources in a single call
@@ -13,36 +13,56 @@ import { supabase } from './supabase';
  */
 export const batchFetch = async (resources) => {
     const promises = resources.map(async (resource) => {
-        const { table, select, filters = {}, order, limit, single = false } = resource;
+        const { table, filters = {}, order, limit: resourceLimit, single = false } = resource;
         
-        let query = supabase.from(table).select(select || '*');
+        // Build Firebase filters
+        const firebaseFilters = {};
         
-        // Apply filters
-        Object.entries(filters).forEach(([key, value]) => {
-            if (Array.isArray(value)) {
-                query = query.in(key, value);
-            } else if (value !== null && value !== undefined) {
-                query = query.eq(key, value);
-            }
-        });
+        // Convert filters to Firebase format
+        if (Object.keys(filters).length > 0) {
+            firebaseFilters.where = Object.entries(filters).map(([key, value]) => {
+                if (Array.isArray(value)) {
+                    // Firebase doesn't support 'in' operator directly, we'll filter client-side
+                    return null;
+                } else if (value !== null && value !== undefined) {
+                    return [key, '==', value];
+                }
+                return null;
+            }).filter(Boolean);
+        }
         
         // Apply ordering
         if (order) {
-            query = query.order(order.column, { ascending: order.ascending ?? false });
+            firebaseFilters.orderBy = [order.column, order.ascending ? 'asc' : 'desc'];
         }
         
         // Apply limit
-        if (limit) {
-            query = query.limit(limit);
+        if (resourceLimit) {
+            firebaseFilters.limit = resourceLimit;
         }
         
-        // Execute query
-        if (single) {
-            const { data, error } = await query.maybeSingle();
-            return { key: resource.key, data, error };
-        } else {
-            const { data, error } = await query;
-            return { key: resource.key, data, error };
+        try {
+            let data = await getDocuments(table, firebaseFilters);
+            
+            // Client-side filtering for 'in' operations
+            if (Object.keys(filters).length > 0) {
+                data = data.filter(doc => {
+                    return Object.entries(filters).every(([key, value]) => {
+                        if (Array.isArray(value)) {
+                            return value.includes(doc[key]);
+                        }
+                        return true;
+                    });
+                });
+            }
+            
+            if (single) {
+                return { key: resource.key, data: data[0] || null, error: null };
+            } else {
+                return { key: resource.key, data, error: null };
+            }
+        } catch (error) {
+            return { key: resource.key, data: null, error };
         }
     });
     
@@ -65,16 +85,14 @@ export const batchFetch = async (resources) => {
  */
 export const batchInsert = async (operations) => {
     const promises = operations.map(async (op) => {
-        const { table, data, select = false } = op;
+        const { table, data } = op;
         
-        let query = supabase.from(table).insert(data);
-        
-        if (select) {
-            query = query.select();
+        try {
+            const result = await createDocument(table, data);
+            return { key: op.key, data: result, error: null };
+        } catch (error) {
+            return { key: op.key, data: null, error };
         }
-        
-        const result = await query;
-        return { key: op.key, ...result };
     });
     
     const results = await Promise.all(promises);
@@ -95,21 +113,28 @@ export const batchInsert = async (operations) => {
  */
 export const batchUpdate = async (operations) => {
     const promises = operations.map(async (op) => {
-        const { table, data, filters, select = false } = op;
+        const { table, data, filters } = op;
         
-        let query = supabase.from(table).update(data);
-        
-        // Apply filters
-        Object.entries(filters).forEach(([key, value]) => {
-            query = query.eq(key, value);
-        });
-        
-        if (select) {
-            query = query.select();
+        try {
+            // Firebase requires document ID for updates
+            // If filters contain 'id', use it directly
+            if (filters.id) {
+                const result = await updateDocument(table, filters.id, data);
+                return { key: op.key, data: result, error: null };
+            } else {
+                // Otherwise, fetch documents matching filters and update them
+                const docs = await getDocuments(table, {
+                    where: Object.entries(filters).map(([key, value]) => [key, '==', value])
+                });
+                
+                const updatePromises = docs.map(doc => updateDocument(table, doc.id, data));
+                const results = await Promise.all(updatePromises);
+                
+                return { key: op.key, data: results, error: null };
+            }
+        } catch (error) {
+            return { key: op.key, data: null, error };
         }
-        
-        const result = await query;
-        return { key: op.key, ...result };
     });
     
     const results = await Promise.all(promises);
@@ -132,15 +157,25 @@ export const batchDelete = async (operations) => {
     const promises = operations.map(async (op) => {
         const { table, filters } = op;
         
-        let query = supabase.from(table).delete();
-        
-        // Apply filters
-        Object.entries(filters).forEach(([key, value]) => {
-            query = query.eq(key, value);
-        });
-        
-        const result = await query;
-        return { key: op.key, ...result };
+        try {
+            // Firebase requires document ID for deletes
+            if (filters.id) {
+                const result = await deleteDocument(table, filters.id);
+                return { key: op.key, data: result, error: null };
+            } else {
+                // Fetch documents matching filters and delete them
+                const docs = await getDocuments(table, {
+                    where: Object.entries(filters).map(([key, value]) => [key, '==', value])
+                });
+                
+                const deletePromises = docs.map(doc => deleteDocument(table, doc.id));
+                const results = await Promise.all(deletePromises);
+                
+                return { key: op.key, data: results, error: null };
+            }
+        } catch (error) {
+            return { key: op.key, data: null, error };
+        }
     });
     
     const results = await Promise.all(promises);
@@ -206,14 +241,12 @@ export const fetchDashboardData = async (user, profile) => {
         {
             key: 'stats',
             table: 'profiles',
-            select: '*',
             filters: profile?.role === 'admin' ? { status: 'pending' } : {},
             single: false
         },
         {
             key: 'notifications',
             table: 'circulars',
-            select: 'id, title, created_at, author_name, priority',
             filters: profile?.role === 'student' 
                 ? { department_target: ['ALL', profile.department] }
                 : {},
@@ -236,23 +269,12 @@ export const fetchCircularDetail = async (circularId, userId) => {
         {
             key: 'circular',
             table: 'circulars',
-            select: '*',
             filters: { id: circularId },
             single: true
         },
         {
             key: 'views',
             table: 'circular_views',
-            select: `
-                viewed_at,
-                profiles:viewer_id (
-                    id,
-                    full_name,
-                    avatar_url,
-                    department,
-                    role
-                )
-            `,
             filters: { circular_id: circularId },
             order: { column: 'viewed_at', ascending: false },
             limit: 20
@@ -263,17 +285,11 @@ export const fetchCircularDetail = async (circularId, userId) => {
     
     // Track view in background (non-blocking)
     if (userId) {
-        supabase
-            .from('circular_views')
-            .upsert({ 
-                circular_id: circularId, 
-                viewer_id: userId,
-                viewed_at: new Date().toISOString()
-            }, { 
-                onConflict: 'circular_id,viewer_id' 
-            })
-            .then(() => {})
-            .catch(() => {});
+        createDocument('circular_views', {
+            circular_id: circularId,
+            viewer_id: userId,
+            viewed_at: new Date().toISOString()
+        }).catch(() => {});
     }
     
     return results;
@@ -288,13 +304,11 @@ export const fetchMemberData = async () => {
         {
             key: 'profiles',
             table: 'profiles',
-            select: 'id, email, full_name, title, role, department, status, created_at, avatar_url, year_of_study, section, mobile_number',
             order: { column: 'created_at', ascending: false }
         },
         {
             key: 'preApprovals',
             table: 'profile_pre_approvals',
-            select: 'email, role, department, created_at',
             order: { column: 'created_at', ascending: false }
         }
     ]);
@@ -307,23 +321,17 @@ export const fetchMemberData = async () => {
  * @returns {Object} - Created circular
  */
 export const createCircularWithAudit = async (circularData, auditData) => {
-    // Insert circular
-    const { data: circular, error: circularError } = await supabase
-        .from('circulars')
-        .insert([circularData])
-        .select()
-        .single();
-    
-    if (circularError) throw circularError;
-    
-    // Insert audit log in background (non-blocking)
-    supabase
-        .from('audit_logs')
-        .insert(auditData)
-        .then(() => {})
-        .catch(() => {});
-    
-    return { data: circular, error: null };
+    try {
+        // Insert circular
+        const circular = await createDocument('circulars', circularData);
+        
+        // Insert audit log in background (non-blocking)
+        createDocument('audit_logs', auditData).catch(() => {});
+        
+        return { data: circular, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
 };
 
 /**
@@ -356,13 +364,13 @@ export const deleteMemberWithCleanup = async (memberId, email) => {
  * @returns {Object} - Update result
  */
 export const updateProfile = async (userId, updates) => {
-    return await supabase
-        .from('profiles')
-        .update({
+    try {
+        const result = await updateDocument('profiles', userId, {
             ...updates,
             updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-        .select()
-        .single();
+        });
+        return { data: result, error: null };
+    } catch (error) {
+        return { data: null, error };
+    }
 };

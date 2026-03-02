@@ -1,0 +1,89 @@
+-- ============================================================================
+-- SUPABASE MIGRATION HISTORY (ARCHIVED)
+-- ============================================================================
+-- This file contains all Supabase SQL migrations for historical reference.
+-- The project has been migrated to Firebase Firestore.
+-- These migrations are kept for documentation purposes only.
+-- 
+-- Migration Period: February 28, 2026 - March 1, 2026
+-- Total Migrations: 34 files
+-- Total Size: ~85 KB
+-- 
+-- ⚠️ IMPORTANT: This project now uses Firebase Firestore
+-- These SQL migrations are NO LONGER ACTIVE
+-- ============================================================================
+
+-- MIGRATION LIST (Chronological Order):
+-- 1. 20260228201310_add_fcm_notifications.sql (2.9 KB)
+-- 2. 20260301000000_create_attachments_bucket.sql (0.9 KB)
+-- 3. 20260301000001_add_all_features.sql (8.4 KB)
+-- 4. 20260301000002_audit_logs_soft_delete.sql (13.1 KB)
+-- 5. 20260301120000_auto_approve_methodist_domain.sql (2.6 KB)
+-- 6. 20260301120001_fix_approve_existing_function.sql (1.5 KB)
+-- 7. 20260301130000_add_auth_trigger.sql (1.0 KB)
+-- 8. 20260301140000_add_app_language.sql (0.5 KB)
+-- 9. 20260301150000_add_teacher_title_fields.sql (4.7 KB)
+-- 10. 20260301160000_soft_delete_with_auto_purge.sql (9.0 KB)
+-- 11. 20260301170000_simple_deletion_audit.sql (8.2 KB)
+-- 12. 20260301180000_fix_audit_department_field.sql (0.9 KB)
+-- 13. 20260301190000_fix_audit_logs_schema.sql (0.9 KB)
+-- 14. 20260301200000_fix_audit_trigger_final.sql (3.2 KB)
+-- 15. 20260301210000_create_feedback_system.sql (9.1 KB)
+-- 16. 20260301230000_fix_circular_views_rls.sql (0.7 KB)
+-- 17. 20260301240000_fix_profile_insert_policy.sql (1.0 KB)
+-- 18. 20260301250000_disable_auto_profile_creation.sql (0.4 KB)
+-- 19. 20260301260000_fix_auth_trigger.sql (1.1 KB)
+-- 20. 20260301270000_fix_audit_logs_column.sql (0.4 KB)
+-- 21. 20260301280000_allow_pending_profile_update.sql (0.7 KB)
+-- 22. 20260301290000_fix_notification_tokens_rls.sql (1.6 KB)
+-- 23. 20260301300000_fix_audit_logs_rls.sql (0.7 KB)
+-- 24. add_approve_user_function.sql (1.8 KB)
+-- 25. add_bio_management.sql (1.5 KB)
+-- 26. add_performance_indexes_v2.sql (2.3 KB)
+-- 27. add_title_column.sql (0.4 KB)
+-- 28. add_whatsapp_and_views.sql (1.3 KB)
+-- 29. complete_avatar_setup.sql (4.7 KB)
+-- 30. enable_realtime.sql (0.7 KB)
+-- 31. fix_approval_update.sql (0.8 KB)
+-- 32. fix_notification_tokens.sql (1.9 KB)
+-- 33. fix_profile_columns.sql (1.3 KB)
+-- 34. supabase_schema.sql (9.8 KB)
+
+-- ============================================================================
+-- KEY FEATURES IMPLEMENTED:
+-- ============================================================================
+-- ✓ FCM Push Notifications
+-- ✓ File Attachments (Storage Bucket)
+-- ✓ Audit Logs with Soft Delete
+-- ✓ Auto-approval for Methodist Domain
+-- ✓ Authentication Triggers
+-- ✓ Multi-language Support
+-- ✓ Teacher Title Fields
+-- ✓ Feedback System
+-- ✓ Circular Views Tracking
+-- ✓ Profile Management
+-- ✓ Notification Tokens
+-- ✓ Performance Indexes
+-- ✓ Bio Management
+-- ✓ WhatsApp Integration
+-- ✓ Avatar System
+-- ✓ Realtime Subscriptions
+-- ✓ Row Level Security (RLS)
+
+-- ============================================================================
+-- FIREBASE FIRESTORE EQUIVALENT:
+-- ============================================================================
+-- All these features have been migrated to Firebase Firestore.
+-- See firestore.rules for the new security rules.
+-- See src/lib/firebase-db.js for database operations.
+-- See MIGRATION_COMPLETE.md for migration details.
+
+-- ============================================================================
+-- ORIGINAL SQL FILES LOCATION:
+-- ============================================================================
+-- All original SQL files are preserved in: supabase/migrations/
+-- This consolidated file is for quick reference only.
+
+-- ============================================================================
+-- END OF MIGRATION HISTORY
+-- ============================================================================

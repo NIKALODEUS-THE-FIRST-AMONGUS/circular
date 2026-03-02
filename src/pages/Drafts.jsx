@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { getDocuments, deleteCircular } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
 import {
     FileText, Trash2, Edit3, Clock, AlertCircle, Loader2, Eye, Sparkles,
@@ -25,14 +25,14 @@ const Drafts = () => {
         
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('circulars')
-                .select('*')
-                .eq('author_id', user.id)
-                .eq('status', 'draft')
-                .order('created_at', { ascending: false });
+            const data = await getDocuments('circulars', {
+                where: [
+                    ['author_id', '==', user.uid],
+                    ['status', '==', 'draft']
+                ],
+                orderBy: ['created_at', 'desc']
+            });
 
-            if (error) throw error;
             setDrafts(data || []);
         } catch (err) {
             notify(`❌ Failed to load drafts: ${err.message}`, 'error');
@@ -49,12 +49,7 @@ const Drafts = () => {
     const handleDelete = async (id) => {
         setDeleting(id);
         try {
-            const { error } = await supabase
-                .from('circulars')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await deleteCircular(id);
             
             setDrafts(prev => prev.filter(d => d.id !== id));
             notify('✅ Draft deleted successfully', 'success');

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { useNotify } from '../components/Toaster';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +11,8 @@ import {
 } from 'lucide-react';
 import { withAdaptiveTimeout } from '../lib/networkSpeed';
 import { safeError, safeWarn, safeGroup, safeGroupEnd } from '../utils/logger';
+import { uploadToCloudinary } from '../lib/cloudinary';
+import { createCircular, updateCircular, createAuditLog } from '../lib/firebase-db';
 
 const DRAFT_KEY = 'circular_draft';
 
@@ -214,41 +215,22 @@ const CreateCircular = () => {
         safeGroup('📤 Create Circular Debug');
 
         try {
-            // Upload files with progress tracking
+            // Upload files to Cloudinary with progress tracking
             const uploadedUrls = [];
             if (files.length > 0) {
-                notify(`📤 Uploading ${files.length} file(s)...`, 'info');
+                notify(`📤 Uploading ${files.length} file(s) to Cloudinary...`, 'info');
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}`);
 
-                    const ext = file.name.split('.').pop();
-                    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-                    const filePath = `${user.id}/${fileName}`;
+                    const { url, error: upErr } = await uploadToCloudinary(file);
 
-                    const { error: upErr } = await supabase.storage
-                        .from('attachments')
-                        .upload(filePath, file);
-
-                    if (upErr) {
-                        safeError('Upload error:', upErr);
-
-                        // Provide helpful error messages
-                        if (upErr.message?.includes('not found')) {
-                            throw new Error('Storage bucket not configured. Please contact admin.');
-                        } else if (upErr.message?.includes('policy')) {
-                            throw new Error('You do not have permission to upload files. Contact admin.');
-                        } else {
-                            throw new Error(`Failed to upload ${file.name}: ${upErr.message}`);
-                        }
+                    if (upErr || !url) {
+                        safeError('Cloudinary upload error:', upErr);
+                        throw new Error(`Failed to upload ${file.name}: ${upErr?.message || 'Unknown error'}`);
                     }
 
-
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('attachments')
-                        .getPublicUrl(filePath);
-
-                    uploadedUrls.push(publicUrl);
+                    uploadedUrls.push(url);
                 }
                 notify(`✅ ${files.length} file(s) uploaded`, 'success');
             }
@@ -279,57 +261,38 @@ const CreateCircular = () => {
             };
 
 
-            // Insert or update circular
+            // Insert or update circular with Firebase
             setUploadProgress(editingDraftId ? 'Updating draft...' : 'Saving circular...');
             
             let created;
-            if (editingDraftId && forcedStatus === 'draft') {
-                // Update existing draft
-                const { data: updateData, error: dbErr } = await withAdaptiveTimeout(
-                    supabase.from('circulars').update(circularData).eq('id', editingDraftId).select(),
+            if (editingDraftId) {
+                // Update existing draft or publish it
+                created = await withAdaptiveTimeout(
+                    updateCircular(editingDraftId, circularData),
                     { multiplier: 3 }
                 );
 
-                if (dbErr) {
-                    safeError('Database error:', dbErr);
-                    throw new Error(`Database error: ${dbErr.message}`);
+                if (!created) {
+                    throw new Error('Failed to update circular');
                 }
-
-                created = Array.isArray(updateData) ? updateData[0] : updateData;
-            } else if (editingDraftId && forcedStatus === 'published') {
-                // Publishing an existing draft - update status
-                const { data: updateData, error: dbErr } = await withAdaptiveTimeout(
-                    supabase.from('circulars').update(circularData).eq('id', editingDraftId).select(),
-                    { multiplier: 3 }
-                );
-
-                if (dbErr) {
-                    safeError('Database error:', dbErr);
-                    throw new Error(`Database error: ${dbErr.message}`);
-                }
-
-                created = Array.isArray(updateData) ? updateData[0] : updateData;
+                
+                // Add the ID back since updateCircular returns it
+                created.id = editingDraftId;
             } else {
                 // Create new circular with Firebase
-                const insertData = await withAdaptiveTimeout(
-                    (async () => {
-                        const { createCircular } = await import('../lib/firebase-db');
-                        return await createCircular(circularData);
-                    })(),
+                created = await withAdaptiveTimeout(
+                    createCircular(circularData),
                     { multiplier: 3 }
                 );
 
-                if (!insertData) {
+                if (!created || !created.id) {
                     throw new Error('Failed to create circular');
                 }
-
-                created = insertData; // Firebase returns the document directly
             }
 
             // Audit log in background (non-blocking)
             (async () => {
                 try {
-                    const { createAuditLog } = await import('../lib/firebase-db');
                     await createAuditLog({
                         actor_id: user.uid,
                         action: forcedStatus === 'draft' ? 'save_draft' : 'create_circular',
@@ -340,35 +303,12 @@ const CreateCircular = () => {
                 }
             })();
 
-            // Send FCM notifications for published circulars (non-blocking)
+            // TODO: Send FCM notifications for published circulars
+            // This requires Firebase Cloud Functions or a backend API
             if (forcedStatus === 'published' && created?.id) {
-                setUploadProgress('Sending notifications...');
-                notify('🔔 Sending notifications...', 'info');
-                
-                // Invoke notification function
-                supabase.functions.invoke('send-circular-notification', {
-                    body: {
-                        circular_id: created.id,
-                        title: title,
-                        content: content,
-                        author_name: authorName,
-                        department_target: targetType === 'universal' ? 'ALL' : dept,
-                        target_year: targetType === 'universal' ? 'ALL' : targetYear,
-                        target_section: targetType === 'universal' ? 'ALL' : targetSection,
-                        priority: priority
-                    }
-                }).then(({ error }) => {
-                    if (error) {
-                        console.error('❌ Notification error:', error);
-                        safeWarn('Notification send failed (non-critical):', error);
-                        notify('⚠️ Circular created but notifications failed', 'error');
-                    } else {
-                        notify('🔔 Notifications sent successfully', 'success');
-                    }
-                }).catch(err => {
-                    console.error('❌ Notification exception:', err);
-                    safeWarn('Notification error (non-critical):', err);
-                });
+                setUploadProgress('Circular published!');
+                notify('🔔 Circular published successfully', 'success');
+                console.log('📢 Notification system: TODO - Implement Firebase Cloud Functions for push notifications');
             }
 
             safeGroupEnd();
@@ -384,10 +324,10 @@ const CreateCircular = () => {
 
             // Navigate based on action
             if (forcedStatus === 'published' && created?.id) {
-                // After publishing, take the user straight to the new circular
+                // After publishing, navigate to center with refresh flag
                 setTimeout(() => {
                     setLoading(false);
-                    navigate(`/dashboard/center/${created.id}`);
+                    navigate('/dashboard/center', { state: { refresh: true } });
                 }, 600);
             } else if (forcedStatus === 'draft') {
                 // After saving draft, navigate to drafts page
@@ -583,7 +523,12 @@ const CreateCircular = () => {
                                             </AnimatePresence>
 
                                             <label className="cursor-pointer group relative">
-                                                <div className="flex items-center gap-2 bg-bg-light border-2 border-dashed border-border-light hover:border-[#1a73e8] px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider text-text-muted hover:text-primary transition-all">
+                                                <div 
+                                                    className="flex items-center gap-2 bg-bg-light border-2 border-dashed border-border-light hover:border-[#1a73e8] px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider text-text-muted hover:text-primary transition-all"
+                                                    onClick={() => {
+                                                        notify('📎 Supported formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX (Max 5MB)', 'info', { duration: 4000 });
+                                                    }}
+                                                >
                                                     <UploadCloud size={14} />
                                                     Add File
                                                 </div>
@@ -592,7 +537,11 @@ const CreateCircular = () => {
                                                     multiple 
                                                     className="hidden" 
                                                     accept=".jpg,.jpeg,.png,.webp,.pdf,.xls,.xlsx,.doc,.docx"
-                                                    onChange={handleFileChange} 
+                                                    onChange={handleFileChange}
+                                                    onClick={() => {
+                                                        // Show toast when file input is clicked
+                                                        notify('📎 Supported formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX (Max 5MB)', 'info', { duration: 4000 });
+                                                    }}
                                                 />
                                                 
                                                 {/* Info Tooltip */}

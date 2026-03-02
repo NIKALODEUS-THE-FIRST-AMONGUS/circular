@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
+import { getDocuments, deleteDocument } from '../lib/firebase-db';
 import { useAuth } from '../hooks/useAuth';
 import { useNotify } from '../components/Toaster';
 import SelectableCircularCard from '../components/SelectableCircularCard';
@@ -11,7 +11,6 @@ import {
     Search, RefreshCw, X, SlidersHorizontal, ChevronDown,
     Loader2, ShieldAlert, Layers, Check, Trash2, AlertTriangle
 } from 'lucide-react';
-import { withAdaptiveTimeout } from '../lib/networkSpeed';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
 import { useCachedQuery } from '../hooks/useCachedQuery';
@@ -33,6 +32,7 @@ const DEPARTMENTS = [
 const CircularCenter = ({ externalSearchTerm = '' }) => {
     const { profile, user } = useAuth();
     const notify = useNotify();
+    const location = useLocation();
     const circularFeatures = useCircularFeatures(user?.id);
     
     const [circulars, setCirculars] = useState([]);
@@ -95,19 +95,25 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             queries.push(
-                supabase.from('circulars').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString())
+                getDocuments('circulars', {
+                    where: [['created_at', '>=', today.toISOString()]]
+                }).then(docs => docs.length)
             );
 
             if (profile.role === 'admin') {
                 // Add admin-specific queries
                 queries.push(
-                    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-                    supabase.from('profiles').select('id', { count: 'exact', head: true })
+                    getDocuments('profiles', {
+                        where: [['status', '==', 'pending']]
+                    }).then(docs => docs.length),
+                    getDocuments('profiles').then(docs => docs.length)
                 );
             } else if (profile.role === 'teacher') {
                 // Add teacher-specific query
                 queries.push(
-                    supabase.from('circulars').select('id', { count: 'exact', head: true }).eq('author_id', user.id)
+                    getDocuments('circulars', {
+                        where: [['author_id', '==', user.uid]]
+                    }).then(docs => docs.length)
                 );
             }
 
@@ -115,13 +121,13 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
             const results = await Promise.all(queries);
 
             // Parse results based on role
-            const newStats = { todayCount: results[0].count || 0 };
+            const newStats = { todayCount: results[0] || 0 };
             
             if (profile.role === 'admin') {
-                newStats.pendingApprovals = results[1].count || 0;
-                newStats.totalUsers = results[2].count || 0;
+                newStats.pendingApprovals = results[1] || 0;
+                newStats.totalUsers = results[2] || 0;
             } else if (profile.role === 'teacher') {
-                newStats.myPosts = results[1].count || 0;
+                newStats.myPosts = results[1] || 0;
             }
 
             setStats(prev => ({ ...prev, ...newStats }));
@@ -150,20 +156,16 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
         return () => document.removeEventListener('mousedown', handleOutside);
     }, []);
 
-    // --- New Cached Data Fetching with Retry Logic ---
+    // --- Firebase Data Fetching with Client-Side Filtering ---
     const fetchPage = useCallback(async (pageNum = 0, retryCount = 0) => {
-        const from = pageNum * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
+        try {
+            // Fetch all circulars (Firebase doesn't support complex pagination like Supabase)
+            const filters = {
+                orderBy: ['created_at', 'desc']
+            };
 
-        let query = supabase
-            .from('circulars')
-            .select('id, title, content, author_id, author_name, department_target, target_year, target_section, priority, attachments, created_at, status')
-            .range(from, to);
-
-        // Apply advanced filters
-        if (advancedFilters) {
-            // Date range filter
-            if (advancedFilters.dateRange !== 'all') {
+            // Apply date range filter if present
+            if (advancedFilters?.dateRange && advancedFilters.dateRange !== 'all') {
                 const now = new Date();
                 let startDate;
                 
@@ -178,64 +180,75 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
                 }
                 
                 if (startDate) {
-                    query = query.gte('created_at', startDate.toISOString());
+                    filters.where = [['created_at', '>=', startDate.toISOString()]];
                 }
-                
-                if (advancedFilters.dateRange === 'custom' && advancedFilters.customEndDate) {
+            }
+
+            let allCirculars = await getDocuments('circulars', filters);
+
+            // Client-side filtering (Firebase doesn't support all Supabase query operations)
+            allCirculars = allCirculars.filter(circular => {
+                // Department filter
+                if (selectedDept !== 'ALL') {
+                    if (circular.department_target !== 'ALL' && circular.department_target !== selectedDept) {
+                        return false;
+                    }
+                }
+
+                // Role-based filters
+                if (profile && profile.role !== 'admin') {
+                    const deptMatch = circular.department_target === 'ALL' || circular.department_target === profile.department;
+                    const yearMatch = circular.target_year === 'ALL' || circular.target_year === profile.year_of_study;
+                    const sectionMatch = circular.target_section === 'ALL' || circular.target_section === profile.section;
+                    
+                    if (!deptMatch || !yearMatch || !sectionMatch) {
+                        return false;
+                    }
+                }
+
+                // Priority filter
+                if (priorityFilter === 'important' && circular.priority !== 'important') {
+                    return false;
+                }
+
+                // Author filter
+                if (advancedFilters?.author) {
+                    const authorLower = advancedFilters.author.toLowerCase();
+                    if (!circular.author_name?.toLowerCase().includes(authorLower)) {
+                        return false;
+                    }
+                }
+
+                // Custom end date filter
+                if (advancedFilters?.dateRange === 'custom' && advancedFilters.customEndDate) {
                     const endDate = new Date(advancedFilters.customEndDate);
                     endDate.setHours(23, 59, 59, 999);
-                    query = query.lte('created_at', endDate.toISOString());
+                    if (new Date(circular.created_at) > endDate) {
+                        return false;
+                    }
                 }
-            }
 
-            // Author filter
-            if (advancedFilters.author) {
-                query = query.ilike('author_name', `%${advancedFilters.author}%`);
-            }
+                return true;
+            });
 
-            // Sort order
-            if (advancedFilters.sortBy === 'oldest') {
-                query = query.order('created_at', { ascending: true });
-            } else if (advancedFilters.sortBy === 'most_viewed') {
-                query = query.order('view_count', { ascending: false });
+            // Sort based on advanced filters
+            if (advancedFilters?.sortBy === 'oldest') {
+                allCirculars.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else if (advancedFilters?.sortBy === 'most_viewed') {
+                allCirculars.sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
             } else {
-                query = query.order('created_at', { ascending: false });
-            }
-        } else {
-            query = query.order('created_at', { ascending: false });
-        }
-
-        if (selectedDept !== 'ALL') {
-            query = query.in('department_target', ['ALL', selectedDept].filter(Boolean));
-        }
-
-        if (profile && profile.role !== 'admin') {
-            if (selectedDept === 'ALL') {
-                const depts = ['ALL'];
-                if (profile.department) depts.push(profile.department);
-                query = query.in('department_target', depts);
+                allCirculars.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             }
 
-            const targetYears = ['ALL'];
-            if (profile.year_of_study) targetYears.push(profile.year_of_study);
-            query = query.in('target_year', targetYears);
+            // Implement pagination client-side
+            const from = pageNum * PAGE_SIZE;
+            const to = from + PAGE_SIZE;
+            const paginatedData = allCirculars.slice(from, to);
 
-            const targetSections = ['ALL'];
-            if (profile.section) targetSections.push(profile.section);
-            query = query.in('target_section', targetSections);
-        }
-
-        if (priorityFilter === 'important') {
-            query = query.eq('priority', 'important');
-        }
-
-        try {
-            const { data, error } = await withAdaptiveTimeout(query, { freshMeasure: pageNum === 0 });
-            if (error) throw error;
-            return data;
+            return paginatedData;
         } catch (error) {
             // Retry up to 2 times with exponential backoff
-            if (retryCount < 2 && error.message.includes('timeout')) {
+            if (retryCount < 2) {
                 const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
                 await new Promise(resolve => setTimeout(resolve, delay));
                 return fetchPage(pageNum, retryCount + 1);
@@ -273,6 +286,15 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
             }
         }
     }, [queryLoading, loadingMore, circulars.length]);
+
+    // Handle refresh from navigation state (after posting)
+    useEffect(() => {
+        if (location.state?.refresh) {
+            refetch();
+            // Clear the state to prevent repeated refreshes
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state, refetch]);
 
     // Realtime subscription for new circulars - DISABLED to prevent console freeze
     // TODO: Re-enable after optimizing
@@ -414,12 +436,9 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
         if (profile?.role !== 'admin') return;
         setIsDeletingAll(true);
         try {
-            const { error } = await supabase
-                .from('circulars')
-                .delete()
-                .neq('author_id', '00000000-0000-0000-0000-000000000000'); // Delete everything (using a dummy neq to satisfy some RLS/safety)
-
-            if (error) throw error;
+            // Get all circulars and delete them
+            const allCirculars = await getDocuments('circulars');
+            await Promise.all(allCirculars.map(c => deleteDocument('circulars', c.id)));
 
             setCirculars([]);
             notify("Institutional Reset Complete", "success", {

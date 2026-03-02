@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 import { useNotify } from '../components/Toaster';
+import { getDocuments, deleteDocument } from '../lib/firebase-db';
 import {
     Search, Filter, MoreVertical, CheckCircle2, Clock,
     Trash2, ArrowLeft, Users, Shield, Building2, Download,
@@ -40,25 +40,20 @@ const SearchMembers = () => {
     const { isLoading: queryFetching, refetch } = useCachedQuery(
         'search_members_profiles',
         async () => {
-            const [profilesRes, preRes] = await Promise.all([
+            const [profiles, preApprovals] = await Promise.all([
                 withAdaptiveTimeout(
-                    supabase
-                        .from('profiles')
-                        .select('id, email, full_name, title, role, department, status, created_at, avatar_url, year_of_study, section, mobile_number')
-                        .order('created_at', { ascending: false })
+                    getDocuments('profiles', {
+                        orderBy: ['created_at', 'desc']
+                    })
                 ),
                 withAdaptiveTimeout(
-                    supabase
-                        .from('profile_pre_approvals')
-                        .select('email, role, department, created_at')
-                        .order('created_at', { ascending: false })
+                    getDocuments('profile_pre_approvals', {
+                        orderBy: ['created_at', 'desc']
+                    })
                 )
             ]);
 
-            if (profilesRes.error) throw profilesRes.error;
-            if (preRes.error) throw preRes.error;
-
-            return { profiles: profilesRes.data || [], preApprovals: preRes.data || [] };
+            return { profiles: profiles || [], preApprovals: preApprovals || [] };
         },
         {
             staleTime: 60000,
@@ -149,9 +144,7 @@ const SearchMembers = () => {
         if (!window.confirm(`Permanently remove ${userEmail}?`)) return;
 
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', id);
-            if (error) throw error;
-
+            await deleteDocument('profiles', id);
             notify(`Removed ${userEmail}`, 'info');
             refetch();
         } catch (err) {
@@ -162,13 +155,18 @@ const SearchMembers = () => {
     const handleDeletePreApproval = async (targetEmail) => {
         if (!window.confirm(`Revoke invitation for ${targetEmail}?`)) return;
         try {
-            const { error } = await supabase
-                .from('profile_pre_approvals')
-                .delete()
-                .eq('email', targetEmail);
-            if (error) throw error;
-            notify(`Revoked invitation for ${targetEmail}`, 'info');
-            refetch();
+            // Find the pre-approval document by email
+            const preApprovals = await getDocuments('profile_pre_approvals', {
+                where: [['email', '==', targetEmail]]
+            });
+            
+            if (preApprovals.length > 0) {
+                await deleteDocument('profile_pre_approvals', preApprovals[0].id);
+                notify(`Revoked invitation for ${targetEmail}`, 'info');
+                refetch();
+            } else {
+                notify('Pre-approval not found', 'error');
+            }
         } catch (err) {
             notify(err.message, 'error');
         }

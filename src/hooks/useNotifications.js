@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { requestForToken, onMessageListener } from '../lib/firebase';
 import { useNotify } from '../components/Toaster';
+import { createDocument } from '../lib/firebase-db';
 
 export const useNotifications = (user) => {
     const [permission, setPermission] = useState(Notification.permission);
@@ -12,7 +12,15 @@ export const useNotifications = (user) => {
 
         // If permission is already granted, ensure we have the token
         if (Notification.permission === 'granted') {
-            requestForToken(user.id, supabase).catch(() => {
+            requestForToken(user.uid).then(token => {
+                if (token) {
+                    // Store token in Firestore
+                    createDocument('notification_tokens', {
+                        user_id: user.uid,
+                        token: token
+                    }).catch(() => {});
+                }
+            }).catch(() => {
                 // Silently fail - user can retry manually
             });
         }
@@ -36,8 +44,13 @@ export const useNotifications = (user) => {
             setPermission(status);
             
             if (status === 'granted') {
-                const token = await requestForToken(user.id, supabase);
+                const token = await requestForToken(user.uid);
                 if (token) {
+                    // Store token in Firestore
+                    await createDocument('notification_tokens', {
+                        user_id: user.uid,
+                        token: token
+                    });
                     notify('High Alert Notifications enabled!', 'success');
                 } else {
                     notify('Notifications enabled, but token generation failed. Please try again.', 'warning');

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getDocuments, updateDocument, createAuditLog } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
 import {
     CheckCircle2,
@@ -32,17 +32,11 @@ const Approvals = () => {
     const fetchRequests = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch pending approval requests
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, email, role, department, full_name, mobile_number, year_of_study, section, avatar_url, created_at')
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Fetch error:', error);
-                throw error;
-            }
+            // Fetch pending approval requests from Firebase
+            const data = await getDocuments('profiles', {
+                where: [['status', '==', 'pending']],
+                orderBy: ['created_at', 'desc']
+            });
             
             setRequests(data || []);
         } catch (err) {
@@ -56,40 +50,27 @@ const Approvals = () => {
 
     useEffect(() => {
         fetchRequests();
-
-        // Real-time listener for new pending requests
-        const channel = supabase
-            .channel('pending_approvals')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'profiles',
-                filter: 'status=eq.pending'
-            }, () => {
-                fetchRequests();
-            })
-            .subscribe();
-
+        
+        // TODO: Implement real-time listener with Firebase onSnapshot
+        // For now, poll every 30 seconds
+        const interval = setInterval(fetchRequests, 30000);
+        
         return () => {
-            supabase.removeChannel(channel);
+            clearInterval(interval);
         };
     }, [fetchRequests]);
 
     const handleApproval = async (id, email, role) => {
         setActioning(id);
         try {
-            // Use the RPC function to approve the user (bypasses RLS)
-            const { error: rpcError } = await supabase.rpc('approve_user', {
-                user_id: id
+            // Approve user by updating status to active
+            await updateDocument('profiles', id, {
+                status: 'active'
             });
 
-            if (rpcError) {
-                console.error('RPC error:', rpcError);
-                throw new Error(`Approval failed: ${rpcError.message}`);
-            }
-
             // Log the action
-            await supabase.from('audit_logs').insert({
+            await createAuditLog({
+                actor_id: id,
                 action: 'approve_member',
                 details: { target: email, role }
             });
@@ -114,18 +95,14 @@ const Approvals = () => {
 
         setActioning(id);
         try {
-            // Use the RPC function to decline the user (bypasses RLS)
-            const { error: rpcError } = await supabase.rpc('decline_user', {
-                user_id: id
+            // Decline user by updating status to suspended
+            await updateDocument('profiles', id, {
+                status: 'suspended'
             });
 
-            if (rpcError) {
-                console.error('RPC error:', rpcError);
-                throw new Error(`Decline failed: ${rpcError.message}`);
-            }
-
             // Log the action
-            await supabase.from('audit_logs').insert({
+            await createAuditLog({
+                actor_id: id,
                 action: 'decline_member',
                 details: { target: email }
             });
@@ -168,22 +145,11 @@ const Approvals = () => {
                         full_name: req.full_name?.trim().substring(0, 100) || 'User',
                         email: req.email?.toLowerCase().trim(),
                         mobile_number: req.mobile_number?.replace(/[^\d+\-() ]/g, '').substring(0, 20),
+                        status: 'active'
                     };
 
-                    // Approve using RPC function
-                    const { error: rpcError } = await supabase.rpc('approve_user', {
-                        user_id: req.id
-                    });
-
-                    if (rpcError) {
-                        throw new Error(rpcError.message);
-                    }
-
-                    // Update with sanitized data
-                    await supabase
-                        .from('profiles')
-                        .update(sanitizedData)
-                        .eq('id', req.id);
+                    // Approve by updating profile
+                    await updateDocument('profiles', req.id, sanitizedData);
 
                     successCount++;
                 } catch (err) {
@@ -194,7 +160,7 @@ const Approvals = () => {
             }
 
             // Log bulk approval
-            await supabase.from('audit_logs').insert({
+            await createAuditLog({
                 action: 'bulk_approve_members',
                 details: {
                     total: requests.length,

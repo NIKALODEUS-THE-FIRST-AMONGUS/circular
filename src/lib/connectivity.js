@@ -1,22 +1,21 @@
-// Simple in-memory cache so we don't keep hammering /rest/v1/
+/**
+ * Firebase connectivity check.
+ * 
+ * Note: Firebase SDK handles connectivity internally, so this is mainly
+ * for UI feedback purposes. We check using the Network Information API
+ * instead of making actual network requests.
+ */
+
 let lastCheckAt = 0;
 let lastCheckResult = null;
 
 /**
- * Utility to check if the Supabase project is reachable.
- * This is used to decide whether to use real Supabase or the mock client.
- *
- * To avoid thousands of health-check requests, the result is cached for
- * a short window (default 60s). Re-mounting providers or components will
- * reuse the last verdict instead of re-pinging immediately.
+ * Utility to check if the device has network connectivity.
+ * Uses the Network Information API instead of pinging Firebase.
  */
-export const checkSupabaseConnectivity = async (options = {}) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) return false;
-
+export const checkFirebaseConnectivity = async (options = {}) => {
     const {
         cacheMs = 60_000,   // how long to trust the last check
-        timeoutMs = 10_000, // per-request timeout
     } = options;
 
     const now = Date.now();
@@ -24,33 +23,38 @@ export const checkSupabaseConnectivity = async (options = {}) => {
         return lastCheckResult;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-        controller.abort("timeout");
-    }, timeoutMs);
-
     try {
-        const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-            method: 'GET',
-            signal: controller.signal,
-            headers: {
-                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-            }
-        });
-
-        clearTimeout(timeoutId);
-        lastCheckAt = Date.now();
-        lastCheckResult = response.ok || response.status === 401;
-        return lastCheckResult;
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            console.error('🌐 Supabase check timed out after 10s. Your network might be slow or blocking the connection.');
-        } else {
-            console.error('🌐 Supabase connectivity check failed:', error?.message || error || 'Unknown error');
+        // Check if online
+        if (!navigator.onLine) {
+            lastCheckAt = Date.now();
+            lastCheckResult = false;
+            return false;
         }
-        clearTimeout(timeoutId);
+
+        // Use Network Information API if available
+        if ('connection' in navigator) {
+            const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            
+            if (connection && connection.effectiveType) {
+                // Consider 'slow-2g' and offline as not connected
+                const isConnected = connection.effectiveType !== 'slow-2g';
+                lastCheckAt = Date.now();
+                lastCheckResult = isConnected;
+                return isConnected;
+            }
+        }
+
+        // Default to online if navigator.onLine is true
+        lastCheckAt = Date.now();
+        lastCheckResult = true;
+        return true;
+    } catch (error) {
+        console.error('🌐 Connectivity check failed:', error?.message || error || 'Unknown error');
         lastCheckAt = Date.now();
         lastCheckResult = false;
         return false;
     }
 };
+
+// Export with old name for backward compatibility
+export const checkSupabaseConnectivity = checkFirebaseConnectivity;
