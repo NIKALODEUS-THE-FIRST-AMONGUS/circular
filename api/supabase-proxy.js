@@ -13,13 +13,21 @@ export default async function handler(request) {
   const { searchParams } = new URL(request.url);
   const path = searchParams.get('path') || '';
   
-  // Get Supabase URL from environment
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  // Get Supabase URL from environment (try both with and without VITE_ prefix)
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return new Response(
-      JSON.stringify({ error: 'Supabase configuration missing' }),
+      JSON.stringify({ 
+        error: 'Supabase configuration missing',
+        debug: {
+          hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+          hasUrl: !!process.env.SUPABASE_URL,
+          hasViteKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+          hasKey: !!process.env.SUPABASE_ANON_KEY
+        }
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -59,7 +67,8 @@ export default async function handler(request) {
     return new Response(
       JSON.stringify({ 
         error: 'Proxy request failed', 
-        message: error.message 
+        message: error.message,
+        targetUrl: targetUrl
       }),
       { 
         status: 502, 
