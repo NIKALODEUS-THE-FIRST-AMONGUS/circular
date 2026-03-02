@@ -1,28 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
-import { mockSupabase, isMockMode as checkEnvMock } from './mockAuth'
+/**
+ * Supabase compatibility layer
+ * This file provides a Supabase-compatible API using Firebase Firestore
+ * Allows existing code to work with minimal changes during migration
+ */
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+import { supabase as firestoreSupabase } from './db';
 
-let useMock = checkEnvMock();
+// Export the Firebase-based Supabase-compatible API
+export const supabase = firestoreSupabase;
 
-export const setMockMode = (enabled) => {
-    useMock = enabled;
-    if (enabled && import.meta.env.DEV) {
-        console.warn('🎭 Adaptive Network: Switched to MOCK mode');
-    }
-};
-
-const realSupabase = (supabaseUrl && supabaseAnonKey)
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
-
-// Proxy to dynamically switch between real and mock
-export const supabase = new Proxy({}, {
-    get: (target, prop) => {
-        const client = useMock ? mockSupabase : (realSupabase || mockSupabase);
-        return client[prop];
-    }
-});
-
-export const isMockMode = () => useMock;
+export default supabase;
