@@ -3,6 +3,23 @@ let lastCheckAt = 0;
 let lastCheckResult = null;
 
 /**
+ * Detect if on mobile device to use proxy
+ */
+const isMobileDevice = () => {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+};
+
+/**
+ * Get the correct URL (proxy or direct)
+ */
+const getHealthCheckUrl = (supabaseUrl) => {
+  if (isMobileDevice()) {
+    return `/api/supabase-proxy?path=${encodeURIComponent('/rest/v1/')}`;
+  }
+  return `${supabaseUrl}/rest/v1/`;
+};
+
+/**
  * Utility to check if the Supabase project is reachable.
  * This is used to decide whether to use real Supabase or the mock client.
  *
@@ -30,7 +47,7 @@ export const checkSupabaseConnectivity = async (options = {}) => {
     }, timeoutMs);
 
     try {
-        const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+        const response = await fetch(getHealthCheckUrl(supabaseUrl), {
             method: 'GET',
             signal: controller.signal,
             headers: {
