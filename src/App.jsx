@@ -2,12 +2,10 @@ import { lazy, Suspense, useMemo, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ProtectedRoute from './components/ProtectedRoute';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider } from './context/FirebaseAuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { ToastProvider } from './components/Toaster';
-import { NetworkProvider } from './context/NetworkContext';
-import { startKeepAlive, pingOnVisibilityChange } from './lib/keepAlive';
 import { setupGlobalErrorHandling } from './utils/errorTracking';
 import { performanceMonitor } from './utils/performanceMonitor';
 import OfflineBanner from './components/OfflineBanner';
@@ -77,34 +75,22 @@ function App() {
       });
     }
     
-    // Start database keep-alive to prevent auto-pausing
-    const intervalId = startKeepAlive();
-    
-    // Also ping when user returns to tab
-    pingOnVisibilityChange();
-    
     performanceMonitor.mark('app_ready');
     performanceMonitor.measure('App Initialization', 'app_start', 'app_ready');
-    
-    return () => {
-      clearInterval(intervalId);
-    };
   }, []);
 
   return (
     <Router>
-      <NetworkProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <ThemeProvider>
-              <LanguageProvider>
-                <OfflineBanner />
-                <AppContent />
-              </LanguageProvider>
-            </ThemeProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </NetworkProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <LanguageProvider>
+              <OfflineBanner />
+              <AppContent />
+            </LanguageProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </ToastProvider>
     </Router>
   );
 }
