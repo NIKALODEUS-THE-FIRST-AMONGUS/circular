@@ -210,24 +210,14 @@ class FirestoreQueryBuilder {
   }
 }
 
+import { createStorageClient } from './firebase-storage';
+
 // Supabase-compatible API
 export const supabase = {
   from: (tableName) => new FirestoreQueryBuilder(tableName),
   
-  // Storage API (placeholder - needs Firebase Storage implementation)
-  storage: {
-    from: (_bucketName) => ({
-      upload: async (_path, _file) => {
-        // TODO: Implement Firebase Storage upload
-        console.warn('Storage upload not yet implemented for Firebase');
-        return { data: null, error: new Error('Not implemented') };
-      },
-      getPublicUrl: (_path) => {
-        // TODO: Implement Firebase Storage public URL
-        return { data: { publicUrl: '' } };
-      }
-    })
-  },
+  // Storage API using Firebase Storage
+  storage: createStorageClient(),
 
   // Functions API (placeholder)
   functions: {
