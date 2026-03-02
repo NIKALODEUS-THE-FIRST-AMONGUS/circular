@@ -1,8 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
 import { mockSupabase, isMockMode as checkEnvMock } from './mockAuth'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+import { createProxiedSupabaseClient } from './supabaseProxy'
 
 let useMock = checkEnvMock();
 
@@ -13,9 +10,8 @@ export const setMockMode = (enabled) => {
     }
 };
 
-const realSupabase = (supabaseUrl && supabaseAnonKey)
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+// Create real Supabase client with proxy support for mobile
+const realSupabase = createProxiedSupabaseClient();
 
 // Proxy to dynamically switch between real and mock
 export const supabase = new Proxy({}, {
