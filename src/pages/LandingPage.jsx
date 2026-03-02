@@ -678,6 +678,7 @@ const LandingPage = () => {
                             </label>
                             <input
                                 type="email"
+                                autoComplete="email"
                                 value={emailData.email}
                                 onChange={(e) => setEmailData({ ...emailData, email: e.target.value })}
                                 placeholder="name@university.edu"
@@ -697,6 +698,7 @@ const LandingPage = () => {
                             </div>
                             <input
                                 type="password"
+                                autoComplete="current-password"
                                 value={emailData.password}
                                 onChange={(e) => setEmailData({ ...emailData, password: e.target.value })}
                                 placeholder="••••••••"
