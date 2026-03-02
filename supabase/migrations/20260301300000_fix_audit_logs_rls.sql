@@ -9,7 +9,13 @@ CREATE POLICY "Users can create audit logs"
 ON audit_logs FOR INSERT TO authenticated 
 WITH CHECK (true);
 
--- Only admins can view audit logs
+-- Only admins can view audit logs (check role directly)
 CREATE POLICY "Admins can view all audit logs" 
 ON audit_logs FOR SELECT TO authenticated 
-USING (is_admin());
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND profiles.role = 'admin'
+  )
+);
