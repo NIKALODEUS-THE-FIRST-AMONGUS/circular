@@ -81,6 +81,9 @@ const LandingPage = () => {
         setError(null);
 
         try {
+            // Detect if on mobile
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -88,7 +91,7 @@ const LandingPage = () => {
                     skipBrowserRedirect: false,
                     queryParams: {
                         access_type: 'offline',
-                        prompt: 'consent',
+                        prompt: isMobile ? 'select_account' : 'consent',
                     }
                 }
             });
