@@ -75,6 +75,9 @@ const LandingPage = () => {
     }, [user, profile, navigate]);
 
     const handleGoogleLogin = async () => {
+        // Prevent multiple clicks
+        if (loading) return;
+        
         setLoading(true);
         setError(null);
 
@@ -94,6 +97,12 @@ const LandingPage = () => {
                 await refreshProfile();
             }
         } catch (err) {
+            // Ignore cancelled popup errors (user closed popup or clicked multiple times)
+            if (err.code === 'auth/cancelled-popup-request' || 
+                err.code === 'auth/popup-closed-by-user') {
+                setLoading(false);
+                return;
+            }
             setError(`Login Error: ${err.message || 'Unknown error'}`);
             setLoading(false);
         }
@@ -239,7 +248,8 @@ const LandingPage = () => {
 
                     <button
                         onClick={handleGoogleLogin}
-                        className="w-full flex items-center justify-center gap-2 sm:gap-3 py-2.5 sm:py-3 px-4 border border-gray-300 rounded-lg text-sm sm:text-base text-gray-700 font-medium hover:bg-gray-50 transition-colors mb-4 sm:mb-6 active:scale-[0.98]"
+                        disabled={loading}
+                        className="w-full flex items-center justify-center gap-2 sm:gap-3 py-2.5 sm:py-3 px-4 border border-gray-300 rounded-lg text-sm sm:text-base text-gray-700 font-medium hover:bg-gray-50 transition-colors mb-4 sm:mb-6 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <img 
                             src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
