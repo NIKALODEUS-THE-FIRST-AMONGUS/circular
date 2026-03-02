@@ -310,35 +310,35 @@ const CreateCircular = () => {
 
                 created = Array.isArray(updateData) ? updateData[0] : updateData;
             } else {
-                // Create new circular
-                const { data: insertData, error: dbErr } = await withAdaptiveTimeout(
-                    supabase.from('circulars').insert([circularData]).select(),
+                // Create new circular with Firebase
+                const insertData = await withAdaptiveTimeout(
+                    (async () => {
+                        const { createCircular } = await import('../lib/firebase-db');
+                        return await createCircular(circularData);
+                    })(),
                     { multiplier: 3 }
                 );
 
-                if (dbErr) {
-                    safeError('Database error:', dbErr);
-
-                    // Provide helpful error messages
-                    if (dbErr.code === '42501') {
-                        throw new Error('You do not have permission to create circulars. Contact admin.');
-                    } else if (dbErr.code === '23505') {
-                        throw new Error('Duplicate circular detected. Please try again.');
-                    } else {
-                        throw new Error(`Database error: ${dbErr.message}`);
-                    }
+                if (!insertData) {
+                    throw new Error('Failed to create circular');
                 }
 
-                created = Array.isArray(insertData) ? insertData[0] : insertData;
+                created = insertData; // Firebase returns the document directly
             }
 
             // Audit log in background (non-blocking)
-            supabase.from('audit_logs').insert({
-                actor_id: user.id,
-                action: forcedStatus === 'draft' ? 'save_draft' : 'create_circular',
-                details: { title, priority, dept },
-            }).then(() => {})
-                .catch(err => safeWarn('Audit log failed (non-critical):', err));
+            (async () => {
+                try {
+                    const { createAuditLog } = await import('../lib/firebase-db');
+                    await createAuditLog({
+                        actor_id: user.uid,
+                        action: forcedStatus === 'draft' ? 'save_draft' : 'create_circular',
+                        details: { title, priority, dept },
+                    });
+                } catch (err) {
+                    safeWarn('Audit log failed (non-critical):', err);
+                }
+            })();
 
             // Send FCM notifications for published circulars (non-blocking)
             if (forcedStatus === 'published' && created?.id) {
