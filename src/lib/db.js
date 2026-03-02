@@ -145,8 +145,41 @@ class FirestoreQueryBuilder {
     return this;
   }
 
+  // Insert method for Supabase compatibility
+  insert(data) {
+    this.insertData = Array.isArray(data) ? data : [data];
+    this.isInsert = true;
+    return this;
+  }
+
   async execute() {
     try {
+      // Handle INSERT operations
+      if (this.isInsert) {
+        const { addDoc, collection: firestoreCollection, doc, setDoc } = await import('firebase/firestore');
+        
+        const insertedDocs = [];
+        
+        for (const item of this.insertData) {
+          // If item has an id, use setDoc, otherwise use addDoc
+          if (item.id) {
+            const docRef = doc(firestore, this.tableName, item.id);
+            await setDoc(docRef, item);
+            insertedDocs.push({ id: item.id, ...item });
+          } else {
+            const colRef = firestoreCollection(firestore, this.tableName);
+            const docRef = await addDoc(colRef, item);
+            insertedDocs.push({ id: docRef.id, ...item });
+          }
+        }
+        
+        return {
+          data: this.returnSingle ? insertedDocs[0] : insertedDocs,
+          error: null,
+          count: insertedDocs.length
+        };
+      }
+
       // Handle UPDATE operations
       if (this.isUpdate) {
         const { doc, updateDoc } = await import('firebase/firestore');

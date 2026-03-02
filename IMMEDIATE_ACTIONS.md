@@ -119,17 +119,4 @@ After publishing rules, verify:
 # Try importing again
 npm run migrate:import
 
-# Should see: ✅ Imported X records (no permission errors)
-```
-
-## Support
-
-If you still get permission errors after publishing rules:
-1. Wait 1-2 minutes for rules to propagate
-2. Refresh your app
-3. Check Firebase Console → Firestore → Rules tab
-4. Verify rules are published (green checkmark)
-
----
-
-**Start here:** Publish Firestore rules in Firebase Console
+# Should see: ✅ Imported X records (no permission errors
