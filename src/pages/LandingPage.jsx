@@ -48,7 +48,8 @@ const LandingPage = () => {
     const [emailData, setEmailData] = useState({ email: '', password: '' });
 
     useEffect(() => {
-        if (user && profile) {
+        // Only skip onboarding if user has a complete profile (not pending)
+        if (user && profile && profile.status !== 'pending') {
             navigate('/dashboard');
         }
         checkBootstrap();
@@ -209,7 +210,7 @@ const LandingPage = () => {
 
             const { error } = await supabase
                 .from('profiles')
-                .insert([{
+                .upsert({
                     id: user.id,
                     email: user.email || user.user_metadata?.email || '',
                     full_name: formData.fullName || 'User',
@@ -225,7 +226,7 @@ const LandingPage = () => {
                     bio: formData.bio,
                     designation: formData.role === 'teacher' ? formData.collegeRole : null,
                     graduation_batch: formData.graduationBatch
-                }]);
+                }, { onConflict: 'id' });
 
             if (error) {
                 console.error('Profile creation error:', error);
@@ -244,7 +245,8 @@ const LandingPage = () => {
     };
 
     // --- Onboarding View ---
-    if (user && !profile) {
+    // Show onboarding if user exists but no profile OR profile status is pending
+    if (user && (!profile || profile.status === 'pending')) {
         const roles = [
             { id: 'student', label: 'Student', icon: GraduationCap, desc: 'Access resources' },
             { id: 'teacher', label: 'Faculty', icon: Building2, desc: 'Manage circulars' }
