@@ -156,12 +156,6 @@ const LandingPage = () => {
 
             if (error) throw error;
 
-            await supabase.from('audit_logs').insert({
-                action: 'onboarding_skipped',
-                actor_id: user.id,
-                details: { status: 'skipped' }
-            });
-
             await refreshProfile();
             navigate('/dashboard');
         } catch (_err) {
@@ -237,12 +231,6 @@ const LandingPage = () => {
                 console.error('Profile creation error:', error);
                 throw error;
             }
-
-            await supabase.from('audit_logs').insert({
-                action: 'onboarding_complete',
-                actor_id: user.id,
-                details: { role: finalRole, status: finalStatus, is_bootstrap: isFirstUser }
-            });
 
             await refreshProfile();
             navigate('/dashboard');
