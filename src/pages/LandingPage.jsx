@@ -87,11 +87,14 @@ const LandingPage = () => {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/`,
+                    // Use simpler redirect for mobile to avoid connection aborts
+                    redirectTo: window.location.origin,
                     skipBrowserRedirect: false,
                     queryParams: {
-                        access_type: 'offline',
-                        prompt: isMobile ? 'select_account' : 'consent',
+                        // Remove access_type on mobile to simplify the flow
+                        ...(isMobile ? {} : { access_type: 'offline' }),
+                        // Use select_account for better mobile compatibility
+                        prompt: 'select_account',
                     }
                 }
             });
