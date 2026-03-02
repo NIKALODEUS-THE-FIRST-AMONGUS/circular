@@ -269,7 +269,7 @@ const ProfilePage = () => {
             }).eq('id', user.id);
 
             if (error) throw error;
-            notify("Profile updated successfully", "success");
+            notify("☁️ Changes saved to cloud", "success");
             await refreshProfile();
             setIsEditMode(true);
         } catch (err) {
