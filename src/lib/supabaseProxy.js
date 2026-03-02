@@ -1,26 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * Detect if user is on mobile network that might block Supabase
+ * Detect if user is on mobile device
  */
-const isMobileNetwork = () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  
-  // Check if on cellular network
-  const isCellular = connection?.effectiveType === '4g' || 
-                     connection?.effectiveType === '5g' ||
-                     connection?.type === 'cellular';
-  
-  return isMobile && isCellular;
+const isMobileDevice = () => {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 };
 
 /**
  * Custom fetch function that routes through proxy on mobile
  */
 const proxyFetch = (url, options) => {
-  // Only use proxy on mobile cellular networks
-  if (!isMobileNetwork()) {
+  // Always use proxy on mobile devices to bypass carrier blocks
+  if (!isMobileDevice()) {
     return fetch(url, options);
   }
 
@@ -33,7 +25,7 @@ const proxyFetch = (url, options) => {
   const path = url.replace(supabaseUrl, '');
   const proxyUrl = `/api/supabase-proxy?path=${encodeURIComponent(path)}`;
 
-  console.log('🔄 Routing through proxy:', path);
+  console.log('🔄 Mobile detected - routing through proxy:', path);
 
   return fetch(proxyUrl, options);
 };
