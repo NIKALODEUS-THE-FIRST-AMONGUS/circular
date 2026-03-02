@@ -47,6 +47,7 @@ const LandingPage = () => {
 
     const [emailData, setEmailData] = useState({ email: '', password: '' });
     const [deletionMessage, setDeletionMessage] = useState(null);
+    const [networkWarning, setNetworkWarning] = useState(false);
 
     useEffect(() => {
         // Check for deletion message
@@ -54,6 +55,17 @@ const LandingPage = () => {
         if (message) {
             setDeletionMessage(message);
             sessionStorage.removeItem('deletion_message');
+        }
+
+        // Check Supabase connectivity on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/health`, { 
+                method: 'GET',
+                signal: AbortSignal.timeout(3000)
+            }).catch(() => {
+                setNetworkWarning(true);
+            });
         }
     }, []);
 
@@ -84,6 +96,25 @@ const LandingPage = () => {
             // Detect if on mobile
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             
+            // Test Supabase connectivity first (with timeout)
+            const connectivityTest = new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('timeout')), 5000);
+                fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/health`, { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                })
+                    .then(() => {
+                        clearTimeout(timeout);
+                        resolve(true);
+                    })
+                    .catch(() => {
+                        clearTimeout(timeout);
+                        reject(new Error('blocked'));
+                    });
+            });
+
+            await connectivityTest;
+            
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -104,7 +135,11 @@ const LandingPage = () => {
             }
 
         } catch (err) {
-            setError(`OAuth Error: ${err.message || 'Unknown error'}.`);
+            if (err.message === 'timeout' || err.message === 'blocked') {
+                setError('Network Issue: Your mobile carrier may be blocking authentication servers. Please try: (1) Switch to WiFi, (2) Use a VPN, or (3) Try from a different network.');
+            } else {
+                setError(`OAuth Error: ${err.message || 'Unknown error'}.`);
+            }
             setLoading(false);
         }
     };
@@ -564,6 +599,26 @@ const LandingPage = () => {
                 className="w-full md:w-2/5 p-4 sm:p-6 md:p-12 flex flex-col items-center justify-center bg-[#F8FAFC]"
             >
                 <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8 md:p-10 border border-gray-100 relative">
+                    {networkWarning && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10 }} 
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-6 p-4 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-sm font-medium flex items-start gap-3"
+                        >
+                            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold mb-1">Network Restriction Detected</p>
+                                <p className="text-xs">Your mobile carrier may block authentication. Try WiFi or VPN for Google login, or use email/password below.</p>
+                            </div>
+                            <button 
+                                onClick={() => setNetworkWarning(false)}
+                                className="ml-auto text-orange-400 hover:text-orange-600"
+                            >
+                                ×
+                            </button>
+                        </motion.div>
+                    )}
+                    
                     {deletionMessage && (
                         <motion.div 
                             initial={{ opacity: 0, y: -10 }} 
