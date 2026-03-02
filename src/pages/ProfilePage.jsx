@@ -124,7 +124,11 @@ const ProfilePage = () => {
                 }
             );
 
-            if (!response.ok) throw new Error('Upload failed');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Cloudinary upload error:', errorData);
+                throw new Error(errorData.error?.message || 'Upload failed. Check if upload preset is configured as "unsigned" in Cloudinary settings.');
+            }
             
             const data = await response.json();
             const avatarUrl = data.secure_url;
