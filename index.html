@@ -11,15 +11,25 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-  <!-- Connectivity Optimizations -->
-  <!-- Note: Update this URL to match your Supabase project -->
-  <link rel="preconnect" href="https://YOUR_PROJECT.supabase.co" crossorigin>
+  <!-- Preconnect to critical origins -->
+  <link rel="preconnect" href="https://firestore.googleapis.com">
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+  <link rel="preconnect" href="https://res.cloudinary.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   
-  <!-- Fonts - Async loading to prevent render blocking -->
+  <!-- Fonts - Fully async to prevent render blocking -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
+  
+  <!-- Inline critical CSS for instant render -->
+  <style>
+    *,::before,::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}
+    html{line-height:1.5;-webkit-text-size-adjust:100%;font-family:Inter,system-ui,sans-serif;tab-size:4}
+    body{margin:0;line-height:inherit}
+    #root{min-height:100vh}
+    .loading-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8f9fa}
+  </style>
 
   <title>SuchnaX Link | Digital Governance Platform</title>
 </head>

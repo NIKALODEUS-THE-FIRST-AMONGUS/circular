@@ -19,7 +19,7 @@ export default defineConfig({
           // Split large vendor libraries
           'vendor-react': ['react', 'react-dom'],
           'vendor-router': ['react-router-dom'],
-          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
           'vendor-motion': ['framer-motion'],
           'vendor-icons': ['lucide-react'],
         },
@@ -27,13 +27,12 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 600,
     minify: 'esbuild',
-    // Enable source maps for production debugging
-    sourcemap: true,
-    // Optimize CSS
+    sourcemap: false, // Disable sourcemaps for faster builds
     cssMinify: true,
+    cssCodeSplit: true, // Enable CSS code splitting
   },
   // Optimize dependencies
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js', 'framer-motion'],
+    include: ['react', 'react-dom', 'react-router-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore', 'framer-motion'],
   },
 })
