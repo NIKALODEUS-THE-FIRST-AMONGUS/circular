@@ -770,71 +770,109 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Edit Modal - Matches CircularDetail */}
+            {/* Edit Modal - Premium Design */}
             <AnimatePresence>
                 {showEditModal && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-lg bg-black/50"
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/40"
                         onClick={() => !saving && setShowEditModal(false)}
                     >
                         <motion.div
                             initial={{ scale: 0.95, opacity: 0, y: 24 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 24 }}
-                            className="bg-bg-light dark:bg-surface-light rounded-2xl p-4 sm:p-6 md:p-8 w-full max-w-2xl shadow-2xl border border-border-light max-h-[90vh] overflow-y-auto"
+                            className="bg-bg-light dark:bg-surface-light rounded-xl shadow-2xl overflow-hidden flex flex-col border border-border-light w-full max-w-2xl max-h-[90vh]"
                             onClick={e => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                <h2 className="text-lg sm:text-xl font-bold text-text-main">Edit Circular</h2>
+                            {/* Modal Header */}
+                            <header className="flex items-center justify-between px-6 py-4 border-b border-border-light bg-white dark:bg-slate-900/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-primary/10 p-2 rounded-lg">
+                                        <FileText size={20} className="text-primary" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-text-main leading-tight">Edit Circular</h2>
+                                        <p className="text-xs text-text-muted">Update institutional circular for distribution.</p>
+                                    </div>
+                                </div>
                                 <button
                                     onClick={() => setShowEditModal(false)}
-                                    className="p-2 text-text-dim hover:text-text-main hover:bg-surface-light rounded-lg transition-all"
+                                    className="p-2 hover:bg-surface-light dark:hover:bg-slate-800 rounded-full transition-colors text-text-muted"
                                 >
                                     <X size={20} />
                                 </button>
-                            </div>
+                            </header>
 
-                            <form onSubmit={handleSave} className="space-y-3 sm:space-y-4">
-                                <div className="space-y-1.5 sm:space-y-2">
-                                    <label className="text-xs sm:text-sm font-semibold text-text-main">Title</label>
+                            {/* Modal Body */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                {/* Circular Title */}
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-semibold text-text-main">Circular Title</label>
                                     <input
                                         required
                                         value={editData.title}
                                         onChange={e => setEditData(prev => ({ ...prev, title: e.target.value }))}
-                                        className="w-full h-10 sm:h-11 px-3 sm:px-4 rounded-lg border border-border-light bg-bg-light outline-none font-medium text-text-main text-sm focus:border-primary transition-all"
-                                        placeholder="Title"
+                                        className="w-full px-4 py-3 rounded-lg border border-border-light bg-white dark:bg-slate-800 text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-text-muted"
+                                        placeholder="Enter the headline of the circular"
                                     />
                                 </div>
 
-                                <div className="space-y-1.5 sm:space-y-2">
-                                    <label className="text-xs sm:text-sm font-semibold text-text-main">Content</label>
+                                {/* Circular Content */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="block text-sm font-semibold text-text-main">Circular Content</label>
+                                        <div className="flex gap-1">
+                                            <button type="button" className="p-1 hover:bg-surface-light dark:hover:bg-slate-800 rounded text-text-muted transition-colors">
+                                                <FileText size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
                                     <textarea
                                         required
                                         rows={6}
                                         value={editData.content}
                                         onChange={e => setEditData(prev => ({ ...prev, content: e.target.value }))}
-                                        className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-border-light bg-bg-light outline-none font-medium text-text-main text-sm resize-none focus:border-primary transition-all"
-                                        placeholder="Content"
+                                        className="w-full px-4 py-3 rounded-lg border border-border-light bg-white dark:bg-slate-800 text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-text-muted resize-none"
+                                        placeholder="Write the detailed content of the circular here..."
                                     />
                                 </div>
 
                                 {/* Attachments Section */}
-                                <div className="space-y-2 sm:space-y-3">
-                                    <label className="text-xs sm:text-sm font-semibold text-text-main">Attachments</label>
-                                    
-                                    {/* Attachments List - Mobile Optimized */}
+                                <div className="space-y-3">
+                                    <p className="text-sm font-semibold text-text-main flex items-center gap-2">
+                                        <Paperclip size={16} />
+                                        Attachments & Media
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <button
+                                            type="button"
+                                            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border-light rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all text-text-muted group"
+                                        >
+                                            <FileImage size={18} className="group-hover:text-primary" />
+                                            <span className="text-sm font-medium">Upload Images</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border-light rounded-xl hover:border-danger/50 hover:bg-danger/5 transition-all text-text-muted group"
+                                        >
+                                            <FileText size={18} className="group-hover:text-danger" />
+                                            <span className="text-sm font-medium">Upload PDFs</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Attachments List */}
                                     {editData.attachments && editData.attachments.length > 0 && (
-                                        <div className="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
+                                        <div className="space-y-2 max-h-48 overflow-y-auto">
                                             {editData.attachments.map((url, index) => {
                                                 const isImage = isImageUrl(url);
                                                 const fileName = getFileName(url);
                                                 const fileExt = getFileExtension(url);
                                                 
                                                 return (
-                                                    <div key={index} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-surface-light border border-border-light rounded-lg group">
+                                                    <div key={index} className="flex items-center gap-3 p-3 bg-surface-light border border-border-light rounded-lg group">
                                                         <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                                             {isImage ? <FileImage size={14} /> : <FileText size={14} />}
                                                         </div>
@@ -845,8 +883,7 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                                                         <button
                                                             type="button"
                                                             onClick={() => removeAttachment(index)}
-                                                            className="p-1.5 sm:p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all text-text-muted hover:text-red-600"
-                                                            title="Remove"
+                                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all text-text-muted hover:text-danger opacity-0 group-hover:opacity-100"
                                                         >
                                                             <X size={14} />
                                                         </button>
@@ -855,58 +892,72 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                                             })}
                                         </div>
                                     )}
-                                    
-                                    {(!editData.attachments || editData.attachments.length === 0) && (
-                                        <p className="text-xs text-text-muted italic text-center py-2">No attachments added yet</p>
-                                    )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                                    <div className="space-y-1.5 sm:space-y-2">
-                                        <label className="text-xs sm:text-sm font-semibold text-text-main">Priority</label>
+                                {/* Priority & Target */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-semibold text-text-main">Priority</label>
                                         <div className="flex gap-2">
                                             {['normal', 'important'].map(p => (
                                                 <button 
                                                     key={p} 
                                                     type="button" 
                                                     onClick={() => setEditData(prev => ({ ...prev, priority: p }))} 
-                                                    className={`flex-1 h-9 sm:h-10 rounded-lg text-xs font-semibold uppercase transition-all border ${editData.priority === p ? 'bg-primary text-white border-primary' : 'bg-bg-light text-text-muted border-border-light'}`}
+                                                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold uppercase transition-all border ${editData.priority === p ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-800 text-text-muted border-border-light hover:border-primary/50'}`}
                                                 >
                                                     {p}
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="space-y-1.5 sm:space-y-2">
-                                        <label className="text-xs sm:text-sm font-semibold text-text-main">Target Dept</label>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-semibold text-text-main">Target Department</label>
                                         <select 
                                             value={editData.department_target} 
                                             onChange={e => setEditData(p => ({ ...p, department_target: e.target.value }))} 
-                                            className="w-full h-9 sm:h-10 px-3 rounded-lg border border-border-light bg-bg-light outline-none text-xs sm:text-sm font-medium text-text-main focus:border-primary transition-all"
+                                            className="w-full px-4 py-2 rounded-lg border border-border-light bg-white dark:bg-slate-800 text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium"
                                         >
                                             {DEPTS.map(dept => <option key={dept} value={dept}>{dept}</option>)}
                                         </select>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="flex gap-2 sm:gap-3 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowEditModal(false)}
-                                        disabled={saving}
-                                        className="flex-1 h-10 rounded-lg border border-border-light text-text-muted font-semibold text-sm hover:bg-surface-light transition-all disabled:opacity-50"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={saving}
-                                        className="flex-1 h-10 rounded-lg bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                                    >
-                                        {saving ? <Loader2 size={16} className="animate-spin" /> : 'Save Changes'}
-                                    </button>
-                                </div>
-                            </form>
+                            {/* Modal Footer */}
+                            <footer className="p-6 border-t border-border-light bg-white dark:bg-slate-900/50 flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(false)}
+                                    disabled={saving}
+                                    className="px-6 py-2.5 rounded-lg font-semibold text-text-muted hover:bg-surface-light dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="relative px-8 py-2.5 bg-primary text-white rounded-lg font-bold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all active:scale-[0.98] disabled:opacity-50 group overflow-hidden"
+                                >
+                                    {/* Glowing border on hover */}
+                                    <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{
+                                        boxShadow: 'inset 0 0 20px rgba(236, 91, 19, 0.5), 0 0 20px rgba(236, 91, 19, 0.3)'
+                                    }} />
+                                    <div className="relative flex items-center justify-center gap-2">
+                                        {saving ? (
+                                            <>
+                                                <Loader2 size={16} className="animate-spin" />
+                                                <span>Saving...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>☁️</span>
+                                                <span>Save Changes</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </button>
+                            </footer>
                         </motion.div>
                     </motion.div>
                 )}
