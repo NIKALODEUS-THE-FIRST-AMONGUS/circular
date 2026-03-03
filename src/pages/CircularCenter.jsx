@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getDocuments, deleteDocument } from '../lib/firebase-db';
@@ -6,11 +6,18 @@ import { useAuth } from '../hooks/useAuth';
 import { useNotify } from '../components/Toaster';
 import SelectableCircularCard from '../components/SelectableCircularCard';
 import VirtualizedCircularList from '../components/VirtualizedCircularList';
+import CircularList from '../components/CircularList';
+import CircularFilterDropdown from '../components/CircularFilterDropdown';
+import CircularStats from '../components/CircularStats';
+import CircularHeader from '../components/CircularHeader';
+import CircularSearchBar from '../components/CircularSearchBar';
+import CircularEmptyState from '../components/CircularEmptyState';
+import CircularDeleteModal from '../components/CircularDeleteModal';
 import BulkActionsToolbar from '../components/BulkActionsToolbar';
 import AdvancedFilters from '../components/AdvancedFilters';
 import {
-    Search, RefreshCw, X, SlidersHorizontal, ChevronDown,
-    Loader2, ShieldAlert, Layers, Check, Trash2, AlertTriangle
+    Search, RefreshCw, X, AlertTriangle,
+    Loader2, ShieldAlert, Layers, Check, Trash2
 } from 'lucide-react';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
@@ -70,8 +77,6 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
     useEffect(() => {
         setSearchTerm(externalSearchTerm);
     }, [externalSearchTerm]);
-    const [filterOpen, setFilterOpen] = useState(false);
-    const filterRef = useRef(null);
 
     const PAGE_SIZE = 10;
     const [stats, setStats] = useState({
@@ -145,17 +150,6 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [profile?.id, profile?.role]); // Only re-run when profile ID or role changes
-
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleOutside = (e) => {
-            if (filterRef.current && !filterRef.current.contains(e.target)) {
-                setFilterOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleOutside);
-        return () => document.removeEventListener('mousedown', handleOutside);
-    }, []);
 
     // --- Firebase Data Fetching with Client-Side Filtering ---
     const fetchPage = useCallback(async (pageNum = 0, retryCount = 0) => {
@@ -506,9 +500,6 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
     }, [profile?.id, profile?.department, profile?.year_of_study, profile?.section, notify]);
     */
 
-    const activeFilterCount = (selectedDept !== 'ALL' ? 1 : 0) + (priorityFilter === 'important' ? 1 : 0);
-    const selectedDeptObj = DEPARTMENTS.find(dept => dept.id === selectedDept);
-
     return (
         <div className="max-w-5xl mx-auto space-y-6 py-8 px-4 lg:px-0">
             {/* Bulk Actions Toolbar - Moved to Top */}
@@ -525,339 +516,34 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
             <header className="space-y-6">
                 <div className="relative overflow-hidden p-6 md:p-8 rounded-3xl bg-gradient-to-br from-bg-light to-surface-light border border-border-light shadow-lg">
                     <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-center">
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                            className="space-y-4"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="h-0.5 w-12 bg-primary/40 rounded-full" />
-                                <span className="text-[11px] font-extrabold text-primary uppercase tracking-[0.25em]">
-                                    {profile?.role === 'admin' ? 'Administrative Node' : profile?.role === 'teacher' ? 'Faculty Portal' : 'Student Hub'}
-                                </span>
-                            </div>
+                        <CircularHeader profile={profile} />
 
-                            <div className="space-y-2">
-                                <h1 className="text-5xl md:text-6xl font-black text-text-main tracking-tighter leading-none flex flex-wrap items-baseline gap-x-3">
-                                    <span className="opacity-90">Circular</span>
-                                    <span className="text-primary uppercase">Center</span>
-                                    <motion.span
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        className="text-primary"
-                                    >
-                                        .
-                                    </motion.span>
-                                    {/* Small Indian Flag */}
-                                    <motion.div 
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: 0.3 }}
-                                        className="inline-flex h-8 w-12 rounded-md overflow-hidden shadow-md border-2 border-border-light/50 ml-2 relative"
-                                    >
-                                        <div className="h-full w-full flex flex-col">
-                                            <div className="h-[33.33%] bg-[#FF9933]"></div>
-                                            <div className="h-[33.33%] bg-white relative flex items-center justify-center">
-                                                <div className="absolute w-4 h-4 rounded-full border-2 border-[#000080] flex items-center justify-center">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#000080]"></div>
-                                                </div>
-                                            </div>
-                                            <div className="h-[33.33%] bg-[#138808]"></div>
-                                        </div>
-                                    </motion.div>
-                                </h1>
-                                <p className="text-text-muted font-semibold text-base md:text-lg max-w-2xl leading-relaxed">
-                                    {profile?.role === 'admin'
-                                        ? "System metrics and approvals consolidated."
-                                        : `Accessing broadcasts for ${profile?.department || 'all'} departments.`
-                                    }
-                                </p>
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.2, duration: 0.6 }}
-                            className="grid grid-cols-2 gap-4 w-full lg:w-auto"
-                        >
-                            {profile?.role === 'admin' ? (
-                                <>
-                                    <RouterLink 
-                                        to="/dashboard/approvals" 
-                                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 hover:border-primary hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 min-w-[140px]"
-                                        aria-label={`View ${stats.pendingApprovals} pending approvals`}
-                                    >
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary/70 group-hover:text-primary transition-colors">Waitlist</p>
-                                        <p className="text-5xl font-black tracking-tighter mt-2 text-primary">{stats.pendingApprovals}</p>
-                                    </RouterLink>
-                                    <div 
-                                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-success/10 to-success/5 border-2 border-success/20 hover:border-success hover:shadow-xl hover:shadow-success/20 transition-all duration-300 min-w-[140px]"
-                                        aria-label={`Total users: ${stats.totalUsers}`}
-                                    >
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-success/70 group-hover:text-success transition-colors">Total Users</p>
-                                        <p className="text-5xl font-black tracking-tighter mt-2 text-success">{stats.totalUsers}</p>
-                                    </div>
-                                </>
-                            ) : profile?.role === 'teacher' ? (
-                                <>
-                                    <RouterLink 
-                                        to="/dashboard/my-posts" 
-                                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 hover:border-primary hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 min-w-[140px]"
-                                        aria-label={`View your ${stats.myPosts} posts`}
-                                    >
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary/70 group-hover:text-primary transition-colors">Posts</p>
-                                        <p className="text-5xl font-black tracking-tighter mt-2 text-primary">{stats.myPosts}</p>
-                                    </RouterLink>
-                                    <div 
-                                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-warning/10 to-warning/5 border-2 border-warning/20 hover:border-warning hover:shadow-xl hover:shadow-warning/20 transition-all duration-300 min-w-[140px]"
-                                        aria-label={`${stats.todayCount} broadcasts today`}
-                                    >
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-warning/70 group-hover:text-warning transition-colors">Today</p>
-                                        <p className="text-5xl font-black tracking-tighter mt-2 text-warning">{stats.todayCount}</p>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div 
-                                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-surface-light to-bg-light border-2 border-border-light hover:border-primary/40 hover:shadow-xl transition-all duration-300 min-w-[140px]"
-                                        aria-label={`${circulars.length} total broadcasts`}
-                                    >
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-text-muted group-hover:text-text-main transition-colors">Broadcasts</p>
-                                        <p className="text-5xl font-black tracking-tighter mt-2 text-text-main">{circulars.length}</p>
-                                    </div>
-                                    <div 
-                                        className="group relative p-6 rounded-2xl bg-gradient-to-br from-danger/10 to-danger/5 border-2 border-danger/20 hover:border-danger hover:shadow-xl hover:shadow-danger/20 transition-all duration-300 min-w-[140px]"
-                                        aria-label={`${circulars.filter(c => c.priority === 'important').length} high priority alerts`}
-                                    >
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-danger/70 group-hover:text-danger transition-colors">Alerts</p>
-                                        <p className="text-5xl font-black tracking-tighter mt-2 text-danger">
-                                            {circulars.filter(c => c.priority === 'important').length}
-                                        </p>
-                                    </div>
-                                </>
-                            )}
-                        </motion.div>
+                        <CircularStats
+                            profile={profile}
+                            stats={stats}
+                            circulars={circulars}
+                        />
                     </div>
                 </div>
 
                 {/* ── Search + Filter Row ──────────────────────────────── */}
-                <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex gap-4 items-center"
-                >
-                    {/* Search bar */}
-                    <div className="flex-1 flex items-center gap-3 bg-surface-light px-6 py-3.5 rounded-xl border border-border-light focus-within:border-primary/30 focus-within:shadow-md transition-all duration-300 group">
-                        <Search size={18} className="text-text-muted group-focus-within:text-primary transition-colors shrink-0" />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search broadcasts, topics, or faculty..."
-                            className="bg-transparent border-none text-[14px] font-medium text-text-main focus:ring-0 outline-none w-full placeholder:text-text-muted/50"
-                        />
-                        <AnimatePresence>
-                            {searchTerm && (
-                                <motion.button
-                                    initial={{ opacity: 0, scale: 0.7 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.7 }}
-                                    onClick={() => setSearchTerm('')}
-                                    className="p-1 text-text-muted hover:text-danger rounded-full transition-all shrink-0"
-                                >
-                                    <X size={16} />
-                                </motion.button>
-                            )}
-                        </AnimatePresence>
-                    </div>
+                <CircularSearchBar
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  onRefresh={refetch}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  selectedDept={selectedDept}
+                  onDeptChange={setSelectedDept}
+                  priorityFilter={priorityFilter}
+                  onPriorityChange={setPriorityFilter}
+                  onApplyFilters={handleApplyFilters}
+                  onClearFilters={handleClearFilters}
+                  isAdmin={profile?.role === 'admin'}
+                  onDeleteAllClick={() => setShowDeleteConfirm(true)}
+                />
 
-                    {/* Refresh button */}
-                    <button
-                        onClick={refetch}
-                        title="Refresh circulars"
-                        aria-label="Refresh circulars"
-                        className="h-12 min-w-[48px] px-4 bg-bg-light border-2 border-border-light rounded-xl text-text-main hover:text-primary hover:border-primary hover:bg-primary/5 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-bg-main"
-                    >
-                        <RefreshCw size={20} className={loading && !loadingMore ? 'animate-spin' : ''} />
-                    </button>
 
-                    {/* Advanced Filters */}
-                    <AdvancedFilters 
-                        onApply={handleApplyFilters}
-                        onClear={handleClearFilters}
-                    />
-
-                    {profile?.role === 'admin' && (
-                        <button
-                            onClick={() => setShowDeleteConfirm(true)}
-                            title="Delete All Circulars"
-                            aria-label="Delete all circulars from system"
-                            className="h-12 px-5 bg-danger/10 border-2 border-danger/30 rounded-xl text-danger hover:bg-danger hover:text-white hover:border-danger hover:shadow-lg hover:shadow-danger/30 transition-all duration-200 flex items-center gap-2.5 group font-bold focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-2 focus:ring-offset-bg-main"
-                        >
-                            <Trash2 size={20} />
-                            <span className="hidden md:inline text-[12px] font-extrabold uppercase tracking-[0.12em]">Delete All</span>
-                        </button>
-                    )}
-
-                    {/* Filter dropdown trigger */}
-                    <div className="relative" ref={filterRef}>
-                        <button
-                            onClick={() => setFilterOpen(v => !v)}
-                            aria-label={`Filter circulars${activeFilterCount > 0 ? `, ${activeFilterCount} active filters` : ''}`}
-                            aria-expanded={filterOpen}
-                            className={`relative flex items-center gap-2.5 px-6 h-12 rounded-xl border-2 font-extrabold text-[13px] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg-main ${filterOpen || activeFilterCount > 0
-                                ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30 focus:ring-primary'
-                                : 'bg-bg-light text-text-main border-border-light hover:border-primary hover:text-primary hover:bg-primary/5 hover:shadow-md focus:ring-primary'
-                                }`}
-                        >
-                            <SlidersHorizontal size={18} />
-                            <span className="tracking-wide">Filter</span>
-                            {activeFilterCount > 0 && (
-                                <span className="flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-white/25 text-[11px] font-black" aria-label={`${activeFilterCount} filters active`}>
-                                    {activeFilterCount}
-                                </span>
-                            )}
-                            <ChevronDown
-                                size={16}
-                                className={`transition-transform duration-200 ${filterOpen ? 'rotate-180' : ''}`}
-                            />
-                        </button>
-
-                        {/* ── Dropdown Panel ───────────────────────────── */}
-                        <AnimatePresence>
-                            {filterOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                                    className="absolute right-0 top-[calc(100%+12px)] z-50 bg-bg-light border border-border-light rounded-2xl shadow-xl p-6 w-80"
-                                >
-                                    {/* Arrow */}
-                                    <div className="absolute -top-2 right-6 w-4 h-4 bg-bg-light border-l border-t border-border-light rotate-45 rounded-sm" />
-
-                                    {/* Dept Section */}
-                                    <div className="space-y-3 mb-5">
-                                        <div className="flex items-center gap-2">
-                                            <Layers size={13} className="text-text-muted" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Department Hub</span>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {DEPARTMENTS.map(dept => (
-                                                <button
-                                                    key={dept.id}
-                                                    onClick={() => { setSelectedDept(dept.id); }}
-                                                    aria-label={`Filter by ${dept.label} department`}
-                                                    aria-pressed={selectedDept === dept.id}
-                                                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] font-bold transition-all border-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-bg-light ${selectedDept === dept.id
-                                                        ? 'bg-primary/15 text-primary border-primary/40 shadow-md'
-                                                        : 'bg-surface-light text-text-main border-transparent hover:border-border-light hover:bg-bg-light'
-                                                        }`}
-                                                >
-                                                    <span className="text-base">{dept.emoji}</span>
-                                                    <span className="flex-1 text-left">{dept.label}</span>
-                                                    {selectedDept === dept.id && <Check size={14} className="text-primary shrink-0" />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Divider */}
-                                    <div className="h-px bg-outline/50 mb-5" />
-
-                                    {/* Priority Section */}
-                                    <div className="space-y-3 mb-5">
-                                        <div className="flex items-center gap-2">
-                                            <ShieldAlert size={13} className="text-text-muted" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Priority</span>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            {[
-                                                { id: 'all', label: 'All' },
-                                                { id: 'important', label: '🔴 High Priority' },
-                                            ].map(p => (
-                                                <button
-                                                    key={p.id}
-                                                    onClick={() => setPriorityFilter(p.id)}
-                                                    aria-label={`Filter by ${p.label} priority`}
-                                                    aria-pressed={priorityFilter === p.id}
-                                                    className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-all border-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-bg-light ${priorityFilter === p.id
-                                                        ? p.id === 'important'
-                                                            ? 'bg-danger/15 text-danger border-danger/40 shadow-md focus:ring-danger'
-                                                            : 'bg-primary/15 text-primary border-primary/40 shadow-md focus:ring-primary'
-                                                        : 'bg-surface-light text-text-main border-transparent hover:border-border-light hover:bg-bg-light focus:ring-primary'
-                                                        }`}
-                                                >
-                                                    {p.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Reset */}
-                                    {activeFilterCount > 0 && (
-                                        <button
-                                            onClick={() => { setSelectedDept('ALL'); setPriorityFilter('all'); setFilterOpen(false); }}
-                                            aria-label="Clear all filters"
-                                            className="w-full py-3 rounded-xl text-[12px] font-extrabold uppercase tracking-[0.12em] text-text-main hover:text-danger hover:bg-danger/10 border-2 border-border-light hover:border-danger/30 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-2 focus:ring-offset-bg-light"
-                                        >
-                                            Clear all filters
-                                        </button>
-                                    )}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </motion.div>
-
-                {/* Active filter pills */}
-                <AnimatePresence>
-                    {activeFilterCount > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="flex flex-wrap gap-2"
-                        >
-                            {selectedDept !== 'ALL' && (
-                                <motion.span
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-primary/15 text-primary rounded-full text-[12px] font-bold border-2 border-primary/30 shadow-sm"
-                                >
-                                    <span className="text-base">{selectedDeptObj?.emoji}</span>
-                                    <span>{selectedDeptObj?.label}</span>
-                                    <button 
-                                        onClick={() => setSelectedDept('ALL')} 
-                                        aria-label={`Remove ${selectedDeptObj?.label} filter`}
-                                        className="hover:text-danger ml-1 transition-colors p-0.5 rounded-full hover:bg-danger/10 focus:outline-none focus:ring-2 focus:ring-danger"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </motion.span>
-                            )}
-                            {priorityFilter === 'important' && (
-                                <motion.span
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-danger/15 text-danger rounded-full text-[12px] font-bold border-2 border-danger/30 shadow-sm"
-                                >
-                                    🔴 High Priority
-                                    <button 
-                                        onClick={() => setPriorityFilter('all')} 
-                                        aria-label="Remove high priority filter"
-                                        className="hover:text-danger/70 ml-1 transition-colors p-0.5 rounded-full hover:bg-danger/10 focus:outline-none focus:ring-2 focus:ring-danger"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </motion.span>
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </header>
 
             {/* ── Feed ────────────────────────────────────────────────── */}
@@ -870,28 +556,13 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
                     />
                 </div>
             ) : filteredCirculars.length === 0 ? (
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-bg-light rounded-[40px] border border-border-light shadow-google py-16 px-10 flex flex-col items-center justify-center text-center space-y-6"
-                >
-                    <div className="w-20 h-20 bg-surface-light rounded-full flex items-center justify-center text-text-muted border border-border-light/60 text-3xl">
-                        📭
-                    </div>
-                    <div className="space-y-1.5 max-w-sm">
-                        <h3 className="text-xl font-black text-text-main">No broadcasts match your view</h3>
-                        <p className="text-text-muted font-medium text-sm">
-                            Try clearing filters or adjusting your department and priority to see more activity.
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => { setSelectedDept('ALL'); setPriorityFilter('all'); setSearchTerm(''); }}
-                        className="px-6 py-3 bg-primary text-white rounded-xl font-bold text-[13px] hover:bg-primary/90 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-bg-main"
-                        aria-label="Reset all filters"
-                    >
-                        Reset filters
-                    </button>
-                </motion.div>
+                <CircularEmptyState
+                  searchTerm={searchTerm}
+                  selectedDept={selectedDept}
+                  priorityFilter={priorityFilter}
+                  profile={profile}
+                  onResetFilters={() => { setSelectedDept('ALL'); setPriorityFilter('all'); setSearchTerm(''); }}
+                />
             ) : (
                 <div className="space-y-6">
                     <div className="flex items-center justify-between px-1">
@@ -944,148 +615,31 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
                             </p>
                         </div>
 
-                        <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            variants={{
-                                hidden: { opacity: 0 },
-                                visible: { opacity: 1, transition: { staggerChildren: 0.06 } }
-                            }}
-                            className="divide-y divide-border-light/60"
-                        >
-                            {filteredCirculars.length === 0 ? (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.6 }}
-                                    className="flex flex-col items-center justify-center py-20 px-6 text-center"
-                                >
-                                    <motion.div
-                                        initial={{ scale: 0.8, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        transition={{ delay: 0.2, duration: 0.5 }}
-                                        className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6"
-                                    >
-                                        <Layers size={40} className="text-primary" />
-                                    </motion.div>
-                                    <h3 className="text-2xl font-black text-text-main mb-3">
-                                        {searchTerm ? 'No Results Found' : 'No Circulars Yet'}
-                                    </h3>
-                                    <p className="text-text-muted font-medium text-base max-w-md mb-8">
-                                        {searchTerm 
-                                            ? `We couldn't find any circulars matching "${searchTerm}". Try adjusting your search.`
-                                            : selectedDept !== 'ALL' || priorityFilter !== 'all'
-                                            ? 'No circulars match your current filters. Try adjusting them.'
-                                            : profile?.role === 'teacher' || profile?.role === 'admin'
-                                            ? 'Be the first to broadcast important information to your community.'
-                                            : 'Your circular feed is empty. Check back soon for updates!'
-                                        }
-                                    </p>
-                                    {(profile?.role === 'teacher' || profile?.role === 'admin') && !searchTerm && (
-                                        <motion.button
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={() => window.location.href = '/dashboard/create'}
-                                            className="px-8 py-4 bg-primary text-white rounded-2xl font-bold text-sm flex items-center gap-2 hover:shadow-lg transition-all"
-                                        >
-                                            <Layers size={18} />
-                                            Create Your First Circular
-                                        </motion.button>
-                                    )}
-                                </motion.div>
-                            ) : (
-                                filteredCirculars.map(circular => (
-                                    <motion.div
-                                        key={circular.id}
-                                        variants={{
-                                            hidden: { y: 16, opacity: 0 },
-                                            visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 120, damping: 18 } }
-                                        }}
-                                        layout
-                                        className="px-6 py-5 bg-bg-light/30 backdrop-blur-md hover:bg-surface-light/40 transition-all"
-                                    >
-                                        <SelectableCircularCard
-                                            circular={circular}
-                                            profile={profile}
-                                            onDelete={handleDelete}
-                                            onUpdate={handleUpdate}
-                                            selectionMode={selectionMode}
-                                            isSelected={selectedCirculars.includes(circular.id)}
-                                            onSelect={handleSelectCircular}
-                                        />
-                                    </motion.div>
-                                ))
-                            )}
-                        </motion.div>
-
-                        {hasMore && !searchTerm && (
-                            <div className="flex justify-center px-6 py-4 border-t border-[#f1f3f4] bg-surface-light/60">
-                                <button
-                                    onClick={fetchMore}
-                                    disabled={loadingMore}
-                                    aria-label="Load more circulars"
-                                    className="px-10 py-3 bg-primary/10 text-primary rounded-xl font-extrabold text-[12px] uppercase tracking-[0.12em] flex items-center gap-2.5 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-primary/30 hover:border-primary hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-light"
-                                >
-                                    {loadingMore ? <Loader2 size={18} className="animate-spin" /> : null}
-                                    {loadingMore ? 'Loading...' : 'Load older updates'}
-                                </button>
-                            </div>
-                        )}
+                        <CircularList
+                            circulars={filteredCirculars}
+                            profile={profile}
+                            onDelete={handleDelete}
+                            onUpdate={handleUpdate}
+                            selectionMode={selectionMode}
+                            selectedCirculars={selectedCirculars}
+                            onSelect={handleSelectCircular}
+                            loading={false}
+                            hasMore={hasMore && !searchTerm}
+                            loadingMore={loadingMore}
+                            onLoadMore={fetchMore}
+                            isEmpty={filteredCirculars.length === 0}
+                            onCreateClick={() => window.location.href = '/dashboard/create'}
+                        />
                     </div>
                 </div>
             )}
             {/* Delete Confirmation Modal */}
-            <AnimatePresence>
-                {showDeleteConfirm && (
-                    <div className="fixed inset-0 z-100 flex items-center justify-center p-6">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => !isDeletingAll && setShowDeleteConfirm(false)}
-                            className="absolute inset-0 bg-black/40 backdrop-blur-xl"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative bg-bg-light w-full max-w-md rounded-[32px] p-8 border border-border-light shadow-2xl space-y-8"
-                        >
-                            <div className="flex flex-col items-center text-center space-y-4">
-                                <div className="h-16 w-16 bg-danger/10 text-danger rounded-2xl flex items-center justify-center">
-                                    <AlertTriangle size={32} />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-2xl font-black text-text-main tracking-tight">Delete All Circulars?</h3>
-                                    <p className="text-text-muted font-medium text-sm">
-                                        This action will permanently delete <span className="text-danger font-bold">ALL</span> circular broadcasts from the system. This cannot be undone.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <button
-                                    disabled={isDeletingAll}
-                                    onClick={() => setShowDeleteConfirm(false)}
-                                    aria-label="Cancel delete operation"
-                                    className="flex-1 h-14 bg-surface-light text-text-main rounded-2xl font-extrabold text-[12px] uppercase tracking-[0.12em] hover:bg-border-light transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-border-light focus:outline-none focus:ring-2 focus:ring-text-main focus:ring-offset-2 focus:ring-offset-bg-light"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    disabled={isDeletingAll}
-                                    onClick={handleDeleteAll}
-                                    aria-label="Confirm delete all circulars"
-                                    className="flex-1 h-14 bg-danger text-white rounded-2xl font-extrabold text-[12px] uppercase tracking-[0.12em] hover:bg-danger/90 transition-all duration-200 shadow-lg shadow-danger/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 border-2 border-danger hover:border-danger/80 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-2 focus:ring-offset-bg-light"
-                                >
-                                    {isDeletingAll ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-                                    {isDeletingAll ? 'Deleting...' : 'Delete All'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            <CircularDeleteModal
+              isOpen={showDeleteConfirm}
+              isDeleting={isDeletingAll}
+              onConfirm={handleDeleteAll}
+              onCancel={() => setShowDeleteConfirm(false)}
+            />
         </div>
     );
 };
