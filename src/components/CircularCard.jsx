@@ -1,4 +1,5 @@
 import { useState, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -770,25 +771,26 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Edit Modal - Exact Design Match */}
-            <AnimatePresence>
-                {showEditModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4 bg-black/40 overflow-y-auto"
-                        onClick={() => !saving && setShowEditModal(false)}
-                    >
+            {/* Edit Modal - Exact Design Match - Using Portal */}
+            {createPortal(
+                <AnimatePresence>
+                    {showEditModal && (
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800 w-full max-w-xl"
-                            onClick={e => e.stopPropagation()}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+                            onClick={() => !saving && setShowEditModal(false)}
                         >
-                            {/* Modal Body - Auto-scaling */}
-                            <div className="p-8 space-y-6 overflow-y-auto flex-1">
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0, y: 24 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.95, opacity: 0, y: 24 }}
+                                className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl max-h-[90vh] overflow-y-auto flex flex-col"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                {/* Modal Body - Auto-scaling */}
+                                <div className="p-8 space-y-6 flex-1">
                                 {/* Title */}
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400">Hi guys</h3>
@@ -917,7 +919,9 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                         </motion.div>
                     </motion.div>
                 )}
-            </AnimatePresence>
+                </AnimatePresence>
+            , document.body
+            )}
         </>
     );
 };
