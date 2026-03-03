@@ -28,6 +28,7 @@ import { useNotificationManager } from '../hooks/useNotificationManager';
 import { useLocation } from 'react-router-dom';
 import AppleIntro from '../components/AppleIntro';
 import { getDocuments } from '../lib/firebase-db';
+import { optimizeCloudinaryUrl } from '../lib/cloudinary';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
 import { useParallelFetch } from '../hooks/useFastFetch';
@@ -586,7 +587,7 @@ const Dashboard = () => {
                             <div className="h-9 w-9 rounded-full bg-primary-container text-primary flex items-center justify-center font-black border border-primary/20 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
                                 {profile?.avatar_url ? (
                                     <img 
-                                        src={profile.avatar_url} 
+                                        src={optimizeCloudinaryUrl(profile.avatar_url, { width: 96, height: 96 })} 
                                         alt="Profile" 
                                         className="h-full w-full object-cover"
                                         onError={(e) => {

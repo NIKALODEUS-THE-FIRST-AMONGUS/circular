@@ -29,6 +29,9 @@ export async function uploadToCloudinary(file) {
     
     // Optional: Add tags for organization
     formData.append('tags', 'circular,attachment');
+    
+    // Add transformation for optimization during upload
+    formData.append('transformation', 'q_auto:good,f_auto,w_1200,c_limit');
 
     // Upload to Cloudinary
     const response = await fetch(
@@ -46,10 +49,10 @@ export async function uploadToCloudinary(file) {
 
     const data = await response.json();
 
-    // Return optimized URL with automatic format and quality
+    // Return optimized URL with automatic format, quality, and size limit
     const optimizedUrl = data.secure_url.replace(
       '/upload/',
-      '/upload/q_auto,f_auto/'
+      '/upload/q_auto:good,f_auto,w_1200,c_limit/'
     );
 
     return {
@@ -119,6 +122,40 @@ export function getCloudinaryUrl(publicId, options = {}) {
 }
 
 /**
+ * Optimize any Cloudinary URL (even existing ones)
+ * @param {string} url - Any Cloudinary URL
+ * @param {object} options - Transformation options
+ * @returns {string} Optimized URL
+ */
+export function optimizeCloudinaryUrl(url, options = {}) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  
+  const {
+    width = 400,
+    height = 400,
+    crop = 'fill',
+    quality = 'auto:good',
+    format = 'auto',
+    gravity = 'face'
+  } = options;
+
+  // Remove any existing transformations
+  const cleanUrl = url.replace(/\/upload\/[^/]+\//, '/upload/');
+  
+  // Build transformation string
+  const transformations = [
+    `w_${width}`,
+    `h_${height}`,
+    `c_${crop}`,
+    `q_${quality}`,
+    `f_${format}`,
+    `g_${gravity}`
+  ].join(',');
+
+  return cleanUrl.replace('/upload/', `/upload/${transformations}/`);
+}
+
+/**
  * Get thumbnail URL
  * @param {string} url - Original Cloudinary URL
  * @param {number} size - Thumbnail size (default: 150)
@@ -127,10 +164,14 @@ export function getCloudinaryUrl(publicId, options = {}) {
 export function getThumbnailUrl(url, size = 150) {
   if (!url || !url.includes('cloudinary.com')) return url;
   
-  return url.replace(
-    '/upload/',
-    `/upload/w_${size},h_${size},c_fill,q_auto,f_auto/`
-  );
+  return optimizeCloudinaryUrl(url, {
+    width: size,
+    height: size,
+    crop: 'fill',
+    quality: 'auto:good',
+    format: 'auto',
+    gravity: 'face'
+  });
 }
 
 /**
@@ -149,11 +190,14 @@ export function getResponsiveUrls(url) {
     };
   }
 
+  // Remove any existing transformations first
+  const cleanUrl = url.replace(/\/upload\/[^/]+\//, '/upload/');
+
   return {
-    thumbnail: url.replace('/upload/', '/upload/w_150,h_150,c_fill,q_auto,f_auto/'),
-    small: url.replace('/upload/', '/upload/w_400,h_400,c_limit,q_auto,f_auto/'),
-    medium: url.replace('/upload/', '/upload/w_800,h_800,c_limit,q_auto,f_auto/'),
-    large: url.replace('/upload/', '/upload/w_1200,h_1200,c_limit,q_auto,f_auto/'),
+    thumbnail: cleanUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,q_auto:good,f_auto/'),
+    small: cleanUrl.replace('/upload/', '/upload/w_400,h_400,c_limit,q_auto:good,f_auto/'),
+    medium: cleanUrl.replace('/upload/', '/upload/w_800,h_800,c_limit,q_auto:good,f_auto/'),
+    large: cleanUrl.replace('/upload/', '/upload/w_1200,h_1200,c_limit,q_auto:good,f_auto/'),
     original: url
   };
 }
@@ -163,5 +207,6 @@ export default {
   deleteFromCloudinary,
   getCloudinaryUrl,
   getThumbnailUrl,
-  getResponsiveUrls
+  getResponsiveUrls,
+  optimizeCloudinaryUrl
 };

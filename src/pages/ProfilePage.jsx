@@ -17,6 +17,7 @@ import {
     ChevronDown, AlertTriangle, ShieldAlert, X
 } from 'lucide-react';
 import CountrySelect from '../components/CountrySelect';
+import { optimizeCloudinaryUrl } from '../lib/cloudinary';
 
 const DEPTS = ['ALL', 'CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
 
@@ -118,6 +119,8 @@ const ProfilePage = () => {
             formData.append('file', file);
             formData.append('upload_preset', uploadPreset);
             formData.append('folder', 'avatars');
+            // Add transformation for avatar optimization (small size, good quality)
+            formData.append('transformation', 'w_400,h_400,c_fill,q_auto:good,f_auto,g_face');
 
             const response = await fetch(
                 `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -148,7 +151,11 @@ const ProfilePage = () => {
             }
             
             const data = await response.json();
-            const avatarUrl = data.secure_url;
+            // Use optimized URL with transformations for avatars
+            const avatarUrl = data.secure_url.replace(
+                '/upload/',
+                '/upload/w_400,h_400,c_fill,q_auto:good,f_auto,g_face/'
+            );
             
             // Update Firestore database
             const profileRef = doc(db, 'profiles', user.uid);
@@ -388,7 +395,7 @@ const ProfilePage = () => {
                     >
                         {formData.avatarUrl ? (
                             <img 
-                                src={formData.avatarUrl} 
+                                src={optimizeCloudinaryUrl(formData.avatarUrl, { width: 96, height: 96 })} 
                                 className="h-full w-full object-cover" 
                                 alt="Profile avatar"
                                 onError={(e) => {
@@ -838,7 +845,7 @@ const ProfilePage = () => {
                                     <div className="relative h-32 w-32 rounded-full border-4 border-primary overflow-hidden bg-surface-light flex items-center justify-center">
                                         {formData.avatarUrl ? (
                                             <img 
-                                                src={formData.avatarUrl} 
+                                                src={optimizeCloudinaryUrl(formData.avatarUrl, { width: 128, height: 128 })} 
                                                 className="h-full w-full object-cover" 
                                                 alt="Profile avatar"
                                             />

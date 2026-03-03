@@ -7,6 +7,7 @@ import { getBrandName } from '../config/branding';
 import { auth } from '../lib/firebase-config';
 import { signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'framer-motion';
+import { optimizeCloudinaryUrl } from '../lib/cloudinary';
 import {
     LayoutDashboard,
     Users,
@@ -166,7 +167,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <div className="h-10 w-10 flex-shrink-0 bg-primary/5 rounded-full border border-primary/20 flex items-center justify-center text-primary font-black overflow-hidden uppercase">
                             {profile?.avatar_url ? (
                                 <img 
-                                    src={profile.avatar_url} 
+                                    src={optimizeCloudinaryUrl(profile.avatar_url, { width: 96, height: 96 })} 
                                     alt="Profile" 
                                     className="h-full w-full object-cover"
                                     onError={(e) => {
