@@ -44,7 +44,6 @@
 - **State Management**: React Context + Hooks
 - **HTTP Client**: Axios with retry logic
 - **Icons**: Lucide React + Custom SVG
-- **Virtualization**: react-window
 
 ### Backend
 - **Database**: Firebase Firestore
@@ -211,17 +210,12 @@ Component Re-render
    - 50-100ms faster font loading
 
 ### Week 2 Optimizations
-1. **Virtualization**
-   - VirtualizedCircularList using react-window
-   - Only renders visible items
-   - Handles infinite scroll with load more
-
-2. **Error Handling**
+1. **Error Handling**
    - 40+ Firebase error code mappings
    - User-friendly error messages
    - Helper functions: isNetworkError(), isPermissionError(), isRetryableError()
 
-3. **Retry Logic**
+2. **Retry Logic**
    - Exponential backoff with jitter
    - Linear backoff option
    - Immediate retry option
