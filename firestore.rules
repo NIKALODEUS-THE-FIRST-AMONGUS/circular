@@ -164,5 +164,11 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid;
       allow delete: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
     }
+    
+    // Audit log archives (read-only for admins, write-only for Cloud Functions)
+    match /audit_log_archives/{archiveId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions can write
+    }
   }
 }

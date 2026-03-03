@@ -18,9 +18,10 @@ const AuditLogs = () => {
     const notify = useNotify();
     const navigate = useNavigate();
     
-    const [activeTab, setActiveTab] = useState('deleted'); // 'deleted', 'history', 'activity'
+    const [activeTab, setActiveTab] = useState('deleted'); // 'deleted', 'history', 'activity', 'archives'
     const [deletedCirculars, setDeletedCirculars] = useState([]);
     const [auditLogs, setAuditLogs] = useState([]);
+    const [_archives, setArchives] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [restoring, setRestoring] = useState(null);
@@ -56,6 +57,13 @@ const AuditLogs = () => {
                 });
                 
                 setAuditLogs(data || []);
+            } else if (activeTab === 'archives') {
+                const data = await getDocuments('audit_log_archives', {
+                    orderBy: ['cleanup_date', 'desc'],
+                    limit: 50
+                });
+                
+                setArchives(data || []);
             }
         } catch (error) {
             console.error('Load data error:', error);
