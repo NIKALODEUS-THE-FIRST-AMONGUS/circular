@@ -435,13 +435,14 @@ const Dashboard = () => {
                     </div>
                     
                     <div className="flex items-center gap-6 flex-1">
-                        <label className="hamburger scale-75">
+                        <label className="hamburger scale-75" aria-label="Toggle sidebar menu">
                             <input
                                 type="checkbox"
                                 checked={isSidebarOpen}
                                 onChange={(e) => setIsSidebarOpen(e.target.checked)}
+                                aria-label="Sidebar menu toggle"
                             />
-                            <svg viewBox="0 0 32 32">
+                            <svg viewBox="0 0 32 32" aria-hidden="true">
                                 <path className="line line-top-bottom" d="M27 10 13 10C10.8 10 9 8.2 9 6 9 3.5 10.8 2 13 2 15.2 2 17 3.8 17 6L17 26C17 28.2 18.8 30 21 30 23.2 30 25 28.2 25 26 25 23.8 23.2 22 21 22L7 22"></path>
                                 <path className="line" d="M7 16 27 16"></path>
                             </svg>
@@ -579,7 +580,11 @@ const Dashboard = () => {
                             </AnimatePresence>
                         </div>
                         <div className="h-8 w-px bg-border-light/50 mx-2" />
-                        <Link to="/dashboard/profile" className="flex items-center gap-3 pl-2 group">
+                        <Link 
+                            to="/dashboard/profile" 
+                            className="flex items-center gap-3 pl-2 group"
+                            aria-label={`Profile: ${getDisplayName(profile, user, { firstNameOnly: true })}`}
+                        >
                             <div className="text-right hidden sm:block">
                                 <p className="text-[12px] font-bold text-text-main leading-tight group-hover:text-primary transition-colors">
                                     {getDisplayName(profile, user, { firstNameOnly: true })}

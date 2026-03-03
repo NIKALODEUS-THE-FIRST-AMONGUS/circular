@@ -263,7 +263,12 @@ const AuditLogs = () => {
                                         </div>
                                         <div className="flex-1 space-y-1">
                                             <p className="font-bold text-text-main">{log.action}</p>
-                                            <p className="text-sm text-text-muted">{log.details}</p>
+                                            <p className="text-sm text-text-muted">
+                                                {typeof log.details === 'string' 
+                                                    ? log.details 
+                                                    : JSON.stringify(log.details, null, 2)
+                                                }
+                                            </p>
                                             <p className="text-xs text-text-dim">
                                                 {new Date(log.created_at).toLocaleString()}
                                             </p>
