@@ -170,6 +170,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                                     src={optimizeCloudinaryUrl(profile.avatar_url, { width: 96, height: 96 })} 
                                     alt="Profile" 
                                     className="h-full w-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                         e.target.style.display = 'none';
                                         e.target.parentElement.textContent = (profile?.full_name || profile?.email)?.[0] || 'U';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { deleteCircular, createDocument } from '../lib/firebase-db';
-import { uploadToCloudinary } from '../lib/cloudinary';
+import { uploadToCloudinary, optimizeCloudinaryUrl } from '../lib/cloudinary';
 import { useNotify } from '../components/Toaster';
 import {
     ChevronLeft, Calendar, User, Tag, Eye, ShieldAlert,
@@ -494,11 +494,11 @@ const CircularDetail = () => {
                                                 <div key={`img-${idx}`} className="group relative">
                                                     <div className="bg-surface-light border border-border-light rounded-xl overflow-hidden hover:shadow-lg transition-all aspect-square">
                                                         <img 
-                                                            src={url} 
+                                                            src={optimizeCloudinaryUrl(url, { width: 400, height: 400, crop: 'fill', quality: 'auto:good', format: 'auto' })} 
                                                             alt={`Attachment ${idx + 1}`}
                                                             className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-110"
                                                             loading="lazy"
-                                                            onClick={() => window.open(url, '_blank')}
+                                                            onClick={() => window.open(optimizeCloudinaryUrl(url, { width: 1200, height: 1200, crop: 'limit', quality: 'auto:good', format: 'auto' }), '_blank')}
                                                             onError={(e) => {
                                                                 e.target.style.display = 'none';
                                                                 e.target.parentElement.innerHTML = '<div class="flex items-center justify-center h-full text-text-muted"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>';

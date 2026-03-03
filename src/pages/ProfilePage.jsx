@@ -398,6 +398,7 @@ const ProfilePage = () => {
                                 src={optimizeCloudinaryUrl(formData.avatarUrl, { width: 96, height: 96 })} 
                                 className="h-full w-full object-cover" 
                                 alt="Profile avatar"
+                                loading="lazy"
                                 onError={(e) => {
                                     e.target.style.display = 'none';
                                     e.target.parentElement.innerHTML = '<svg class="text-primary" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
@@ -848,6 +849,7 @@ const ProfilePage = () => {
                                                 src={optimizeCloudinaryUrl(formData.avatarUrl, { width: 128, height: 128 })} 
                                                 className="h-full w-full object-cover" 
                                                 alt="Profile avatar"
+                                                loading="lazy"
                                             />
                                         ) : (
                                             <UserCircle size={64} className="text-primary" />

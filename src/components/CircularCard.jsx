@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { createDocument, deleteCircular } from '../lib/firebase-db';
 import { useNotify as useToast } from './Toaster';
+import { optimizeCloudinaryUrl } from '../lib/cloudinary';
 
 const DEPTS = ['ALL', 'CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
 
@@ -353,10 +354,11 @@ const ImagePreview = ({ url, index, circularId, userId, onDownloadRecorded }) =>
                     </div>
                 )}
                 <img
-                    src={url}
+                    src={optimizeCloudinaryUrl(url, { width: 400, height: 400, crop: 'fill', quality: 'auto:good', format: 'auto' })}
                     alt={fileName}
                     onLoad={() => setLoading(false)}
                     className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${loading ? 'opacity-0' : 'opacity-100'}`}
+                    loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -390,7 +392,7 @@ const ImagePreview = ({ url, index, circularId, userId, onDownloadRecorded }) =>
                                 <X size={24} />
                             </button>
                             <img
-                                src={url}
+                                src={optimizeCloudinaryUrl(url, { width: 1200, height: 1200, crop: 'limit', quality: 'auto:good', format: 'auto' })}
                                 alt={fileName}
                                 className="w-full h-full object-contain rounded-2xl"
                             />
