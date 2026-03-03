@@ -192,6 +192,7 @@ export const AuthProvider = ({ children }) => {
         setLoading,
         error,
         isAdmin: profile?.role === 'admin',
+        isDeptAdmin: profile?.role === 'dept_admin',
         isTeacher: profile?.role === 'teacher',
         isStudent: profile?.role === 'student',
         isPending: profile?.status === 'pending',

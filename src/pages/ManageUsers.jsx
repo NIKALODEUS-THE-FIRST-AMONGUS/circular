@@ -49,6 +49,7 @@ const ManageUsers = () => {
     const [dept, setDept] = useState('');
     const [year, setYear] = useState('');
     const [section, setSection] = useState('');
+    const [managedDepartment, setManagedDepartment] = useState(''); // For dept_admin role
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('add'); // 'add' or 'view'
@@ -288,9 +289,10 @@ const ManageUsers = () => {
                     email: emailLower,
                     full_name: email.split('@')[0],
                     role: role,
-                    department: dept,
-                    year_of_study: year,
-                    section: section,
+                    department: role === 'dept_admin' ? managedDepartment : dept,
+                    managed_department: role === 'dept_admin' ? managedDepartment : null,
+                    year_of_study: role === 'student' ? year : null,
+                    section: role === 'student' ? section : null,
                     status: 'active'
                 });
 
@@ -302,9 +304,10 @@ const ManageUsers = () => {
                 await createDocument('profile_pre_approvals', {
                     email: emailLower,
                     role,
-                    department: dept,
-                    year_of_study: year,
-                    section: section
+                    department: role === 'dept_admin' ? managedDepartment : dept,
+                    managed_department: role === 'dept_admin' ? managedDepartment : null,
+                    year_of_study: role === 'student' ? year : null,
+                    section: role === 'student' ? section : null
                 });
 
                 notify(`✉️ Invitation sent to ${email}`, 'success');
@@ -658,12 +661,19 @@ const ManageUsers = () => {
                                                             <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold">
                                                                 <option value="student">Student User</option>
                                                                 <option value="teacher">Faculty Member</option>
-                                                                <option value="admin">Dept Admin</option>
+                                                                <option value="dept_admin">Departmental Admin</option>
+                                                                <option value="admin">Super Admin</option>
                                                             </select>
                                                         </div>
                                                         <div className="space-y-3">
-                                                            <label className="px-1 text-[10px] font-black text-text-muted uppercase tracking-widest">Department</label>
-                                                            <select value={dept} onChange={(e) => setDept(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold">
+                                                            <label className="px-1 text-[10px] font-black text-text-muted uppercase tracking-widest">
+                                                                {role === 'dept_admin' ? 'Managed Department' : 'Department'}
+                                                            </label>
+                                                            <select 
+                                                                value={role === 'dept_admin' ? managedDepartment : dept} 
+                                                                onChange={(e) => role === 'dept_admin' ? setManagedDepartment(e.target.value) : setDept(e.target.value)} 
+                                                                className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold"
+                                                            >
                                                                 <option value="">Select Hub</option>
                                                                 <option value="CSE">CSE HUB</option>
                                                                 <option value="AIDS">AIDS HUB</option>
@@ -676,27 +686,29 @@ const ManageUsers = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-6">
-                                                        <div className="space-y-3">
-                                                            <label className="px-1 text-[10px] font-black text-text-muted uppercase tracking-widest">Year</label>
-                                                            <select value={year} onChange={(e) => setYear(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold">
-                                                                <option value="">Year</option>
-                                                                <option value="1">1st Year</option>
-                                                                <option value="2">2nd Year</option>
-                                                                <option value="3">3rd Year</option>
-                                                                <option value="4">4th Year</option>
-                                                            </select>
+                                                    {role === 'student' && (
+                                                        <div className="grid grid-cols-2 gap-6">
+                                                            <div className="space-y-3">
+                                                                <label className="px-1 text-[10px] font-black text-text-muted uppercase tracking-widest">Year</label>
+                                                                <select value={year} onChange={(e) => setYear(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold">
+                                                                    <option value="">Year</option>
+                                                                    <option value="1">1st Year</option>
+                                                                    <option value="2">2nd Year</option>
+                                                                    <option value="3">3rd Year</option>
+                                                                    <option value="4">4th Year</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="space-y-3">
+                                                                <label className="px-1 text-[10px] font-black text-text-muted uppercase tracking-widest">Section</label>
+                                                                <select value={section} onChange={(e) => setSection(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold">
+                                                                    <option value="">Sec</option>
+                                                                    <option value="A">Sec A</option>
+                                                                    <option value="B">Sec B</option>
+                                                                    <option value="C">Sec C</option>
+                                                                </select>
+                                                            </div>
                                                         </div>
-                                                        <div className="space-y-3">
-                                                            <label className="px-1 text-[10px] font-black text-text-muted uppercase tracking-widest">Section</label>
-                                                            <select value={section} onChange={(e) => setSection(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-surface-light border border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold">
-                                                                <option value="">Sec</option>
-                                                                <option value="A">Sec A</option>
-                                                                <option value="B">Sec B</option>
-                                                                <option value="C">Sec C</option>
-                                                            </select>
-                                                        </div>
-                                                    </div>
+                                                    )}
 
                                                     <div className="flex gap-4">
                                                         <button 
@@ -877,7 +889,8 @@ const ManageUsers = () => {
                                                                 <option value="all">All Roles</option>
                                                                 <option value="student">Student</option>
                                                                 <option value="teacher">Teacher</option>
-                                                                <option value="admin">Admin</option>
+                                                                <option value="dept_admin">Departmental Admin</option>
+                                                                <option value="admin">Super Admin</option>
                                                             </select>
                                                         </div>
                                                     </div>
