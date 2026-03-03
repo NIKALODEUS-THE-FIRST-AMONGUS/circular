@@ -2,11 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { getDocuments, deleteCircular } from '../lib/firebase-db';
 import { Trash2, FileText, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useNotify } from '../components/Toaster';
 
 const MyPosts = () => {
     const { user } = useAuth();
+    const notify = useNotify();
+    const navigate = useNavigate();
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -34,8 +37,11 @@ const MyPosts = () => {
         try {
             await deleteCircular(postId);
             setPosts(posts.filter(p => p.id !== postId));
+            notify('✅ Circular deleted successfully', 'success');
+            // Navigate to center with refresh flag to update feed
+            navigate('/dashboard/center', { state: { refresh: true } });
         } catch (_err) {
-            alert("Delete failed: " + _err.message);
+            notify('❌ Delete failed: ' + _err.message, 'error');
         }
     };
 

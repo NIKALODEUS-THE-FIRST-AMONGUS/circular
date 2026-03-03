@@ -53,6 +53,8 @@ const Drafts = () => {
             
             setDrafts(prev => prev.filter(d => d.id !== id));
             notify('✅ Draft deleted successfully', 'success');
+            // Navigate to center with refresh flag to update feed
+            navigate('/dashboard/center', { state: { refresh: true } });
         } catch (err) {
             notify(`❌ Delete failed: ${err.message}`, 'error');
         } finally {
