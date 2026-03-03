@@ -20,6 +20,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase-config';
+import { getErrorMessage } from '../utils/firebaseErrors';
 
 // Convert ISO string to Firestore Timestamp
 export const toTimestamp = (dateString) => {
@@ -61,8 +62,11 @@ export const createDocument = async (collectionName, data, docId = null) => {
       return { id: docRef.id, ...dataWithTimestamp };
     }
   } catch (error) {
+    const userMessage = getErrorMessage(error);
     console.error(`Error creating document in ${collectionName}:`, error);
-    throw error;
+    const err = new Error(userMessage);
+    err.code = error.code;
+    throw err;
   }
 };
 
