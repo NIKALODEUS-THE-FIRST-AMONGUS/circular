@@ -6,7 +6,7 @@ import {
     ChevronRight, Clock, Tag, Pencil, Trash2, Check,
     AlertTriangle, Loader2, FileText, FileImage, FileSpreadsheet,
     FileArchive, Film, Music, File, TrendingDown, Users, Maximize2, Trash,
-    Shield, X
+    Shield, X, Link2, List
 } from 'lucide-react';
 import { createDocument, deleteCircular } from '../lib/firebase-db';
 import { useNotify as useToast } from './Toaster';
@@ -784,23 +784,23 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                             initial={{ scale: 0.95, opacity: 0, y: 24 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 24 }}
-                            className="bg-bg-light dark:bg-surface-light rounded-xl shadow-2xl overflow-hidden flex flex-col border border-border-light w-full max-w-2xl max-h-[90vh]"
+                            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800 w-full max-w-2xl max-h-[90vh]"
                             onClick={e => e.stopPropagation()}
                         >
                             {/* Modal Header */}
-                            <header className="flex items-center justify-between px-6 py-4 border-b border-border-light bg-white dark:bg-slate-900/50">
+                            <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
                                 <div className="flex items-center gap-3">
                                     <div className="bg-primary/10 p-2 rounded-lg">
                                         <FileText size={20} className="text-primary" />
                                     </div>
                                     <div>
-                                        <h2 className="text-xl font-bold text-text-main leading-tight">Edit Circular</h2>
-                                        <p className="text-xs text-text-muted">Update institutional circular for distribution.</p>
+                                        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight">Edit Circular</h2>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Create or edit institutional circulars for distribution.</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setShowEditModal(false)}
-                                    className="p-2 hover:bg-surface-light dark:hover:bg-slate-800 rounded-full transition-colors text-text-muted"
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500"
                                 >
                                     <X size={20} />
                                 </button>
@@ -810,12 +810,12 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                                 {/* Circular Title */}
                                 <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-text-main">Circular Title</label>
+                                    <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Circular Title</label>
                                     <input
                                         required
                                         value={editData.title}
                                         onChange={e => setEditData(prev => ({ ...prev, title: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-lg border border-border-light bg-white dark:bg-slate-800 text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-text-muted"
+                                        className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400"
                                         placeholder="Enter the headline of the circular"
                                     />
                                 </div>
@@ -823,10 +823,19 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                                 {/* Circular Content */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <label className="block text-sm font-semibold text-text-main">Circular Content</label>
+                                        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Circular Content</label>
                                         <div className="flex gap-1">
-                                            <button type="button" className="p-1 hover:bg-surface-light dark:hover:bg-slate-800 rounded text-text-muted transition-colors">
-                                                <FileText size={16} />
+                                            <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-400 transition-colors">
+                                                <span className="text-sm">B</span>
+                                            </button>
+                                            <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-400 transition-colors">
+                                                <span className="text-sm italic">I</span>
+                                            </button>
+                                            <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-400 transition-colors">
+                                                <List size={16} />
+                                            </button>
+                                            <button type="button" className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-600 dark:text-slate-400 transition-colors">
+                                                <Link2 size={16} />
                                             </button>
                                         </div>
                                     </div>
@@ -835,55 +844,84 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                                         rows={6}
                                         value={editData.content}
                                         onChange={e => setEditData(prev => ({ ...prev, content: e.target.value }))}
-                                        className="w-full px-4 py-3 rounded-lg border border-border-light bg-white dark:bg-slate-800 text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-text-muted resize-none"
+                                        className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 resize-none"
                                         placeholder="Write the detailed content of the circular here..."
                                     />
                                 </div>
 
                                 {/* Attachments Section */}
                                 <div className="space-y-3">
-                                    <p className="text-sm font-semibold text-text-main flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                                         <Paperclip size={16} />
                                         Attachments & Media
                                     </p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <button
                                             type="button"
-                                            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border-light rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all text-text-muted group"
+                                            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-blue-600 dark:text-blue-400 group"
                                         >
-                                            <FileImage size={18} className="group-hover:text-primary" />
+                                            <FileImage size={18} />
                                             <span className="text-sm font-medium">Upload Images</span>
                                         </button>
                                         <button
                                             type="button"
-                                            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border-light rounded-xl hover:border-danger/50 hover:bg-danger/5 transition-all text-text-muted group"
+                                            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all text-red-600 dark:text-red-400 group"
                                         >
-                                            <FileText size={18} className="group-hover:text-danger" />
+                                            <FileText size={18} />
                                             <span className="text-sm font-medium">Upload PDFs</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Or add URL */}
+                                    <div className="relative py-3">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-slate-300 dark:border-slate-700"></div>
+                                        </div>
+                                        <div className="relative flex justify-center text-xs">
+                                            <span className="px-2 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">or add URL</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <ExternalLink size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                            <input
+                                                type="url"
+                                                value={editData.externalLink || ''}
+                                                onChange={e => setEditData(prev => ({ ...prev, externalLink: e.target.value }))}
+                                                className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-sm"
+                                                placeholder="https://example.com/more-info"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="px-4 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-semibold text-sm hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors whitespace-nowrap"
+                                        >
+                                            Add URL
                                         </button>
                                     </div>
 
                                     {/* Attachments List */}
                                     {editData.attachments && editData.attachments.length > 0 && (
-                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        <div className="space-y-2 max-h-40 overflow-y-auto">
                                             {editData.attachments.map((url, index) => {
                                                 const isImage = isImageUrl(url);
                                                 const fileName = getFileName(url);
                                                 const fileExt = getFileExtension(url);
                                                 
                                                 return (
-                                                    <div key={index} className="flex items-center gap-3 p-3 bg-surface-light border border-border-light rounded-lg group">
+                                                    <div key={index} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg group">
                                                         <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                                             {isImage ? <FileImage size={14} /> : <FileText size={14} />}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-semibold text-text-main truncate">{fileName}</p>
-                                                            <p className="text-[10px] text-text-muted">{fileExt}</p>
+                                                            <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{fileName}</p>
+                                                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{fileExt}</p>
                                                         </div>
                                                         <button
                                                             type="button"
                                                             onClick={() => removeAttachment(index)}
-                                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all text-text-muted hover:text-danger opacity-0 group-hover:opacity-100"
+                                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100"
                                                         >
                                                             <X size={14} />
                                                         </button>
@@ -892,19 +930,23 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                                             })}
                                         </div>
                                     )}
+
+                                    {(!editData.attachments || editData.attachments.length === 0) && (
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 italic text-center py-2">No attachments added yet</p>
+                                    )}
                                 </div>
 
                                 {/* Priority & Target */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <label className="block text-sm font-semibold text-text-main">Priority</label>
+                                        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Priority</label>
                                         <div className="flex gap-2">
                                             {['normal', 'important'].map(p => (
                                                 <button 
                                                     key={p} 
                                                     type="button" 
                                                     onClick={() => setEditData(prev => ({ ...prev, priority: p }))} 
-                                                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold uppercase transition-all border ${editData.priority === p ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-800 text-text-muted border-border-light hover:border-primary/50'}`}
+                                                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold uppercase transition-all border ${editData.priority === p ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:border-primary/50'}`}
                                                 >
                                                     {p}
                                                 </button>
@@ -912,11 +954,11 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="block text-sm font-semibold text-text-main">Target Department</label>
+                                        <label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">Target Department</label>
                                         <select 
                                             value={editData.department_target} 
                                             onChange={e => setEditData(p => ({ ...p, department_target: e.target.value }))} 
-                                            className="w-full px-4 py-2 rounded-lg border border-border-light bg-white dark:bg-slate-800 text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium"
+                                            className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium"
                                         >
                                             {DEPTS.map(dept => <option key={dept} value={dept}>{dept}</option>)}
                                         </select>
@@ -925,37 +967,31 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                             </div>
 
                             {/* Modal Footer */}
-                            <footer className="p-6 border-t border-border-light bg-white dark:bg-slate-900/50 flex items-center justify-end gap-3">
+                            <footer className="p-6 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 flex items-center justify-end gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setShowEditModal(false)}
                                     disabled={saving}
-                                    className="px-6 py-2.5 rounded-lg font-semibold text-text-muted hover:bg-surface-light dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                    className="px-6 py-2.5 rounded-lg font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="relative px-8 py-2.5 bg-primary text-white rounded-lg font-bold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all active:scale-[0.98] disabled:opacity-50 group overflow-hidden"
+                                    className="px-8 py-2.5 bg-primary text-white rounded-lg font-bold shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
-                                    {/* Glowing border on hover */}
-                                    <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" style={{
-                                        boxShadow: 'inset 0 0 20px rgba(236, 91, 19, 0.5), 0 0 20px rgba(236, 91, 19, 0.3)'
-                                    }} />
-                                    <div className="relative flex items-center justify-center gap-2">
-                                        {saving ? (
-                                            <>
-                                                <Loader2 size={16} className="animate-spin" />
-                                                <span>Saving...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span>☁️</span>
-                                                <span>Save Changes</span>
-                                            </>
-                                        )}
-                                    </div>
+                                    {saving ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            <span>Saving...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>☁️</span>
+                                            <span>Save Changes</span>
+                                        </>
+                                    )}
                                 </button>
                             </footer>
                         </motion.div>
