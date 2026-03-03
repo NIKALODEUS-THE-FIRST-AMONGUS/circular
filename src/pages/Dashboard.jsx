@@ -1,19 +1,7 @@
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
-import CircularCenter from './CircularCenter';
-import CreateCircular from './CreateCircular';
-import Drafts from './Drafts';
-import Feedback from './Feedback';
-import MyPosts from './MyPosts';
-import ManageUsers from './ManageUsers';
-import AddMember from './AddMember';
-import SearchMembers from './SearchMembers';
-import Approvals from './Approvals';
-import CircularDetail from './CircularDetail';
-import ProfilePage from './ProfilePage';
-import AuditLogs from './AuditLogs';
 import RoleGuard from '../components/RoleGuard';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
@@ -33,6 +21,20 @@ import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
 import { useParallelFetch } from '../hooks/useFastFetch';
 import { useNotify } from '../components/Toaster';
+
+// Lazy load heavy route components
+const CircularCenter = lazy(() => import('./CircularCenter'));
+const CreateCircular = lazy(() => import('./CreateCircular'));
+const Drafts = lazy(() => import('./Drafts'));
+const Feedback = lazy(() => import('./Feedback'));
+const MyPosts = lazy(() => import('./MyPosts'));
+const ManageUsers = lazy(() => import('./ManageUsers'));
+const AddMember = lazy(() => import('./AddMember'));
+const SearchMembers = lazy(() => import('./SearchMembers'));
+const Approvals = lazy(() => import('./Approvals'));
+const CircularDetail = lazy(() => import('./CircularDetail'));
+const ProfilePage = lazy(() => import('./ProfilePage'));
+const AuditLogs = lazy(() => import('./AuditLogs'));
 
 // Compact Logo for Headers
 const HeaderLogo = () => {
@@ -656,53 +658,59 @@ const Dashboard = () => {
                                 }}
                                 style={{ willChange: 'transform, opacity' }}
                             >
-                                <Routes location={location}>
-                                    <Route index element={<CircularCenter />} />
-                                    <Route path="center/:id" element={<CircularDetail />} />
-                                    <Route path="create" element={
-                                        <RoleGuard allowedRoles={['admin', 'teacher']}>
-                                            <CreateCircular />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="drafts" element={
-                                        <RoleGuard allowedRoles={['admin', 'teacher']}>
-                                            <Drafts />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="feedback" element={<Feedback />} />
-                                    <Route path="my-posts" element={
-                                        <RoleGuard allowedRoles={['admin', 'teacher']}>
-                                            <MyPosts />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="approvals" element={
-                                        <RoleGuard allowedRoles={['admin']}>
-                                            <Approvals />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="manage-users" element={
-                                        <RoleGuard allowedRoles={['admin']}>
-                                            <ManageUsers />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="add-member" element={
-                                        <RoleGuard allowedRoles={['admin']}>
-                                            <AddMember />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="search-members" element={
-                                        <RoleGuard allowedRoles={['admin']}>
-                                            <SearchMembers />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="profile" element={<ProfilePage />} />
-                                    <Route path="audit-logs" element={
-                                        <RoleGuard allowedRoles={['admin']}>
-                                            <AuditLogs />
-                                        </RoleGuard>
-                                    } />
-                                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                                </Routes>
+                                <Suspense fallback={
+                                    <div className="flex items-center justify-center min-h-[60vh]">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                    </div>
+                                }>
+                                    <Routes location={location}>
+                                        <Route index element={<CircularCenter />} />
+                                        <Route path="center/:id" element={<CircularDetail />} />
+                                        <Route path="create" element={
+                                            <RoleGuard allowedRoles={['admin', 'teacher']}>
+                                                <CreateCircular />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="drafts" element={
+                                            <RoleGuard allowedRoles={['admin', 'teacher']}>
+                                                <Drafts />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="feedback" element={<Feedback />} />
+                                        <Route path="my-posts" element={
+                                            <RoleGuard allowedRoles={['admin', 'teacher']}>
+                                                <MyPosts />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="approvals" element={
+                                            <RoleGuard allowedRoles={['admin']}>
+                                                <Approvals />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="manage-users" element={
+                                            <RoleGuard allowedRoles={['admin']}>
+                                                <ManageUsers />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="add-member" element={
+                                            <RoleGuard allowedRoles={['admin']}>
+                                                <AddMember />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="search-members" element={
+                                            <RoleGuard allowedRoles={['admin']}>
+                                                <SearchMembers />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="profile" element={<ProfilePage />} />
+                                        <Route path="audit-logs" element={
+                                            <RoleGuard allowedRoles={['admin']}>
+                                                <AuditLogs />
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                                    </Routes>
+                                </Suspense>
                             </motion.div>
                         </AnimatePresence>
                     </div>
