@@ -245,36 +245,13 @@ const CircularDetail = () => {
         setDeleting(true);
         notify('🗑️ Deleting circular...', 'info');
         try {
-            // First, fetch all circulars to find the next one
-            const { getDocuments } = await import('../lib/firebase-db');
-            const allCirculars = await getDocuments('circulars', {
-                orderBy: ['created_at', 'desc']
-            });
-
-            // Find current circular index
-            const currentIndex = allCirculars.findIndex(c => c.id === id);
-            let nextCircularId = null;
-
-            // Try to get the next circular (after current one)
-            if (currentIndex !== -1 && currentIndex < allCirculars.length - 1) {
-                nextCircularId = allCirculars[currentIndex + 1].id;
-            } 
-            // If no next circular, try to get the previous one (before current one)
-            else if (currentIndex > 0) {
-                nextCircularId = allCirculars[currentIndex - 1].id;
-            }
-
             // Delete the circular
             await deleteCircular(id);
 
             notify('✅ Circular deleted successfully', 'success');
 
-            // Navigate to next circular or back to center
-            if (nextCircularId) {
-                navigate(`/dashboard/center/${nextCircularId}`);
-            } else {
-                navigate('/dashboard/center');
-            }
+            // Navigate to center with refresh flag
+            navigate('/dashboard/center', { state: { refresh: true } });
         } catch (err) {
             notify(`❌ Delete failed: ${err.message}`, 'error');
         } finally {

@@ -445,6 +445,9 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
                 description: "All circular broadcasts have been deleted from the system."
             });
             setShowDeleteConfirm(false);
+            
+            // Trigger refresh to update the UI
+            refetch();
         } catch (err) {
             notify(err.message, "error");
         } finally {
