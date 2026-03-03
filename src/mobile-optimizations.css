@@ -1,7 +1,24 @@
 /* Mobile Optimizations for iPhone SE and similar devices */
 
-/* Fix profile banner spacing */
+/* Ensure minimum touch target size (44x44px per WCAG) */
 @media (max-width: 640px) {
+  /* All interactive elements should be at least 44x44px */
+  button,
+  a,
+  input[type="checkbox"],
+  input[type="radio"],
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem;
+  }
+
+  /* Increase tap target spacing */
+  button + button,
+  a + a {
+    margin-left: 0.5rem;
+  }
+
   /* Reduce profile banner height */
   .profile-banner {
     min-height: 120px !important;
@@ -67,13 +84,13 @@
     line-height: 1.25rem !important;
   }
 
-  /* Compact buttons */
+  /* Compact buttons - but maintain 44px minimum */
   .btn-primary,
   .btn-secondary {
     padding: 0.5rem 1rem !important;
     font-size: 0.75rem !important;
     height: auto !important;
-    min-height: 36px !important;
+    min-height: 44px !important;
   }
 
   /* Fix header spacing */
@@ -90,18 +107,19 @@
     gap: 0.75rem !important;
   }
 
-  /* Fix notification bell */
+  /* Fix notification bell - 44x44 minimum */
   .notification-button {
-    width: 36px !important;
-    height: 36px !important;
+    width: 44px !important;
+    height: 44px !important;
   }
 
-  /* Compact form inputs */
+  /* Compact form inputs - but readable on mobile */
   input,
   textarea,
   select {
-    font-size: 14px !important;
-    padding: 0.5rem !important;
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    padding: 0.75rem !important;
+    min-height: 44px !important;
   }
 
   /* Fix sidebar on mobile */
@@ -136,13 +154,14 @@
     font-size: 0.75rem !important;
   }
 
-  /* Fix filter buttons */
+  /* Fix filter buttons - 44px minimum */
   .filter-button {
     padding: 0.5rem 0.75rem !important;
     font-size: 0.75rem !important;
+    min-height: 44px !important;
   }
 
-  /* Reduce icon sizes */
+  /* Reduce icon sizes but keep touch targets */
   svg {
     width: 1rem !important;
     height: 1rem !important;
@@ -151,6 +170,33 @@
   .icon-lg svg {
     width: 1.25rem !important;
     height: 1.25rem !important;
+  }
+
+  /* Prevent horizontal scrolling */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Improve readability with better line height */
+  p {
+    line-height: 1.6;
+  }
+
+  /* Add spacing between clickable elements */
+  .clickable-item {
+    margin-bottom: 0.5rem;
+  }
+
+  /* Improve form usability */
+  label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+  }
+
+  /* Better spacing for lists */
+  li {
+    padding: 0.5rem 0;
   }
 }
 
@@ -172,5 +218,47 @@
   .btn-secondary {
     font-size: 0.625rem !important;
     padding: 0.375rem 0.75rem !important;
+    min-height: 44px !important;
+  }
+
+  /* Ensure buttons stay clickable on small screens */
+  button {
+    min-width: 44px;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  .profile-banner {
+    min-height: 80px !important;
+  }
+
+  .space-y-6 {
+    gap: 0.5rem !important;
+  }
+
+  .space-y-4 {
+    gap: 0.25rem !important;
+  }
+}
+
+/* Prevent zoom on input focus (iOS) */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Improve scrolling performance */
+@media (max-width: 640px) {
+  * {
+    -webkit-tap-highlight-color: rgba(26, 115, 232, 0.1);
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
   }
 }
