@@ -770,92 +770,139 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                 )}
             </AnimatePresence>
 
-            {/* Edit Modal */}
+            {/* Edit Modal - Matches CircularDetail */}
             <AnimatePresence>
                 {showEditModal && (
                     <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-                        style={{ 
-                            background: 'rgba(0, 0, 0, 0.6)',
-                            backdropFilter: 'blur(20px)',
-                            WebkitBackdropFilter: 'blur(20px)'
-                        }}
-                        onClick={() => setShowEditModal(false)}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-lg bg-black/50"
+                        onClick={() => !saving && setShowEditModal(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 24 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 24 }}
-                            className="bg-white dark:bg-gray-900 rounded-[32px] p-8 max-w-2xl w-full shadow-2xl border border-border-light max-h-[90vh] overflow-y-auto relative z-[10000]"
+                            initial={{ scale: 0.95, opacity: 0, y: 24 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 24 }}
+                            className="bg-bg-light dark:bg-surface-light rounded-2xl p-4 sm:p-6 md:p-8 w-full max-w-2xl shadow-2xl border border-border-light max-h-[90vh] overflow-y-auto"
                             onClick={e => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="space-y-0.5">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Edit Circular</p>
-                                    <h2 className="text-xl font-black text-text-main">Update Broadcast</h2>
-                                </div>
-                                <button onClick={() => setShowEditModal(false)} className="p-2 text-text-dim hover:text-text-main hover:bg-surface-light rounded-xl transition-all">
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                <h2 className="text-lg sm:text-xl font-bold text-text-main">Edit Circular</h2>
+                                <button
+                                    onClick={() => setShowEditModal(false)}
+                                    className="p-2 text-text-dim hover:text-text-main hover:bg-surface-light rounded-lg transition-all"
+                                >
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSave} className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">Title</label>
-                                    <input required value={editData.title} onChange={e => setEditData(p => ({ ...p, title: e.target.value }))} className="w-full h-12 px-5 rounded-2xl border border-border-light outline-none font-bold text-text-main text-sm focus:border-primary transition-all" placeholder="Title" />
+                            <form onSubmit={handleSave} className="space-y-3 sm:space-y-4">
+                                <div className="space-y-1.5 sm:space-y-2">
+                                    <label className="text-xs sm:text-sm font-semibold text-text-main">Title</label>
+                                    <input
+                                        required
+                                        value={editData.title}
+                                        onChange={e => setEditData(prev => ({ ...prev, title: e.target.value }))}
+                                        className="w-full h-10 sm:h-11 px-3 sm:px-4 rounded-lg border border-border-light bg-bg-light outline-none font-medium text-text-main text-sm focus:border-primary transition-all"
+                                        placeholder="Title"
+                                    />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">Content</label>
-                                    <textarea required rows={6} value={editData.content} onChange={e => setEditData(p => ({ ...p, content: e.target.value }))} className="w-full px-5 py-4 rounded-2xl border border-border-light outline-none font-medium text-text-main text-sm resize-none focus:border-primary transition-all" placeholder="Content" />
+                                <div className="space-y-1.5 sm:space-y-2">
+                                    <label className="text-xs sm:text-sm font-semibold text-text-main">Content</label>
+                                    <textarea
+                                        required
+                                        rows={6}
+                                        value={editData.content}
+                                        onChange={e => setEditData(prev => ({ ...prev, content: e.target.value }))}
+                                        className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-border-light bg-bg-light outline-none font-medium text-text-main text-sm resize-none focus:border-primary transition-all"
+                                        placeholder="Content"
+                                    />
                                 </div>
 
-                                {/* Attachment Management Section */}
-                                {editData.attachments && editData.attachments.length > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <Paperclip size={14} className="text-text-dim" />
-                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">Manage Attachements ({editData.attachments.length})</span>
-                                        </div>
-                                        <div className="grid gap-2 sm:grid-cols-2">
-                                            {editData.attachments.map((url, i) => (
-                                                <div key={i} className="flex items-center gap-3 p-3 bg-surface-light rounded-xl border border-border-light/50 group">
-                                                    <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shrink-0">
-                                                        {isImageUrl(url) ? <FileImage size={16} className="text-primary" /> : <FileText size={16} className="text-text-dim" />}
+                                {/* Attachments Section */}
+                                <div className="space-y-2 sm:space-y-3">
+                                    <label className="text-xs sm:text-sm font-semibold text-text-main">Attachments</label>
+                                    
+                                    {/* Attachments List - Mobile Optimized */}
+                                    {editData.attachments && editData.attachments.length > 0 && (
+                                        <div className="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
+                                            {editData.attachments.map((url, index) => {
+                                                const isImage = isImageUrl(url);
+                                                const fileName = getFileName(url);
+                                                const fileExt = getFileExtension(url);
+                                                
+                                                return (
+                                                    <div key={index} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-surface-light border border-border-light rounded-lg group">
+                                                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                                                            {isImage ? <FileImage size={14} /> : <FileText size={14} />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-semibold text-text-main truncate">{fileName}</p>
+                                                            <p className="text-[10px] text-text-muted">{fileExt}</p>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeAttachment(index)}
+                                                            className="p-1.5 sm:p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all text-text-muted hover:text-red-600"
+                                                            title="Remove"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
                                                     </div>
-                                                    <span className="text-[11px] font-bold text-text-main truncate flex-1">{getFileName(url)}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeAttachment(i)}
-                                                        className="p-1.5 rounded-lg text-text-dim hover:text-danger hover:bg-danger/10 transition-all opacity-0 group-hover:opacity-100"
-                                                    >
-                                                        <Trash size={14} />
-                                                    </button>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                    
+                                    {(!editData.attachments || editData.attachments.length === 0) && (
+                                        <p className="text-xs text-text-muted italic text-center py-2">No attachments added yet</p>
+                                    )}
+                                </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">Priority</label>
+                                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-xs sm:text-sm font-semibold text-text-main">Priority</label>
                                         <div className="flex gap-2">
                                             {['normal', 'important'].map(p => (
-                                                <button key={p} type="button" onClick={() => setEditData(prev => ({ ...prev, priority: p }))} className={`flex-1 h-10 rounded-xl text-[10px] font-black uppercase transition-all border ${editData.priority === p ? 'bg-primary text-white border-primary' : 'bg-bg-light text-text-muted border-border-light'}`}>{p}</button>
+                                                <button 
+                                                    key={p} 
+                                                    type="button" 
+                                                    onClick={() => setEditData(prev => ({ ...prev, priority: p }))} 
+                                                    className={`flex-1 h-9 sm:h-10 rounded-lg text-xs font-semibold uppercase transition-all border ${editData.priority === p ? 'bg-primary text-white border-primary' : 'bg-bg-light text-text-muted border-border-light'}`}
+                                                >
+                                                    {p}
+                                                </button>
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">Target Dept</label>
-                                        <select value={editData.department_target} onChange={e => setEditData(p => ({ ...p, department_target: e.target.value }))} className="w-full h-10 px-4 rounded-xl border border-border-light outline-none text-[11px] font-bold text-text-main">
+                                    <div className="space-y-1.5 sm:space-y-2">
+                                        <label className="text-xs sm:text-sm font-semibold text-text-main">Target Dept</label>
+                                        <select 
+                                            value={editData.department_target} 
+                                            onChange={e => setEditData(p => ({ ...p, department_target: e.target.value }))} 
+                                            className="w-full h-9 sm:h-10 px-3 rounded-lg border border-border-light bg-bg-light outline-none text-xs sm:text-sm font-medium text-text-main focus:border-primary transition-all"
+                                        >
                                             {DEPTS.map(dept => <option key={dept} value={dept}>{dept}</option>)}
                                         </select>
                                     </div>
                                 </div>
 
-                                <div className="flex gap-3 pt-4">
-                                    <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 h-12 rounded-2xl border border-border-light text-text-muted font-black text-[11px] uppercase tracking-widest hover:bg-surface-light transition-all">Cancel</button>
-                                    <button type="submit" disabled={saving} className="flex-1 h-12 rounded-2xl bg-primary text-white font-black text-[11px] uppercase tracking-widest hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                                <div className="flex gap-2 sm:gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEditModal(false)}
+                                        disabled={saving}
+                                        className="flex-1 h-10 rounded-lg border border-border-light text-text-muted font-semibold text-sm hover:bg-surface-light transition-all disabled:opacity-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="flex-1 h-10 rounded-lg bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
                                         {saving ? <Loader2 size={16} className="animate-spin" /> : 'Save Changes'}
                                     </button>
                                 </div>
