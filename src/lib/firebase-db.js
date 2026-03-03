@@ -188,7 +188,28 @@ export const updateCircular = async (circularId, updates) => {
 };
 
 export const deleteCircular = async (circularId) => {
-  return deleteDocument('circulars', circularId);
+  try {
+    // Get the circular first to save it to deleted_circulars
+    const circularRef = doc(db, 'circulars', circularId);
+    const circularSnap = await getDoc(circularRef);
+    
+    if (circularSnap.exists()) {
+      const circularData = circularSnap.data();
+      
+      // Save to deleted_circulars collection with deletion metadata
+      await setDoc(doc(db, 'deleted_circulars', circularId), {
+        ...circularData,
+        deleted_at: new Date().toISOString(),
+        status: 'deleted'
+      });
+    }
+    
+    // Delete from circulars collection
+    return deleteDocument('circulars', circularId);
+  } catch (error) {
+    console.error('Error deleting circular:', error);
+    throw error;
+  }
 };
 
 // Profiles
