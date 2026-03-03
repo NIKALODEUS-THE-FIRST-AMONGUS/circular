@@ -132,13 +132,17 @@ const LandingPage = () => {
                         <p className="text-text-muted mb-6">Please complete your profile to continue</p>
                         <button
                             onClick={async () => {
+                                // Check if email is from @methodist.edu.in domain
+                                const email = user.email?.toLowerCase() || '';
+                                const isMethodistEmail = email.endsWith('@methodist.edu.in');
+                                
                                 // Create basic profile
                                 const profileData = {
                                     email: user.email,
                                     full_name: user.displayName || user.email?.split('@')[0] || 'User',
                                     role: isFirstUser ? 'admin' : 'student',
                                     department: 'ALL',
-                                    status: isFirstUser ? 'active' : 'pending',
+                                    status: isFirstUser || isMethodistEmail ? 'active' : 'pending',
                                     created_at: new Date().toISOString(),
                                     daily_intro_enabled: true,
                                     greeting_language: 'Mixed',

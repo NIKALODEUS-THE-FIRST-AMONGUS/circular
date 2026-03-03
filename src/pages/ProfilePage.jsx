@@ -285,7 +285,7 @@ const ProfilePage = () => {
                 daily_intro_enabled: formData.dailyIntroEnabled,
                 greeting_language: formData.greetingLanguage,
                 intro_frequency: formData.introFrequency,
-                status: 'active'
+                status: profile?.email?.toLowerCase().endsWith('@methodist.edu.in') ? 'active' : (profile?.status || 'active')
             });
 
             notify("☁️ Changes saved to cloud", "success");
