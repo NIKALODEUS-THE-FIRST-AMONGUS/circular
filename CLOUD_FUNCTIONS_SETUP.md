@@ -1,155 +1,203 @@
-# Cloud Functions Setup Guide
+# Automated Cleanup Setup Guide
 
-This project uses Firebase Cloud Functions for automated maintenance tasks.
+This project needs automated maintenance tasks for audit logs and deleted circulars. Since Firebase Cloud Functions require a paid plan, here are FREE alternatives.
 
-## Functions Overview
+## Option 1: Client-Side Cleanup (Recommended - 100% Free)
 
-### 1. cleanupOldAuditLogs
-**Schedule**: Daily at 2 AM UTC  
-**Purpose**: Automatically delete audit logs older than 30 days
+Run cleanup when admins visit the Audit Logs page. No external services needed.
 
-**What it does**:
-- Finds all audit logs older than 30 days
-- Creates a summary with statistics:
-  - Total logs deleted
-  - Date range covered
-  - Action type breakdown
-  - Number of unique actors
-- Saves summary to `audit_log_archives` collection
-- Deletes the old logs in batch
+### Implementation
 
-**Benefits**:
-- Keeps database size manageable
-- Maintains historical insights via summaries
-- Automatic cleanup without manual intervention
+The cleanup logic runs automatically in the background when an admin opens the Audit Logs page. It checks if cleanup is needed (once per day) and runs silently without blocking the UI.
 
-### 2. cleanupOldDeletedCirculars
-**Schedule**: Weekly on Sunday at 3 AM UTC  
-**Purpose**: Permanently delete circulars that have been in "deleted" status for 90+ days
+**Pros**:
+- Completely free
+- No external dependencies
+- Works on Firebase Spark (free) plan
+- Automatic when admins use the app
 
-**What it does**:
-- Finds circulars with status='deleted' older than 90 days
-- Permanently removes them from database
-- Logs cleanup summary
+**Cons**:
+- Requires admin to visit Audit Logs page at least once per day
+- Cleanup happens during user session (but non-blocking)
 
-**Benefits**:
-- Provides 90-day recovery window for deleted circulars
-- Automatic permanent deletion after grace period
-- Reduces storage costs
+### Setup
+Already implemented! Just ensure admins visit the Audit Logs page regularly.
 
-## Setup Instructions
+---
 
-### Step 1: Install Dependencies
-```bash
-cd functions
-npm install
-cd ..
-```
+## Option 2: GitHub Actions (Free for Public Repos)
 
-### Step 2: Deploy Functions
-```bash
-firebase deploy --only functions
-```
+Use GitHub Actions to run cleanup scripts on a schedule.
 
-### Step 3: Verify Deployment
-Check Firebase Console → Functions to see:
-- `cleanupOldAuditLogs` - scheduled daily
-- `cleanupOldDeletedCirculars` - scheduled weekly
+### Setup Instructions
 
-## Viewing Archived Summaries
-
-Audit log summaries are stored in the `audit_log_archives` collection. Each document contains:
-
+1. **Create cleanup script** (`scripts/cleanup-audit-logs.js`):
 ```javascript
+// Already created in your project
+```
+
+2. **Add GitHub Action** (`.github/workflows/cleanup.yml`):
+```yaml
+name: Database Cleanup
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm install firebase-admin
+      - run: node scripts/cleanup-audit-logs.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+```
+
+3. **Add Firebase credentials to GitHub Secrets**:
+   - Go to Firebase Console → Project Settings → Service Accounts
+   - Generate new private key
+   - Copy the JSON content
+   - Go to GitHub repo → Settings → Secrets → New repository secret
+   - Name: `FIREBASE_SERVICE_ACCOUNT`
+   - Value: Paste the JSON
+
+**Pros**:
+- Free for public repos (2,000 minutes/month for private)
+- Reliable scheduling
+- No user interaction needed
+
+**Cons**:
+- Requires GitHub repository
+- Need to manage service account credentials
+
+---
+
+## Option 3: Vercel Cron Jobs (Free Tier)
+
+Use Vercel's cron jobs if you're already hosting on Vercel.
+
+### Setup Instructions
+
+1. **Create API route** (`api/cleanup.js`):
+```javascript
+// Already created in your project
+```
+
+2. **Add to vercel.json**:
+```json
 {
-  total_deleted: 150,
-  date_range: {
-    from: "2026-01-01T00:00:00.000Z",
-    to: "2026-02-01T23:59:59.000Z"
-  },
-  actions: {
-    "create_circular": 45,
-    "approve_member": 30,
-    "decline_member": 15,
-    "bulk_approve_members": 10,
-    // ... other actions
-  },
-  unique_actors: 12,
-  cleanup_date: "2026-03-03T02:00:00.000Z"
+  "crons": [{
+    "path": "/api/cleanup",
+    "schedule": "0 2 * * *"
+  }]
 }
 ```
 
-## Manual Cleanup (Optional)
+3. **Set environment variables in Vercel**:
+   - Add Firebase service account JSON as `FIREBASE_SERVICE_ACCOUNT`
 
-To manually trigger cleanup functions:
+**Pros**:
+- Free on Vercel hobby plan
+- Integrated with your hosting
+- Reliable execution
 
-```bash
-# Test locally with emulator
-firebase emulators:start --only functions
+**Cons**:
+- Only works if hosting on Vercel
+- Limited to 1 cron job on free tier
 
-# Or call directly (requires Firebase CLI)
-firebase functions:shell
-> cleanupOldAuditLogs()
-```
+---
 
-## Cost Considerations
+## Option 4: EasyCron (Free Tier)
 
-**Free Tier Includes**:
-- 2 million invocations/month
-- 400,000 GB-seconds compute time
-- 200,000 CPU-seconds compute time
+Use a free external cron service to trigger cleanup.
 
-**Our Usage**:
-- Daily cleanup: ~30 invocations/month
-- Weekly cleanup: ~4 invocations/month
-- Total: ~34 invocations/month (well within free tier)
+### Setup Instructions
+
+1. **Create public API endpoint** (`api/cleanup.js`)
+2. **Add authentication token** to verify requests
+3. **Sign up at EasyCron.com** (free tier: 1 cron job)
+4. **Create cron job** pointing to your API endpoint
+
+**Pros**:
+- Works with any hosting
+- Simple setup
+- Reliable
+
+**Cons**:
+- Requires public API endpoint
+- Need to secure with authentication token
+- Limited to 1 job on free tier
+
+---
+
+## Recommended Approach
+
+**For most users**: Use **Option 1 (Client-Side Cleanup)**
+- Zero cost
+- Zero configuration
+- Works immediately
+- Just ensure admins check Audit Logs regularly
+
+**For production apps**: Use **Option 2 (GitHub Actions)** or **Option 3 (Vercel Cron)**
+- More reliable
+- No user interaction needed
+- Still free
+
+---
+
+## Cleanup Tasks
+
+### 1. Audit Log Cleanup
+**Frequency**: Daily  
+**Action**: Delete logs older than 30 days, create summary
+
+### 2. Deleted Circular Cleanup
+**Frequency**: Weekly  
+**Action**: Permanently delete circulars in "deleted" status for 90+ days
+
+---
+
+## Manual Cleanup
+
+Admins can manually trigger cleanup from the Audit Logs page:
+1. Go to Dashboard → Audit Logs
+2. Click "Settings" icon
+3. Click "Run Cleanup Now"
+
+---
 
 ## Monitoring
 
-View function logs in Firebase Console:
-1. Go to Firebase Console → Functions
-2. Click on function name
-3. View "Logs" tab
+Check cleanup status in:
+- Audit Logs page → Archives tab (view summaries)
+- Browser console (cleanup logs)
+- GitHub Actions logs (if using Option 2)
+- Vercel logs (if using Option 3)
 
-Or use CLI:
-```bash
-firebase functions:log
-```
+---
 
-## Firestore Rules for Archives
+## Cost Comparison
 
-Add to `firestore.rules`:
+| Option | Cost | Reliability | Setup Difficulty |
+|--------|------|-------------|------------------|
+| Client-Side | $0 | Medium | Easy |
+| GitHub Actions | $0 | High | Medium |
+| Vercel Cron | $0 | High | Easy |
+| EasyCron | $0 | High | Medium |
+| Firebase Functions | $0-25/mo | High | Easy |
 
-```javascript
-// Audit log archives - admin read-only
-match /audit_log_archives/{archiveId} {
-  allow read: if request.auth != null && 
-    get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
-  allow write: if false; // Only Cloud Functions can write
-}
-```
+---
 
-## Troubleshooting
+## Files Created
 
-### Function not running on schedule
-- Check Firebase Console → Functions → Logs for errors
-- Verify billing is enabled (required for scheduled functions)
-- Check function deployment status
+- `src/utils/clientCleanup.js` - Client-side cleanup logic
+- `scripts/cleanup-audit-logs.js` - Standalone cleanup script
+- `api/cleanup.js` - API endpoint for external cron
+- `.github/workflows/cleanup.yml` - GitHub Actions workflow (optional)
 
-### Permission errors
-- Ensure Firebase Admin SDK has proper permissions
-- Check service account roles in Google Cloud Console
-
-### Testing locally
-```bash
-cd functions
-npm test
-```
-
-## Future Enhancements
-
-Consider adding:
-- Email notifications for cleanup summaries
-- Configurable retention periods via environment variables
-- Cleanup for other collections (notifications, bookmarks, etc.)
-- Export to Cloud Storage before deletion
+All files are ready to use based on your chosen option!

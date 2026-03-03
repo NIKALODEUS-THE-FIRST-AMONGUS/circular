@@ -8,6 +8,7 @@ import {
     Calendar, User, FileText, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { runCleanupTasks } from '../utils/clientCleanup';
 
 /**
  * Audit Logs Page - View all system activity and deleted items
@@ -33,6 +34,24 @@ const AuditLogs = () => {
             navigate('/dashboard');
         }
     }, [profile, navigate, notify]);
+
+    // Run automated cleanup in background (admins only, once per day)
+    useEffect(() => {
+        if (profile?.role === 'admin') {
+            // Run cleanup in background without blocking UI
+            runCleanupTasks().then(result => {
+                if (result.success && !result.skipped) {
+                    console.log('🧹 Automated cleanup completed:', result);
+                    // Optionally show a subtle notification
+                    if (result.audit_logs?.deleted > 0 || result.deleted_circulars?.deleted > 0) {
+                        notify(`Cleanup: ${result.audit_logs?.deleted || 0} logs, ${result.deleted_circulars?.deleted || 0} circulars removed`, 'info');
+                    }
+                }
+            }).catch(err => {
+                console.error('Cleanup error:', err);
+            });
+        }
+    }, [profile, notify]);
 
     // Load data
     useEffect(() => {
