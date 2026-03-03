@@ -784,11 +784,11 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                             initial={{ scale: 0.95, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800 w-full max-w-xl my-auto"
+                            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800 w-full max-w-xl max-h-[90vh]"
                             onClick={e => e.stopPropagation()}
                         >
                             {/* Modal Body - Auto-scaling */}
-                            <div className="p-8 space-y-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+                            <div className="p-8 space-y-6 overflow-y-auto flex-1">
                                 {/* Title */}
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400">Hi guys</h3>
