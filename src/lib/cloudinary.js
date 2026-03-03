@@ -4,12 +4,19 @@
  * Works with React 19+
  */
 
+import { retryWithBackoff, isRetryableError } from '../utils/retryWithBackoff';
+
 /**
- * Upload an image to Cloudinary
+ * Upload an image to Cloudinary with retry logic
  * @param {File} file - Image file to upload
+ * @param {Object} options - Upload options
+ * @param {number} options.maxRetries - Maximum retry attempts (default: 3)
+ * @param {Function} options.onProgress - Progress callback
  * @returns {Promise<{url: string, error: null} | {url: null, error: Error}>}
  */
-export async function uploadToCloudinary(file) {
+export async function uploadToCloudinary(file, options = {}) {
+  const { maxRetries = 3, onProgress } = options;
+
   try {
     // Get Cloudinary config from environment
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -19,35 +26,50 @@ export async function uploadToCloudinary(file) {
       throw new Error('Cloudinary configuration missing. Please set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
     }
 
-    // Create form data
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', uploadPreset);
-    
-    // Optional: Add folder organization
-    formData.append('folder', 'circular-attachments');
-    
-    // Optional: Add tags for organization
-    formData.append('tags', 'circular,attachment');
-    
-    // Add transformation for optimization during upload
-    formData.append('transformation', 'q_auto:good,f_auto,w_1200,c_limit');
+    // Upload with retry logic
+    const data = await retryWithBackoff(
+      async () => {
+        // Create form data
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset);
+        
+        // Optional: Add folder organization
+        formData.append('folder', 'circular-attachments');
+        
+        // Optional: Add tags for organization
+        formData.append('tags', 'circular,attachment');
+        
+        // Add transformation for optimization during upload
+        formData.append('transformation', 'q_auto:good,f_auto,w_1200,c_limit');
 
-    // Upload to Cloudinary
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        // Upload to Cloudinary
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          {
+            method: 'POST',
+            body: formData
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          const err = new Error(error.error?.message || 'Upload failed');
+          err.status = response.status;
+          throw err;
+        }
+
+        return await response.json();
+      },
       {
-        method: 'POST',
-        body: formData
+        maxRetries,
+        shouldRetry: isRetryableError,
+        onRetry: ({ attempt, maxRetries: max, delay, error }) => {
+          console.warn(`Upload retry ${attempt}/${max} after ${delay}ms:`, error.message);
+          onProgress?.({ status: 'retrying', attempt, maxRetries: max });
+        },
       }
     );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Upload failed');
-    }
-
-    const data = await response.json();
 
     // Return optimized URL with automatic format, quality, and size limit
     const optimizedUrl = data.secure_url.replace(
