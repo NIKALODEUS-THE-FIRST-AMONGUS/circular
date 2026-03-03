@@ -777,18 +777,18 @@ const CircularCard = ({ circular, profile, onDelete, onUpdate }) => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/40"
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
                         onClick={() => !saving && setShowEditModal(false)}
                     >
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 24 }}
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 24 }}
-                            className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800 w-full max-w-xl"
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800 w-full max-w-xl my-auto"
                             onClick={e => e.stopPropagation()}
                         >
                             {/* Modal Body - Auto-scaling */}
-                            <div className="p-8 space-y-6 max-h-[85vh] overflow-y-auto">
+                            <div className="p-8 space-y-6 overflow-y-auto max-h-[calc(100vh-120px)]">
                                 {/* Title */}
                                 <div className="space-y-1">
                                     <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400">Hi guys</h3>
