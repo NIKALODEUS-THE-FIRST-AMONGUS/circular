@@ -5,7 +5,6 @@ import { getDocuments, deleteDocument } from '../lib/firebase-db';
 import { useAuth } from '../hooks/useAuth';
 import { useNotify } from '../components/Toaster';
 import SelectableCircularCard from '../components/SelectableCircularCard';
-import VirtualizedCircularList from '../components/VirtualizedCircularList';
 import CircularList from '../components/CircularList';
 import CircularFilterDropdown from '../components/CircularFilterDropdown';
 import CircularStats from '../components/CircularStats';
