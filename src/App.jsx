@@ -10,6 +10,7 @@ import { ToastProvider } from './components/Toaster';
 import { setupGlobalErrorHandling } from './utils/errorTracking';
 import { performanceMonitor } from './utils/performanceMonitor';
 import OfflineBanner from './components/OfflineBanner';
+import AccessibilityHelper from './components/AccessibilityHelper';
 
 // Lazy load pages for better performance on slow networks
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -87,6 +88,7 @@ function App() {
           <ThemeProvider>
             <LanguageProvider>
               <NetworkProvider>
+                <AccessibilityHelper />
                 <OfflineBanner />
                 <AppContent />
               </NetworkProvider>
