@@ -3,14 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Calendar, User, Paperclip, ExternalLink, ShieldAlert, Share2,
-    ChevronDown, ChevronUp, ChevronRight, Clock, Tag, Pencil, Trash2, X, Check,
-    AlertTriangle, Loader2, Download, FileText, FileImage, FileSpreadsheet,
+    ChevronRight, Clock, Tag, Pencil, Trash2, Check,
+    AlertTriangle, Loader2, FileText, FileImage, FileSpreadsheet,
     FileArchive, Film, Music, File, TrendingDown, Users, Maximize2, Trash,
-    Eye, Shield
+    Shield
 } from 'lucide-react';
 import { createDocument, deleteCircular } from '../lib/firebase-db';
 import { useNotify as useToast } from './Toaster';
 import { optimizeCloudinaryUrl } from '../lib/cloudinary';
+import { SimpleX, SimpleChevronDown, SimpleChevronUp, SimpleTrash, SimpleDownload, SimpleEye } from './Icons';
 
 const DEPTS = ['ALL', 'CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
 
@@ -191,7 +192,7 @@ const PDFDownloader = ({ pdfUrls, circularId, userId, onDownloadRecorded }) => {
                         animate={{ rotate: isOpen ? 180 : 0 }}
                         transition={{ duration: 0.2 }}
                     >
-                        <ChevronDown size={14} />
+                        <SimpleChevronDown size={14} />
                     </motion.div>
                 </div>
             </div>
