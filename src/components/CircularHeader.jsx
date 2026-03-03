@@ -34,23 +34,15 @@ const CircularHeader = memo(({
           >
             .
           </motion.span>
-          {/* Small Indian Flag */}
-          <motion.div 
+          {/* Indian Flag SVG */}
+          <motion.img 
+            src="/indian-flag.svg"
+            alt="Indian Flag"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="inline-flex h-8 w-12 rounded-md overflow-hidden shadow-md border-2 border-border-light/50 ml-2 relative"
-          >
-            <div className="h-full w-full flex flex-col">
-              <div className="h-[33.33%] bg-[#FF9933]"></div>
-              <div className="h-[33.33%] bg-white relative flex items-center justify-center">
-                <div className="absolute w-4 h-4 rounded-full border-2 border-[#000080] flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#000080]"></div>
-                </div>
-              </div>
-              <div className="h-[33.33%] bg-[#138808]"></div>
-            </div>
-          </motion.div>
+            className="h-8 w-12 rounded-md shadow-md border-2 border-border-light/50 ml-2"
+          />
         </h1>
         <p className="text-text-muted font-semibold text-base md:text-lg max-w-2xl leading-relaxed">
           {profile?.role === 'admin'
