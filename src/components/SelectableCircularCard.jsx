@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { CheckSquare, Square } from 'lucide-react';
 import CircularCard from './CircularCard';
@@ -61,4 +62,11 @@ const SelectableCircularCard = ({
     );
 };
 
-export default SelectableCircularCard;
+export default memo(SelectableCircularCard, (prevProps, nextProps) => {
+    // Custom comparison: only re-render if circular data or selection state changes
+    return (
+        prevProps.circular.id === nextProps.circular.id &&
+        prevProps.isSelected === nextProps.isSelected &&
+        prevProps.selectionMode === nextProps.selectionMode
+    );
+});

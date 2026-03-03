@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Star, MessageCircle, CheckCircle, Send, Trash2, X,
@@ -260,4 +260,4 @@ const CircularFeatures = ({ circular }) => {
     );
 };
 
-export default CircularFeatures;
+export default memo(CircularFeatures);
