@@ -40,9 +40,6 @@ export async function uploadToCloudinary(file, options = {}) {
         // Optional: Add tags for organization
         formData.append('tags', 'circular,attachment');
         
-        // Add transformation for optimization during upload
-        formData.append('transformation', 'q_auto:good,f_auto,w_1200,c_limit');
-
         // Upload to Cloudinary
         const response = await fetch(
           `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
