@@ -341,10 +341,10 @@ const CircularDetail = () => {
             return;
         }
 
-        // Validate file sizes (max 5MB per file)
-        const oversizedFiles = files.filter(f => f.size > 5 * 1024 * 1024);
+        // Validate file sizes (max 50MB per file)
+        const oversizedFiles = files.filter(f => f.size > 50 * 1024 * 1024);
         if (oversizedFiles.length > 0) {
-            notify('⚠️ Files must be smaller than 5MB', 'error');
+            notify('⚠️ Files must be smaller than 50MB', 'error');
             return;
         }
 

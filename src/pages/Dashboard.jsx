@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import RoleGuard from '../components/RoleGuard';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { getBrandName, getSlogan } from '../config/branding';
 import {
     Bell, Settings as SettingsIcon, LogOut, ShieldAlert,
@@ -35,6 +36,13 @@ const Approvals = lazy(() => import('./Approvals'));
 const CircularDetail = lazy(() => import('./CircularDetail'));
 const ProfilePage = lazy(() => import('./ProfilePage'));
 const AuditLogs = lazy(() => import('./AuditLogs'));
+const DiagnosticTool = lazy(() => import('./DiagnosticTool'));
+
+const DashboardMobileV2 = lazy(() => import('./mobile/DashboardMobileV2'));
+const CircularDetailMobile = lazy(() => import('./mobile/CircularDetailMobile'));
+const CreateCircularMobile = lazy(() => import('./mobile/CreateCircularMobile'));
+const AddMemberMobile = lazy(() => import('./mobile/AddMemberMobile'));
+const ActivityCloudMobile = lazy(() => import('./mobile/ActivityCloudMobile'));
 
 // Compact Logo for Headers
 const HeaderLogo = () => {
@@ -111,6 +119,7 @@ const Dashboard = () => {
     const { language } = useLanguage();
     const location = useLocation();
     const notify = useNotify();
+    const isMobile = useIsMobile();
 
     const [showNotifications, setShowNotifications] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -357,7 +366,8 @@ const Dashboard = () => {
                 onClick={() => setIsSidebarOpen(false)}
             />
 
-            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+            {/* Hide sidebar on mobile - mobile has its own nav */}
+            {!isMobile && <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />}
 
             <main id="main-content" className={`flex-1 flex flex-col relative min-w-0 bg-bg-light/50 backdrop-blur-sm ${isSidebarOpen ? 'active' : ''}`}>
                 <AnimatePresence>
@@ -390,41 +400,44 @@ const Dashboard = () => {
                     )}
                 </AnimatePresence>
 
-                <header className="h-14 lg:hidden flex-shrink-0 bg-bg-light border-b border-border-light flex items-center justify-between px-4 z-40 relative">
-                    {/* Tricolor accent at top */}
-                    <div className="absolute top-0 left-0 right-0 h-[2px] flex">
-                        <div className="flex-1 bg-[#FF9933]" />
-                        <div className="flex-1 bg-white" />
-                        <div className="flex-1 bg-[#138808]" />
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                        <label className="hamburger scale-75">
-                            <input
-                                type="checkbox"
-                                checked={isSidebarOpen}
-                                onChange={(e) => setIsSidebarOpen(e.target.checked)}
-                            />
-                            <svg viewBox="0 0 32 32">
-                                <path className="line line-top-bottom" d="M27 10 13 10C10.8 10 9 8.2 9 6 9 3.5 10.8 2 13 2 15.2 2 17 3.8 17 6L17 26C17 28.2 18.8 30 21 30 23.2 30 25 28.2 25 26 25 23.8 23.2 22 21 22L7 22"></path>
-                                <path className="line" d="M7 16 27 16"></path>
-                            </svg>
-                        </label>
-                        <HeaderLogo />
-                    </div>
+                {/* Mobile header - hidden when using mobile layout */}
+                {!isMobile && (
+                    <header className="h-14 lg:hidden flex-shrink-0 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-4 z-40 relative">
+                        {/* Tricolor accent at top */}
+                        <div className="absolute top-0 left-0 right-0 h-[2px] flex">
+                            <div className="flex-1 bg-[#FF9933]" />
+                            <div className="flex-1 bg-white" />
+                            <div className="flex-1 bg-[#138808]" />
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <label className="hamburger scale-75 hamburger-white">
+                                <input
+                                    type="checkbox"
+                                    checked={isSidebarOpen}
+                                    onChange={(e) => setIsSidebarOpen(e.target.checked)}
+                                />
+                                <svg viewBox="0 0 32 32">
+                                    <path className="line line-top-bottom" d="M27 10 13 10C10.8 10 9 8.2 9 6 9 3.5 10.8 2 13 2 15.2 2 17 3.8 17 6L17 26C17 28.2 18.8 30 21 30 23.2 30 25 28.2 25 26 25 23.8 23.2 22 21 22L7 22"></path>
+                                    <path className="line" d="M7 16 27 16"></path>
+                                </svg>
+                            </label>
+                            <HeaderLogo />
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleNotificationPanelOpen}
-                            className={`h-9 w-9 flex items-center justify-center rounded-full hover:bg-surface-light text-text-muted relative ${bellShaking ? 'animate-shake' : ''}`}
-                        >
-                            <Bell size={18} />
-                            {(unreadCount > 0 || (profile?.role === 'admin' && statsForNotifs?.pendingApprovals > 0)) && (
-                                <div className="absolute top-2 right-2 h-1.5 w-1.5 bg-danger rounded-full border-2 border-bg-light" />
-                            )}
-                        </button>
-                    </div>
-                </header>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleNotificationPanelOpen}
+                                className={`h-9 w-9 flex items-center justify-center rounded-full hover:bg-slate-800 text-white relative ${bellShaking ? 'animate-shake' : ''}`}
+                            >
+                                <Bell size={18} />
+                                {(unreadCount > 0 || (profile?.role === 'admin' && statsForNotifs?.pendingApprovals > 0)) && (
+                                    <div className="absolute top-2 right-2 h-1.5 w-1.5 bg-red-500 rounded-full border-2 border-slate-900" />
+                                )}
+                            </button>
+                        </div>
+                    </header>
+                )}
 
                 <header className="h-16 hidden lg:flex flex-shrink-0 bg-bg-light border-b border-border-light items-center justify-between px-8 z-40 relative">
                     {/* Tricolor accent at top */}
@@ -650,7 +663,7 @@ const Dashboard = () => {
                         )}
                     </AnimatePresence>
 
-                    <div className="max-w-5xl mx-auto px-6 py-10">
+                    <div className={`w-full ${isMobile ? '' : 'max-w-5xl mx-auto px-6 py-10'}`}>
                         <AnimatePresence mode="wait" initial={false}>
                             <motion.div
                                 key={location.pathname}
@@ -670,11 +683,11 @@ const Dashboard = () => {
                                     </div>
                                 }>
                                     <Routes location={location}>
-                                        <Route index element={<CircularCenter />} />
-                                        <Route path="center/:id" element={<CircularDetail />} />
+                                        <Route index element={isMobile ? <DashboardMobileV2 /> : <CircularCenter />} />
+                                        <Route path="center/:id" element={isMobile ? <CircularDetailMobile /> : <CircularDetail />} />
                                         <Route path="create" element={
                                             <RoleGuard allowedRoles={['admin', 'teacher']}>
-                                                <CreateCircular />
+                                                {isMobile ? <CreateCircularMobile /> : <CreateCircular />}
                                             </RoleGuard>
                                         } />
                                         <Route path="drafts" element={
@@ -700,7 +713,7 @@ const Dashboard = () => {
                                         } />
                                         <Route path="add-member" element={
                                             <RoleGuard allowedRoles={['admin']}>
-                                                <AddMember />
+                                                {isMobile ? <AddMemberMobile /> : <AddMember />}
                                             </RoleGuard>
                                         } />
                                         <Route path="search-members" element={
@@ -711,7 +724,12 @@ const Dashboard = () => {
                                         <Route path="profile" element={<ProfilePage />} />
                                         <Route path="audit-logs" element={
                                             <RoleGuard allowedRoles={['admin']}>
-                                                <AuditLogs />
+                                                {isMobile ? <ActivityCloudMobile /> : <AuditLogs />}
+                                            </RoleGuard>
+                                        } />
+                                        <Route path="diagnostic" element={
+                                            <RoleGuard allowedRoles={['admin']}>
+                                                <DiagnosticTool />
                                             </RoleGuard>
                                         } />
                                         <Route path="*" element={<Navigate to="/dashboard" replace />} />

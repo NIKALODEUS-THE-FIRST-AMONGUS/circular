@@ -143,7 +143,7 @@ const CreateCircular = () => {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ];
         
-        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
         
         // Validate files before adding
         const validFiles = [];
@@ -152,7 +152,7 @@ const CreateCircular = () => {
         sel.forEach(file => {
             // Check file size
             if (file.size > MAX_FILE_SIZE) {
-                errors.push(`${file.name} exceeds 5MB limit`);
+                errors.push(`${file.name} exceeds 50MB limit`);
                 return;
             }
             

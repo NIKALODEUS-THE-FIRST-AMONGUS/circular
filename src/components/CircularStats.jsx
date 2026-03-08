@@ -28,7 +28,7 @@ const CircularStats = memo(({
             className="group relative p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 hover:border-primary hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 min-w-[140px]"
             aria-label={`View ${stats.pendingApprovals || 0} pending approvals`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary/70 group-hover:text-primary transition-colors">Waitlist</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary/70 group-hover:text-primary transition-colors">Approvals</p>
             <p className="text-5xl font-black tracking-tighter mt-2 text-primary">{stats.pendingApprovals || 0}</p>
           </RouterLink>
           <div 

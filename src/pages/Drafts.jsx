@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { getDocuments, deleteCircular } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
+import { useIsMobile } from '../hooks/useIsMobile';
+import DraftsMobile from './mobile/DraftsMobile';
 import {
     FileText, Trash2, Edit3, Clock, AlertCircle, Loader2, Eye, Sparkles,
     Calendar, Tag, ChevronRight, X
@@ -14,6 +16,7 @@ const Drafts = () => {
     const { user } = useAuth();
     const notify = useNotify();
     const navigate = useNavigate();
+    const isMobile = useIsMobile();
     
     const [drafts, setDrafts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -45,6 +48,11 @@ const Drafts = () => {
         fetchDrafts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
+
+    // Mobile view
+    if (isMobile) {
+        return <DraftsMobile />;
+    }
 
     const handleDelete = async (id) => {
         setDeleting(id);

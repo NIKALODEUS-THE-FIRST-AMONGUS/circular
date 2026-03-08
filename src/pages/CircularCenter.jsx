@@ -180,6 +180,22 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
 
             let allCirculars = await getDocuments('circulars', filters);
 
+            // Filter out ghost circulars - documents that appear in queries but don't have valid data
+            const GHOST_IDS = ['dOgZ9Aks5NjHXsMOFQ9L']; // Known ghost circular IDs
+            allCirculars = allCirculars.filter(circular => {
+                // Exclude known ghost IDs
+                if (GHOST_IDS.includes(circular.id)) {
+                    console.warn('Filtering out ghost circular:', circular.id);
+                    return false;
+                }
+                // Must have required fields to be valid
+                if (!circular.id || !circular.title || !circular.created_at) {
+                    console.warn('Filtering out invalid circular:', circular.id);
+                    return false;
+                }
+                return true;
+            });
+
             // Client-side filtering (Firebase doesn't support all Supabase query operations)
             allCirculars = allCirculars.filter(circular => {
                 // Department filter

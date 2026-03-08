@@ -103,7 +103,7 @@ const ProfilePage = () => {
             const fileExt = file.name.split('.').pop().toLowerCase();
             const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
             if (!allowedExtensions.includes(fileExt)) throw new Error("Invalid format.");
-            if (file.size > 2 * 1024 * 1024) throw new Error("Max 2MB.");
+            if (file.size > 10 * 1024 * 1024) throw new Error("Max 10MB.");
 
             // Use Cloudinary for avatar uploads (free 25GB, automatic optimization)
             const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
