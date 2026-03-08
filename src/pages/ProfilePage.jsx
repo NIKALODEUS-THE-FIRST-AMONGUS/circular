@@ -119,8 +119,6 @@ const ProfilePage = () => {
             formData.append('file', file);
             formData.append('upload_preset', uploadPreset);
             formData.append('folder', 'avatars');
-            // Add transformation for avatar optimization (small size, good quality)
-            formData.append('transformation', 'w_400,h_400,c_fill,q_auto:good,f_auto,g_face');
 
             const response = await fetch(
                 `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
