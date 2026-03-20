@@ -6,7 +6,7 @@ import { Calendar, SortAsc, User, Filter, X } from 'lucide-react';
  * Advanced Filters Component
  * Date range, sort options, author filter
  */
-const AdvancedFilters = ({ onApply, onClear }) => {
+const AdvancedFilters = ({ onApply, onClear, isStudent = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [filters, setFilters] = useState({
         dateRange: 'all', // all, today, week, month, custom
@@ -133,7 +133,7 @@ const AdvancedFilters = ({ onApply, onClear }) => {
                                 >
                                     <option value="newest">Newest First</option>
                                     <option value="oldest">Oldest First</option>
-                                    <option value="most_viewed">Most Viewed</option>
+                                    {!isStudent && <option value="most_viewed">Most Viewed</option>}
                                 </select>
                             </div>
 

@@ -20,53 +20,28 @@ self.addEventListener('message', (event) => {
             try {
                 firebaseApp = firebase.initializeApp(event.data.config);
                 messaging = firebase.messaging();
-            } catch {
-                // Already initialized, ignore
+                
+                // Background message handler
+                messaging.onBackgroundMessage((payload) => {
+                    const notificationTitle = payload.notification?.title || 'New Circular';
+                    const notificationOptions = {
+                        body: payload.notification?.body || 'A new circular has been posted',
+                        icon: '/vite.svg',
+                        badge: '/vite.svg',
+                        tag: 'circular-notification',
+                        requireInteraction: false,
+                        data: {
+                            url: payload.data?.url || '/dashboard'
+                        }
+                    };
+                    return self.registration.showNotification(notificationTitle, notificationOptions);
+                });
+            } catch (err) {
+                console.error("Firebase SW init failed:", err);
             }
         }
     }
 });
-
-// Get messaging instance (will be initialized by message event)
-const getMessaging = () => {
-    if (!messaging && firebaseApp) {
-        messaging = firebase.messaging();
-    }
-    return messaging;
-};
-
-// Handle background messages
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'FIREBASE_CONFIG') {
-        // Config handling is above
-        return;
-    }
-});
-
-// Background message handler
-const handleBackgroundMessage = () => {
-    const msg = getMessaging();
-    if (!msg) return;
-    
-    msg.onBackgroundMessage((payload) => {
-        const notificationTitle = payload.notification?.title || 'New Circular';
-        const notificationOptions = {
-            body: payload.notification?.body || 'A new circular has been posted',
-            icon: '/vite.svg',
-            badge: '/vite.svg',
-            tag: 'circular-notification',
-            requireInteraction: false,
-            data: {
-                url: payload.data?.url || '/dashboard'
-            }
-        };
-
-        return self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-};
-
-// Initialize background message handler after a delay
-setTimeout(handleBackgroundMessage, 1000);
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {

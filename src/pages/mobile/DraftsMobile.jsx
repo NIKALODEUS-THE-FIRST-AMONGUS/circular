@@ -5,14 +5,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { getDocuments } from '../../lib/firebase-db';
+import { getDocuments, deleteCircular } from '../../lib/firebase-db';
 import { useNotify } from '../../components/Toaster';
+import { useConfirm } from '../../components/ConfirmDialog';
 import { 
     Menu, Bell, Search, Plus, Home, FileText, Users, Settings,
-    CheckCircle, MessageSquare, LogOut, Clock, ChevronRight
+    CheckCircle, MessageSquare, LogOut, Clock, ChevronRight, Trash2
 } from 'lucide-react';
-import MobileSidebar from '../../components/MobileSidebar';
-import MobileTopBar from '../../components/MobileTopBar';
+import BottomNav from '../../components/BottomNav';
 
 // Add animations and styles
 const style = document.createElement('style');
@@ -42,11 +42,11 @@ const DraftsMobile = () => {
     const { profile, user } = useAuth();
     const navigate = useNavigate();
     const notify = useNotify();
+    const confirm = useConfirm();
     
     const [drafts, setDrafts] = useState([]);
     const [stats, setStats] = useState({ waitlist: 0, totalUsers: 0 });
     const [loading, setLoading] = useState(true);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         fetchDrafts();
@@ -75,31 +75,42 @@ const DraftsMobile = () => {
                 });
                 setStats({ waitlist: pendingProfiles.length, totalUsers: 0 });
             }
-        } catch (err) {
-            console.error('Error fetching drafts:', err);
+        } catch (_err) {
+            console.error('Error fetching drafts:', _err);
             notify('Failed to load drafts', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleDelete = async (e, draftId) => {
+        e.stopPropagation(); // Prevent navigation to edit page
+        
+        const ok = await confirm({
+            title: 'Delete Draft?',
+            message: 'Are you sure you want to permanently remove this draft? This action cannot be undone.',
+            type: 'danger',
+            confirmText: 'Delete Draft',
+            cancelText: 'Keep it'
+        });
+        
+        if (!ok) return;
+        
+        try {
+            setLoading(true);
+            await deleteCircular(draftId);
+            notify('Draft deleted successfully', 'success');
+            await fetchDrafts(); // Refresh list
+        } catch (error) {
+            console.error('Error deleting draft:', error);
+            notify('Failed to delete draft', 'error');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            <MobileSidebar 
-                isOpen={isSidebarOpen} 
-                onClose={() => setIsSidebarOpen(false)} 
-                profile={profile} 
-                user={user} 
-                stats={stats}
-            />
-
-            {/* Top Navbar with Hamburger - Common MobileTopBar */}
-            <MobileTopBar 
-                onMenuClick={() => setIsSidebarOpen(true)}
-                profile={profile}
-                user={user}
-                waitlistCount={stats.waitlist}
-            />
+        <div className="min-h-screen bg-[#fcfbfb] dark:bg-[#0d1117] font-sans flex flex-col">
 
             {/* Content Area */}
             <main className="flex-1 overflow-y-auto">
@@ -293,10 +304,16 @@ const DraftsMobile = () => {
                                                 {draft.content || 'No content yet...'}
                                             </p>
                                         </div>
-                                        <div className="ml-3 flex-shrink-0">
+                                        <div className="ml-3 flex flex-col gap-2 flex-shrink-0">
                                             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
                                                 <FileText className="w-5 h-5 text-slate-400" />
                                             </div>
+                                            <button 
+                                                onClick={(e) => handleDelete(e, draft.id)}
+                                                className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 active:scale-90 transition-all"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </div>
 
@@ -336,46 +353,7 @@ const DraftsMobile = () => {
             </main>
 
             {/* Bottom Navigation Bar */}
-            <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/80 backdrop-blur-md px-6 py-3 pb-6 z-50">
-                <div className="flex items-center justify-between">
-                    {/* Home */}
-                    <button 
-                        onClick={() => navigate('/dashboard')}
-                        className="flex flex-col items-center gap-1 text-slate-400 opacity-60 hover:opacity-100 hover:text-[#FF6B35] transition-all duration-300"
-                    >
-                        <Home className="w-6 h-6" />
-                        <span className="text-[10px] font-medium uppercase tracking-tighter">Home</span>
-                    </button>
-
-                    {/* Drafts (Active) */}
-                    <button 
-                        onClick={() => navigate('/dashboard/drafts')}
-                        className="flex flex-col items-center gap-1 text-[#FF6B35] relative"
-                    >
-                        <FileText className="w-6 h-6" fill="currentColor" />
-                        <span className="text-[10px] font-bold uppercase tracking-tighter">Drafts</span>
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-[#FF6B35] rounded-full"></div>
-                    </button>
-
-                    {/* Members */}
-                    <button 
-                        onClick={() => navigate('/dashboard/manage-users')}
-                        className="flex flex-col items-center gap-1 text-slate-400 opacity-60 hover:opacity-100 hover:text-[#FF6B35] transition-all duration-300"
-                    >
-                        <Users className="w-6 h-6" />
-                        <span className="text-[10px] font-medium uppercase tracking-tighter">Members</span>
-                    </button>
-
-                    {/* Settings */}
-                    <button 
-                        onClick={() => navigate('/dashboard/profile')}
-                        className="flex flex-col items-center gap-1 text-slate-400 opacity-60 hover:opacity-100 hover:text-[#FF6B35] transition-all duration-300"
-                    >
-                        <Settings className="w-6 h-6" />
-                        <span className="text-[10px] font-medium uppercase tracking-tighter">Settings</span>
-                    </button>
-                </div>
-            </nav>
+            <BottomNav notifCount={stats?.waitlist || 0} />
         </div>
     );
 };

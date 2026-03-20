@@ -11,24 +11,28 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    function hasProfile() {
+      return exists(/databases/$(database)/documents/profiles/$(request.auth.uid));
+    }
+    
     function getProfile() {
       return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data;
     }
     
     function isAdmin() {
-      return isAuthenticated() && getProfile().role == 'admin';
+      return isAuthenticated() && hasProfile() && getProfile().role == 'admin';
     }
     
     function isDeptAdmin() {
-      return isAuthenticated() && getProfile().role == 'dept_admin';
+      return isAuthenticated() && hasProfile() && getProfile().role == 'dept_admin';
     }
     
     function isTeacher() {
-      return isAuthenticated() && (getProfile().role == 'teacher' || getProfile().role == 'admin' || getProfile().role == 'dept_admin');
+      return isAuthenticated() && hasProfile() && (getProfile().role == 'teacher' || getProfile().role == 'admin' || getProfile().role == 'dept_admin');
     }
     
     function isActive() {
-      return isAuthenticated() && getProfile().status == 'active';
+      return isAuthenticated() && hasProfile() && (getProfile().status == 'active' || getProfile().status == 'skipped');
     }
     
     // Rate limiting: max 10 writes per minute per user
@@ -49,7 +53,7 @@ service cloud.firestore {
     
     // Circulars collection
     match /circulars/{circularId} {
-      allow read: if isAuthenticated() && isActive();
+      allow read: if isAuthenticated() && isActive(); // Status filtering is handled client-side to avoid composite index requirements
       allow create: if isTeacher() && isActive() && 
                       // Rate limit: max 10 circulars per hour per user
                       request.resource.data.author_id == request.auth.uid;
@@ -81,9 +85,10 @@ service cloud.firestore {
     
     // Circular views (analytics)
     match /circular_views/{viewId} {
-      allow read: if isTeacher() || isAdmin();
+      // Only staff can see who viewed what
+      allow read: if isTeacher() || isAdmin() || isDeptAdmin();
       allow create: if isAuthenticated() && isActive();
-      allow update, delete: if false; // Views are immutable
+      allow update, delete: if false;
     }
     
     // Circular history (edit history)
@@ -111,8 +116,7 @@ service cloud.firestore {
     
     // Feedback
     match /feedback/{feedbackId} {
-      allow read: if isAdmin() || 
-                    (isAuthenticated() && resource.data.user_id == request.auth.uid);
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && 
                       request.resource.data.user_id == request.auth.uid;
       allow update: if isAdmin();
@@ -155,7 +159,8 @@ service cloud.firestore {
     
     // Circular downloads (analytics/tracking)
     match /circular_downloads/{downloadId} {
-      allow read: if isTeacher() || isAdmin();
+      allow read: if isTeacher() || isAdmin() || 
+                    (isAuthenticated() && resource.data.user_id == request.auth.uid);
       allow create: if isAuthenticated();
       allow update, delete: if false; // Downloads are immutable
     }

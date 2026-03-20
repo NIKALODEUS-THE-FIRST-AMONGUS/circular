@@ -14,7 +14,7 @@ const globalCache = {
  * @param {Object} options - { staleTime: ms, onSuccess: fn }
  */
 export const useCachedQuery = (key, fetchFn, options = {}) => {
-    const { staleTime = 5 * 60 * 1000, onSuccess } = options;
+    const { staleTime = 5 * 60 * 1000, onSuccess, enabled = true } = options;
 
     const [data, setData] = useState(globalCache.data[key] || null);
     const [isLoading, setIsLoading] = useState(!globalCache.data[key]);
@@ -55,21 +55,24 @@ export const useCachedQuery = (key, fetchFn, options = {}) => {
     }, [key, fetchFn, onSuccess]);
 
     useEffect(() => {
+        // Don't fetch if explicitly disabled (e.g. pending user, profile not loaded)
+        if (!enabled) {
+            setIsLoading(false);
+            return;
+        }
+
         const cachedData = globalCache.data[key];
         const lastFetch = globalCache.timestamp[key] || 0;
         const isStale = Date.now() - lastFetch > staleTime;
 
         if (!cachedData || isStale) {
-            // Fetch in background if we have cached data (even if stale)
             fetchData(!!cachedData);
         } else {
-            // Already have fresh data, just ensure local state is synced
             setData(cachedData);
             setIsLoading(false);
-            // Still call onSuccess to update parent component
             if (onSuccess && cachedData) onSuccess(cachedData);
         }
-    }, [key, staleTime, fetchData, onSuccess]);
+    }, [key, staleTime, fetchData, onSuccess, enabled]);
 
     return {
         data,

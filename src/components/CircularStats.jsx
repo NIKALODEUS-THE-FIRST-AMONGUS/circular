@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -12,6 +12,34 @@ const CircularStats = memo(({
   stats = {},
   circulars = [],
 }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (profile?.role !== 'student' && profile?.role !== 'teacher') return;
+    
+    // Function to calculate unread from localStorage
+    const calculateUnread = () => {
+        if (!profile?.id) return;
+        const readList = JSON.parse(localStorage.getItem(`read_notifications_${profile.id}`) || '[]');
+        const unread = circulars.filter(c => !readList.includes(c.id)).length;
+        setUnreadCount(unread);
+    };
+
+    // Calculate immediately
+    calculateUnread();
+
+    // Listen for custom mark-as-read events or cross-tab storage changes
+    const handleStorageChange = () => calculateUnread();
+    
+    window.addEventListener('circularRead', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+        window.removeEventListener('circularRead', handleStorageChange);
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [circulars, profile?.id, profile?.role]);
+
   if (!profile) return null;
 
   return (
@@ -25,54 +53,54 @@ const CircularStats = memo(({
         <>
           <RouterLink 
             to="/dashboard/approvals" 
-            className="group relative p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 hover:border-primary hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 min-w-[140px]"
+            className="group relative p-6 rounded-2xl bg-primary/5 hover:bg-primary/10 transition-all duration-300 min-w-[140px] text-center"
             aria-label={`View ${stats.pendingApprovals || 0} pending approvals`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary/70 group-hover:text-primary transition-colors">Approvals</p>
-            <p className="text-5xl font-black tracking-tighter mt-2 text-primary">{stats.pendingApprovals || 0}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-primary/70 group-hover:text-primary transition-colors">Approvals</p>
+            <p className="text-4xl md:text-5xl font-black tracking-tighter mt-1 text-primary">{stats.pendingApprovals || 0}</p>
           </RouterLink>
           <div 
-            className="group relative p-6 rounded-2xl bg-gradient-to-br from-success/10 to-success/5 border-2 border-success/20 hover:border-success hover:shadow-xl hover:shadow-success/20 transition-all duration-300 min-w-[140px]"
+            className="group relative p-6 rounded-2xl bg-success/5 hover:bg-success/10 transition-all duration-300 min-w-[140px] text-center"
             aria-label={`Total users: ${stats.totalUsers || 0}`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-success/70 group-hover:text-success transition-colors">Total Users</p>
-            <p className="text-5xl font-black tracking-tighter mt-2 text-success">{stats.totalUsers || 0}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-success/70 group-hover:text-success transition-colors">Total Users</p>
+            <p className="text-4xl md:text-5xl font-black tracking-tighter mt-1 text-success">{stats.totalUsers || 0}</p>
           </div>
         </>
       ) : profile.role === 'teacher' ? (
         <>
           <RouterLink 
             to="/dashboard/my-posts" 
-            className="group relative p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 hover:border-primary hover:shadow-xl hover:shadow-primary/20 transition-all duration-300 min-w-[140px]"
+            className="group relative p-6 rounded-2xl bg-primary/5 hover:bg-primary/10 transition-all duration-300 min-w-[140px] text-center"
             aria-label={`View your ${stats.myPosts || 0} posts`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary/70 group-hover:text-primary transition-colors">Posts</p>
-            <p className="text-5xl font-black tracking-tighter mt-2 text-primary">{stats.myPosts || 0}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-primary/70 group-hover:text-primary transition-colors">Posts</p>
+            <p className="text-4xl md:text-5xl font-black tracking-tighter mt-1 text-primary">{stats.myPosts || 0}</p>
           </RouterLink>
           <div 
-            className="group relative p-6 rounded-2xl bg-gradient-to-br from-warning/10 to-warning/5 border-2 border-warning/20 hover:border-warning hover:shadow-xl hover:shadow-warning/20 transition-all duration-300 min-w-[140px]"
+            className="group relative p-6 rounded-2xl bg-warning/5 hover:bg-warning/10 transition-all duration-300 min-w-[140px] text-center"
             aria-label={`${stats.todayCount || 0} broadcasts today`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-warning/70 group-hover:text-warning transition-colors">Today</p>
-            <p className="text-5xl font-black tracking-tighter mt-2 text-warning">{stats.todayCount || 0}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-warning/70 group-hover:text-warning transition-colors">Today</p>
+            <p className="text-4xl md:text-5xl font-black tracking-tighter mt-1 text-warning">{stats.todayCount || 0}</p>
           </div>
         </>
       ) : (
         <>
           <div 
-            className="group relative p-6 rounded-2xl bg-gradient-to-br from-surface-light to-bg-light border-2 border-border-light hover:border-primary/40 hover:shadow-xl transition-all duration-300 min-w-[140px]"
+            className="group relative p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300 min-w-[140px] text-center"
             aria-label={`${circulars.length} total broadcasts`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-text-muted group-hover:text-text-main transition-colors">Broadcasts</p>
-            <p className="text-5xl font-black tracking-tighter mt-2 text-text-main">{circulars.length}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-text-muted group-hover:text-text-main transition-colors">TOTAL CIRCULARS</p>
+            <p className="text-4xl md:text-5xl font-black tracking-tighter mt-1 text-text-main">{circulars.length}</p>
           </div>
           <div 
-            className="group relative p-6 rounded-2xl bg-gradient-to-br from-danger/10 to-danger/5 border-2 border-danger/20 hover:border-danger hover:shadow-xl hover:shadow-danger/20 transition-all duration-300 min-w-[140px]"
-            aria-label={`${circulars.filter(c => c.priority === 'important').length} high priority alerts`}
+            className="group relative p-6 rounded-2xl bg-amber-500/5 hover:bg-amber-500/10 transition-all duration-300 min-w-[140px] text-center"
+            aria-label={`${unreadCount} unread circulars`}
           >
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-danger/70 group-hover:text-danger transition-colors">Alerts</p>
-            <p className="text-5xl font-black tracking-tighter mt-2 text-danger">
-              {circulars.filter(c => c.priority === 'important').length}
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-500/70 group-hover:text-amber-500 transition-colors">UNREAD</p>
+            <p className="text-4xl md:text-5xl font-black tracking-tighter mt-1 text-amber-500">
+              {unreadCount}
             </p>
           </div>
         </>

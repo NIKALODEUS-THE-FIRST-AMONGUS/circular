@@ -12,6 +12,9 @@ import { useCachedQuery } from '../hooks/useCachedQuery';
 import { withAdaptiveTimeout } from '../lib/networkSpeed';
 import ProgressLoader from '../components/ProgressLoader';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
+import { useIsMobile } from '../hooks/useIsMobile';
+import BottomNav from '../components/BottomNav';
+import { useConfirm } from '../components/ConfirmDialog';
 
 const ROLES = ['all', 'student', 'teacher', 'admin'];
 const DEPARTMENTS = ['all', 'CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
@@ -19,7 +22,9 @@ const STATUSES = ['all', 'active', 'pending', 'suspended'];
 
 const SearchMembers = () => {
     const notify = useNotify();
+    const confirm = useConfirm();
     const navigate = useNavigate();
+    const isMobile = useIsMobile();
     const [searchTerm, setSearchTerm] = useState('');
     const [profileList, setProfileList] = useState([]);
     const [preApprovalList, setPreApprovalList] = useState([]);
@@ -118,15 +123,31 @@ const SearchMembers = () => {
             }
         }
 
-        // Apply search
+        // Apply smart search
         const term = searchTerm.trim().toLowerCase();
         if (term) {
-            combined = combined.filter(u =>
-                u.email?.toLowerCase().includes(term) ||
-                u.department?.toLowerCase().includes(term) ||
-                u.role?.toLowerCase().includes(term) ||
-                u.full_name?.toLowerCase().includes(term)
-            );
+            const tokens = term.split(/\s+/).filter(Boolean);
+            combined = combined.filter(u => {
+                const docStr = [
+                    u.full_name,
+                    u.email,
+                    u.department,
+                    u.role,
+                    u.status
+                ].filter(Boolean).join(" ").toLowerCase();
+                return tokens.every(tok => docStr.includes(tok));
+            });
+            
+            // Relevance sorting
+            combined.sort((a, b) => {
+                const aName = (a.full_name || "").toLowerCase();
+                const bName = (b.full_name || "").toLowerCase();
+                const aStarts = aName.startsWith(term);
+                const bStarts = bName.startsWith(term);
+                if (aStarts && !bStarts) return -1;
+                if (bStarts && !aStarts) return 1;
+                return 0;
+            });
         }
 
         return combined;
@@ -141,7 +162,16 @@ const SearchMembers = () => {
             notify("Cannot remove Master Admin.", "error");
             return;
         }
-        if (!window.confirm(`Permanently remove ${userEmail}?`)) return;
+        
+        const ok = await confirm({
+            title: 'Remove Member?',
+            message: `Are you sure you want to permanently remove ${userEmail}?`,
+            type: 'danger',
+            confirmText: 'Remove Member',
+            cancelText: 'Cancel'
+        });
+        
+        if (!ok) return;
 
         try {
             await deleteDocument('profiles', id);
@@ -153,7 +183,15 @@ const SearchMembers = () => {
     };
 
     const handleDeletePreApproval = async (targetEmail) => {
-        if (!window.confirm(`Revoke invitation for ${targetEmail}?`)) return;
+        const ok = await confirm({
+            title: 'Revoke Invitation?',
+            message: `Are you sure you want to revoke the invitation for ${targetEmail}?`,
+            type: 'danger',
+            confirmText: 'Revoke Invitation',
+            cancelText: 'Cancel'
+        });
+        
+        if (!ok) return;
         try {
             // Find the pre-approval document by email
             const preApprovals = await getDocuments('profile_pre_approvals', {
@@ -546,6 +584,8 @@ const SearchMembers = () => {
                     </table>
                 </div>
             </motion.div>
+            
+            {isMobile && <BottomNav notifCount={0} />}
         </div>
     );
 };

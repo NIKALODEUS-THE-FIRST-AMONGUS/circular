@@ -17,17 +17,22 @@ import {
 } from 'lucide-react';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
+import { useIsMobile } from '../hooks/useIsMobile';
+import BottomNav from '../components/BottomNav';
+import { useConfirm } from '../components/ConfirmDialog';
 
 const Approvals = () => {
     const notify = useNotify();
+    const confirm = useConfirm();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [actioning, setActioning] = useState(null);
+    const [actioningState, setActioningState] = useState(null);
+    const isMobile = useIsMobile();
     const [approvingAll, setApprovingAll] = useState(false);
 
     // Dynamic Progress
     const { progress, complete } = useSimulatedProgress(loading && requests.length === 0, { slowdownPoint: 85 });
-    const { progress: actionProgress, complete: completeAction } = useSimulatedProgress(!!actioning, { slowdownPoint: 90 });
+    const { progress: actionProgress, complete: completeAction } = useSimulatedProgress(!!actioningState, { slowdownPoint: 90 });
 
     const fetchRequests = useCallback(async () => {
         setLoading(true);
@@ -61,7 +66,7 @@ const Approvals = () => {
     }, [fetchRequests]);
 
     const handleApproval = async (id, email, role) => {
-        setActioning(id);
+        setActioningState(id);
         try {
             // Approve user by updating status to active
             await updateDocument('profiles', id, {
@@ -86,14 +91,22 @@ const Approvals = () => {
             notify(err.message || 'Failed to approve user', 'error');
         } finally {
             completeAction();
-            setTimeout(() => setActioning(null), 500);
+            setTimeout(() => setActioningState(null), 500);
         }
     };
 
     const handleDecline = async (id, email) => {
-        if (!window.confirm(`WARNING: Declining this request will suspend the identity for ${email}. Are you sure?`)) return;
+        const ok = await confirm({
+            title: 'Decline Identity?',
+            message: `WARNING: Declining this request will suspend the identity for ${email}. Are you sure you want to proceed?`,
+            type: 'danger',
+            confirmText: 'Decline Now',
+            cancelText: 'Cancel'
+        });
+        
+        if (!ok) return;
 
-        setActioning(id);
+        setActioningState(id);
         try {
             // Decline user by updating status to suspended
             await updateDocument('profiles', id, {
@@ -116,7 +129,7 @@ const Approvals = () => {
             notify(err.message || 'Failed to decline user', 'error');
         } finally {
             completeAction();
-            setTimeout(() => setActioning(null), 500);
+            setTimeout(() => setActioningState(null), 500);
         }
     };
     const handleApproveAll = async () => {
@@ -125,10 +138,14 @@ const Approvals = () => {
             return;
         }
 
-        const confirmed = window.confirm(
-            `⚠️ BULK APPROVAL\n\nYou are about to approve ${requests.length} pending request(s).\n\nThis will:\n• Grant immediate access to all pending users\n• Apply basic sanitization to user data\n• Log all approvals in audit trail\n\nContinue with bulk approval?`
-        );
-
+        const confirmed = await confirm({
+            title: 'Bulk Approval Warning',
+            message: `You are about to approve ${requests.length} pending request(s). This will grant immediate access and log approvals in the audit trail. Continue?`,
+            type: 'danger',
+            confirmText: 'Bulk Approve',
+            cancelText: 'Cancel'
+        });
+        
         if (!confirmed) return;
 
         setApprovingAll(true);
@@ -195,7 +212,7 @@ const Approvals = () => {
     return (
         <div className="max-w-6xl mx-auto space-y-12 pb-20">
             <AnimatePresence>
-                {(actioning || approvingAll) && (
+                {(actioningState || approvingAll) && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -241,7 +258,7 @@ const Approvals = () => {
                         {requests.length > 0 && (
                             <button
                                 onClick={handleApproveAll}
-                                disabled={approvingAll || actioning}
+                                disabled={approvingAll || actioningState}
                                 className="px-6 py-3 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {approvingAll ? (
@@ -361,15 +378,15 @@ const Approvals = () => {
 
                                     <div className="flex items-center gap-4 w-full lg:w-auto">
                                         <button
-                                            disabled={actioning === req.id}
+                                            disabled={actioningState === req.id}
                                             onClick={() => handleApproval(req.id, req.email, req.role)}
                                             className="flex-grow lg:flex-grow-0 flex items-center justify-center gap-3 px-8 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-google hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
                                         >
-                                            {actioning === req.id ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={18} />}
+                                            {actioningState === req.id ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={18} />}
                                             <span>Approve Identity</span>
                                         </button>
                                         <button
-                                            disabled={actioning === req.id}
+                                            disabled={actioningState === req.id}
                                             onClick={() => handleDecline(req.id, req.email)}
                                             className="flex items-center justify-center p-4 text-text-dim hover:text-danger hover:bg-danger/5 rounded-2xl transition-all border border-transparent hover:border-danger/10"
                                             title="Decline and Suspend"
@@ -383,6 +400,7 @@ const Approvals = () => {
                     )}
                 </AnimatePresence>
             </div>
+            {isMobile && <BottomNav notifCount={requests.length} />}
         </div>
     );
 };

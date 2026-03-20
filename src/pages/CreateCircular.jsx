@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { withAdaptiveTimeout } from '../lib/networkSpeed';
 import { safeError, safeWarn, safeGroup, safeGroupEnd } from '../utils/logger';
-import { uploadToCloudinary } from '../lib/cloudinary';
+import { uploadFile } from '../lib/storage';
 import { createCircular, updateCircular, createAuditLog } from '../lib/firebase-db';
 
 const DRAFT_KEY = 'circular_draft';
@@ -67,7 +67,9 @@ const CreateCircular = () => {
                 setTargetYear(draft.targetYear || 'ALL');
                 setTargetSection(draft.targetSection || 'ALL');
                 setLastSaved(new Date(draft.timestamp));
-                notify('📝 Draft restored', 'info');
+                if (draft.title || draft.content) {
+                    notify('📝 Draft restored', 'info');
+                }
             }
         } catch (err) {
             console.error('Failed to load draft:', err);
@@ -143,7 +145,7 @@ const CreateCircular = () => {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ];
         
-        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+        const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
         
         // Validate files before adding
         const validFiles = [];
@@ -152,7 +154,7 @@ const CreateCircular = () => {
         sel.forEach(file => {
             // Check file size
             if (file.size > MAX_FILE_SIZE) {
-                errors.push(`${file.name} exceeds 50MB limit`);
+                errors.push(`${file.name} exceeds 100MB limit`);
                 return;
             }
             
@@ -218,15 +220,15 @@ const CreateCircular = () => {
             // Upload files to Cloudinary with progress tracking
             const uploadedUrls = [];
             if (files.length > 0) {
-                notify(`📤 Uploading ${files.length} file(s) to Cloudinary...`, 'info');
+                    notify(`📤 Uploading ${files.length} file(s)...`, 'info');
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
                     setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}`);
 
-                    const { url, error: upErr } = await uploadToCloudinary(file);
+                    const { url, error: upErr, provider } = await uploadFile(file);
 
                     if (upErr || !url) {
-                        safeError('Cloudinary upload error:', upErr);
+                        safeError(`${provider || 'Storage'} upload error:`, upErr);
                         throw new Error(`Failed to upload ${file.name}: ${upErr?.message || 'Unknown error'}`);
                     }
 
@@ -350,7 +352,7 @@ const CreateCircular = () => {
     const canBroadcast = title.trim() && content.trim() && !loading;
 
     return (
-        <div className="max-w-6xl mx-auto px-4 lg:px-0">
+        <div className="max-w-6xl mx-auto px-4 lg:px-0 pb-32">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
 
                 {/* ── Page header ── */}
@@ -526,7 +528,7 @@ const CreateCircular = () => {
                                                 <div 
                                                     className="flex items-center gap-2 bg-bg-light border-2 border-dashed border-border-light hover:border-[#1a73e8] px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider text-text-muted hover:text-primary transition-all"
                                                     onClick={() => {
-                                                        notify('📎 Supported formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX (Max 5MB)', 'info', { duration: 4000 });
+                                                        notify('📎 Supported formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX (Max 100MB)', 'info', { duration: 4000 });
                                                     }}
                                                 >
                                                     <UploadCloud size={14} />
@@ -540,7 +542,7 @@ const CreateCircular = () => {
                                                     onChange={handleFileChange}
                                                     onClick={() => {
                                                         // Show toast when file input is clicked
-                                                        notify('📎 Supported formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX (Max 5MB)', 'info', { duration: 4000 });
+                                                        notify('📎 Supported formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX (Max 100MB)', 'info', { duration: 4000 });
                                                     }}
                                                 />
                                                 
@@ -555,7 +557,7 @@ const CreateCircular = () => {
                                                                 <span className="text-white">Documents:</span> PDF, DOC, DOCX<br/>
                                                                 <span className="text-white">Spreadsheets:</span> XLS, XLSX
                                                             </p>
-                                                            <p className="text-[9px] text-text-muted mt-2">Max 5MB per file</p>
+                                                            <p className="text-[9px] text-text-muted mt-2">Max 100MB per file</p>
                                                         </div>
                                                     </div>
                                                     {/* Arrow */}
@@ -570,7 +572,7 @@ const CreateCircular = () => {
                     </div>
 
                     {/* ── Right: Configuration panel ── */}
-                    <aside className="space-y-6 lg:sticky lg:top-20">
+                    <aside className="space-y-6 lg:sticky lg:top-24">
 
                         <div className="bg-bg-light rounded-[32px] border border-border-light shadow-google p-6 space-y-6">
 

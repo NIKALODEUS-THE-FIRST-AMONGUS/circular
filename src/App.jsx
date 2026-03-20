@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { NetworkProvider } from './context/NetworkContext';
 import { ToastProvider } from './components/Toaster';
+import { DialogProvider } from './components/ConfirmDialog';
 import { setupGlobalErrorHandling } from './utils/errorTracking';
 import { performanceMonitor } from './utils/performanceMonitor';
 import OfflineBanner from './components/OfflineBanner';
@@ -14,6 +15,7 @@ import AccessibilityHelper from './components/AccessibilityHelper';
 
 // Lazy load pages for better performance on slow networks
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 const LoadingFallback = () => (
@@ -39,6 +41,16 @@ function AppContent() {
           transition={{ duration: 0.2, ease: "easeOut" }}
         >
           <LandingPage />
+        </motion.div>
+      } />
+      <Route path="/onboarding" element={
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <Onboarding />
         </motion.div>
       } />
       <Route
@@ -84,17 +96,19 @@ function App() {
   return (
     <Router>
       <ToastProvider>
-        <AuthProvider>
-          <ThemeProvider>
-            <LanguageProvider>
-              <NetworkProvider>
-                <AccessibilityHelper />
-                <OfflineBanner />
-                <AppContent />
-              </NetworkProvider>
-            </LanguageProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <DialogProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <LanguageProvider>
+                <NetworkProvider>
+                  <AccessibilityHelper />
+                  <OfflineBanner />
+                  <AppContent />
+                </NetworkProvider>
+              </LanguageProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </DialogProvider>
       </ToastProvider>
     </Router>
   );

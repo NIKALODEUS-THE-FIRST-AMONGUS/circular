@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { deleteCircular, createDocument } from '../lib/firebase-db';
-import { uploadToCloudinary, optimizeCloudinaryUrl } from '../lib/cloudinary';
+import { uploadFile } from '../lib/storage';
+import { optimizeCloudinaryUrl } from '../lib/cloudinary';
 import { useNotify } from '../components/Toaster';
 import {
     ChevronLeft, Calendar, User, Tag, Eye, ShieldAlert,
@@ -161,7 +162,7 @@ const PDFDownloader = ({ pdfUrls, circularId, userId }) => {
 const CircularDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { profile } = useAuth();
+    const { profile, isStudent } = useAuth();
     const notify = useNotify();
     const [circular, setCircular] = useState(null);
     const [viewCount, setViewCount] = useState(0);
@@ -184,15 +185,10 @@ const CircularDetail = () => {
             try {
                 // Import Firebase functions
                 const { getCircular } = await import('../lib/firebase-db');
-                const { getDocuments } = await import('../lib/firebase-db');
+                // const { getDocuments } = await import('../lib/firebase-db');
                 
-                // Fetch circular and view count
-                const [circularData, viewCounts] = await Promise.all([
-                    getCircular(id),
-                    getDocuments('circular_views', {
-                        where: [['circular_id', '==', id]]
-                    })
-                ]);
+                // Fetch circular
+                const circularData = await getCircular(id);
 
                 if (!circularData) {
                     throw new Error('Circular not found');
@@ -206,7 +202,7 @@ const CircularDetail = () => {
                 });
 
                 // Set view count
-                setViewCount(viewCounts.length);
+                setViewCount(circularData.view_count || 0);
 
                 // Track view and mark as read (fire and forget - don't wait)
                 if (profile?.id) {
@@ -218,6 +214,14 @@ const CircularDetail = () => {
                         }).catch(() => {}), // Ignore if already exists
                         circularFeatures.markAsRead(id)
                     ]).catch(err => console.error('Track view error:', err));
+                    
+                    // Sync with local notification manager
+                    const localReads = JSON.parse(localStorage.getItem(`read_notifications_${profile.id}`) || '[]');
+                    if (!localReads.includes(id)) {
+                        localReads.push(id);
+                        localStorage.setItem(`read_notifications_${profile.id}`, JSON.stringify(localReads));
+                        window.dispatchEvent(new CustomEvent('circularRead', { detail: { id } }));
+                    }
                 }
             } catch (err) {
                 notify(err.message, 'error');
@@ -341,10 +345,10 @@ const CircularDetail = () => {
             return;
         }
 
-        // Validate file sizes (max 50MB per file)
-        const oversizedFiles = files.filter(f => f.size > 50 * 1024 * 1024);
+        // Validate file sizes (max 100MB per file)
+        const oversizedFiles = files.filter(f => f.size > 100 * 1024 * 1024);
         if (oversizedFiles.length > 0) {
-            notify('⚠️ Files must be smaller than 50MB', 'error');
+            notify('⚠️ Files must be smaller than 100MB', 'error');
             return;
         }
 
@@ -354,10 +358,10 @@ const CircularDetail = () => {
             const uploadedUrls = [];
             
             for (const file of files) {
-                const { url, error } = await uploadToCloudinary(file);
+                const { url, error, provider } = await uploadFile(file);
                 
                 if (error || !url) {
-                    throw new Error(`Failed to upload ${file.name}`);
+                    throw new Error(`${provider || 'Storage'} upload failed for ${file.name}: ${error?.message || 'Unknown error'}`);
                 }
 
                 uploadedUrls.push(url);
@@ -444,10 +448,12 @@ const CircularDetail = () => {
                                 <Tag size={16} />
                                 <span>{circular.department_target}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Eye size={16} />
-                                <span>{viewCount} views</span>
-                            </div>
+                            {!isStudent && (
+                                <div className="flex items-center gap-2">
+                                    <Eye size={16} />
+                                    <span>{viewCount} views</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 

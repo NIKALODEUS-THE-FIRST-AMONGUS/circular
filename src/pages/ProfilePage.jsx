@@ -1,940 +1,768 @@
-import { useState, useEffect } from 'react';
-import { useTheme } from '../hooks/useTheme';
-import { useLanguage } from '../hooks/useLanguage';
-import { useAuth } from '../hooks/useAuth';
-import { updateProfile, deleteDocument } from '../lib/firebase-db';
-import { auth } from '../lib/firebase-config';
-import { updatePassword, signOut } from 'firebase/auth';
-import { useNotify } from '../components/Toaster';
-import { motion, AnimatePresence } from 'framer-motion';
-import ProgressLoader from '../components/ProgressLoader';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase-config';
-import {
-    UserCircle, GraduationCap, Building2, Check, ChevronRight, ChevronLeft,
-    ShieldCheck, Loader2, Save, Star, Layers, Phone, ArrowRight, MapPin,
-    Trophy, Camera, Trash2, KeyRound, LogOut, Mail, Calendar, User,
-    ChevronDown, AlertTriangle, ShieldAlert, X
-} from 'lucide-react';
-import CountrySelect from '../components/CountrySelect';
-import { optimizeCloudinaryUrl } from '../lib/cloudinary';
+import { useState, useRef, useCallback, useContext } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { auth, db } from "../lib/firebase-config";
+import { doc, updateDoc } from "firebase/firestore";
+import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from "firebase/auth";
+import { useAuth } from "../hooks/useAuth";
+import { ThemeContext } from "../context/ThemeContext";
 
-const DEPTS = ['ALL', 'CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
+const LANGUAGES = [
+  { id: "en",    label: "English",    native: "English",    flag: "🇬🇧" },
+  { id: "hi",    label: "Hindi",      native: "हिंदी",        flag: "🇮🇳" },
+  { id: "te",    label: "Telugu",     native: "తెలుగు",       flag: "🇮🇳" },
+  { id: "ta",    label: "Tamil",      native: "தமிழ்",        flag: "🇮🇳" },
+  { id: "kn",    label: "Kannada",    native: "ಕನ್ನಡ",        flag: "🇮🇳" },
+];
 
-const stripHtml = (html) => {
-    if (!html) return '';
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    return doc.body.textContent || "";
+// ─── Cloudinary upload helper ─────────────────────────────────────────────────
+const uploadToCloudinary = async (file, onProgress) => {
+  const cloudName    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file",           file);
+    formData.append("upload_preset",  uploadPreset);
+    formData.append("folder",         "suchna_x/avatars");
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 70));
+    };
+    xhr.onload = () => {
+      const data = JSON.parse(xhr.responseText);
+      data.secure_url ? resolve(data.secure_url) : reject(new Error("Upload failed"));
+    };
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.open("POST", `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+    xhr.send(formData);
+  });
 };
 
-const ProfilePage = () => {
-    const { user, profile, refreshProfile } = useAuth();
-    const { theme, setTheme } = useTheme();
-    const { language, setLanguage } = useLanguage();
-    const notify = useNotify();
-    const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
-    const [currentStep, setCurrentStep] = useState(1);
-    const [direction, setDirection] = useState(1);
+// ─── Theme token map — single source of truth for both modes ─────────────────
+const t = (dark) => ({
+  page:      dark ? "bg-black"                               : "bg-white",
+  card:      dark ? "bg-[#121212] border-white/8"            : "bg-white border-gray-200",
+  cardInner: dark ? "bg-white/5  border-white/8"             : "bg-gray-100 border-gray-200",
+  input:     dark ? "bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-red-500/60"
+                  : "bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-red-500",
+  sheet:     dark ? "bg-[#121212] border-white/10"           : "bg-white border-gray-200",
+  divider:   dark ? "divide-white/5"                         : "divide-gray-100",
+  rowBorder: dark ? "border-white/5"                         : "border-gray-100",
+  primary:   dark ? "text-gray-100"                          : "text-gray-900",
+  secondary: dark ? "text-gray-400"                          : "text-gray-500",
+  muted:     dark ? "text-gray-600"                          : "text-gray-400",
+  danger:    dark ? "bg-red-500/6 border-red-500/15"         : "bg-red-50 border-red-200",
+  iconBg:    dark ? "bg-white/5 border-white/8"              : "bg-gray-100 border-gray-200",
+  avatarBorder: dark ? "border-[#0d1117]"                    : "border-white",
+  strip:     "linear-gradient(90deg,#FF9933 33%,#fff 33%,#fff 66%,#138808 66%)",
+});
 
-    const [formData, setFormData] = useState({
-        fullName: '',
-        title: '',
-        genderTitle: '',
-        academicTitle: '',
-        subjectTaught: '',
-        role: 'student',
-        dept: 'CSE',
-        classBranch: '',
-        yearOfStudy: '1',
-        section: 'A',
-        collegeRole: '',
-        mobileNumber: '',
-        whatsappNumber: '',
-        bio: '',
-        countryCode: '+91',
-        avatarUrl: '',
-        dailyIntroEnabled: true,
-        greetingLanguage: 'Mixed',
-        introFrequency: 'daily'
-    });
+// ─── Variants ─────────────────────────────────────────────────────────────────
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  show:  (i = 0) => ({
+    opacity: 1, y: 0,
+    transition: { delay: i * 0.065, duration: 0.38, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
 
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [showAvatarModal, setShowAvatarModal] = useState(false);
-    const [activeTab, setActiveTab] = useState('profile');
+// ─── Micro components ─────────────────────────────────────────────────────────
+const Badge = ({ children, color = "red" }) => {
+  const map = {
+    red:    "bg-red-500/10 text-red-500 border-red-500/25",
+    green:  "bg-green-500/10  text-green-500  border-green-500/25",
+    blue:   "bg-blue-500/10   text-blue-500   border-blue-500/25",
+    muted:  "bg-gray-500/10   text-gray-400   border-gray-400/20",
+  };
+  return (
+    <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${map[color] || map.muted}`}>
+      {children}
+    </span>
+  );
+};
 
-    useEffect(() => {
-        if (profile) {
-            setFormData({
-                fullName: profile.full_name || '',
-                title: profile.title || '',
-                genderTitle: profile.gender_title || '',
-                academicTitle: profile.academic_title || '',
-                subjectTaught: profile.subject_taught || '',
-                role: profile.role || 'student',
-                dept: profile.department || 'CSE',
-                classBranch: profile.class_branch || '',
-                yearOfStudy: profile.year_of_study || '1',
-                section: profile.section || 'A',
-                collegeRole: profile.college_role || '',
-                mobileNumber: profile.mobile_number || '',
-                whatsappNumber: profile.whatsapp_number || '',
-                bio: profile.bio || '',
-                countryCode: profile.country_code || '+91',
-                avatarUrl: profile.avatar_url || '',
-                dailyIntroEnabled: profile.daily_intro_enabled !== false,
-                greetingLanguage: profile.greeting_language || 'Mixed',
-                introFrequency: profile.intro_frequency || 'daily',
-                whatsappNotificationsEnabled: profile.whatsapp_notifications_enabled !== false
-            });
-            if (profile.status === 'active') setIsEditMode(true);
-        }
-    }, [profile]);
+const Toggle = ({ on, onToggle }) => (
+  <button onClick={onToggle} role="switch" aria-checked={on}
+    className={`relative w-11 h-6 rounded-full border transition-all duration-200
+      focus:outline-none focus:ring-2 focus:ring-red-500/40
+      ${on ? "bg-red-500 border-red-500" : "bg-gray-200 border-gray-300"}`}>
+    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${on ? "translate-x-5" : ""}`} />
+  </button>
+);
 
-    const handleAvatarUpload = async (event) => {
-        try {
-            setUploading(true);
-            const file = event.target.files[0];
-            if (!file) return;
+const SectionLabel = ({ children, theme }) => (
+  <p className={`text-[11px] font-bold tracking-widest uppercase ${theme.muted} mt-6 mb-2.5`}>{children}</p>
+);
 
-            const fileExt = file.name.split('.').pop().toLowerCase();
-            const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-            if (!allowedExtensions.includes(fileExt)) throw new Error("Invalid format.");
-            if (file.size > 10 * 1024 * 1024) throw new Error("Max 10MB.");
+const SettingRow = ({ icon, title, subtitle, right, onClick, theme }) => (
+  <motion.div variants={fadeUp} onClick={onClick}
+    className={`flex items-center justify-between py-3.5 border-b ${theme.rowBorder} ${onClick ? "cursor-pointer active:opacity-60" : ""}`}>
+    <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className={`w-9 h-9 rounded-xl border ${theme.iconBg} flex items-center justify-center text-[15px] shrink-0`}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className={`text-sm font-medium ${theme.primary} truncate`}>{title}</p>
+        {subtitle && <p className={`text-xs ${theme.secondary} mt-0.5 truncate`}>{subtitle}</p>}
+      </div>
+    </div>
+    <div className="shrink-0 ml-3">{right}</div>
+  </motion.div>
+);
 
-            // Use Cloudinary for avatar uploads (free 25GB, automatic optimization)
-            const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-            const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-            
-            console.log('Cloudinary config:', { cloudName, uploadPreset });
-            
-            if (!cloudName || !uploadPreset) {
-                throw new Error("Cloudinary not configured. Please check .env file.");
-            }
+const UploadProgress = ({ progress }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed top-0 left-0 right-0 z-[70] h-1 bg-gray-200/50">
+    <motion.div className="h-full bg-red-500 rounded-full"
+      initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.25 }} />
+  </motion.div>
+);
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('upload_preset', uploadPreset);
-            formData.append('folder', 'avatars');
+// ─── Full-screen Photo Viewer ─────────────────────────────────────────────────
+const PhotoViewer = ({ url, name, onClose, onRemove, onChangePhoto }) => {
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-black flex flex-col select-none">
 
-            const response = await fetch(
-                `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-                {
-                    method: 'POST',
-                    body: formData
-                }
-            );
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 pt-12 pb-3 bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0 right-0 z-10">
+        <button onClick={onClose}
+          className="w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white text-xl">
+          ←
+        </button>
+        <p className="text-white font-semibold text-sm truncate max-w-[55%]">{name}</p>
+        <button onClick={() => setConfirmRemove(true)}
+          className="w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white text-base">
+          🗑
+        </button>
+      </div>
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('Cloudinary upload error:', errorData);
-                
-                // Show helpful error message
-                let errorMessage = 'Upload failed. ';
-                if (errorData.error?.message) {
-                    errorMessage += errorData.error.message;
-                    
-                    // Add helpful hints based on error
-                    if (errorData.error.message.includes('preset')) {
-                        errorMessage += '\n\nFix: Go to Cloudinary Console → Settings → Upload → Find "circular_attachments" preset → Set Signing Mode to "Unsigned" → Save';
-                    }
-                } else {
-                    errorMessage += 'Check if upload preset is configured as "unsigned" in Cloudinary settings.';
-                }
-                
-                throw new Error(errorMessage);
-            }
-            
-            const data = await response.json();
-            // Use optimized URL with transformations for avatars
-            const avatarUrl = data.secure_url.replace(
-                '/upload/',
-                '/upload/w_400,h_400,c_fill,q_auto:good,f_auto,g_face/'
-            );
-            
-            // Update Firestore database
-            const profileRef = doc(db, 'profiles', user.uid);
-            await setDoc(profileRef, { 
-                avatar_url: avatarUrl,
-                updated_at: new Date().toISOString()
-            }, { merge: true });
+      {/* Photo */}
+      <div className="flex-1 flex items-center justify-center">
+        <motion.img
+          initial={{ scale: 0.88, opacity: 0 }}
+          animate={{ scale: 1,    opacity: 1 }}
+          transition={{ type: "spring", damping: 22, stiffness: 250 }}
+          src={url} alt={name}
+          className="max-w-full object-contain rounded-2xl"
+          style={{ maxHeight: "72vh", maxWidth: "92vw" }}
+        />
+      </div>
 
-            // Update local state immediately for instant feedback
-            setFormData(prev => ({ ...prev, avatarUrl }));
-            
-            // Force refresh profile from database to update everywhere
-            await refreshProfile();
-            
-            setShowAvatarModal(false);
-            notify("☁️ Avatar updated", "success");
-        } catch (error) {
-            notify(error.message, "error");
-        } finally {
-            setUploading(false);
-        }
-    };
+      {/* Bottom actions */}
+      <div className="px-6 pb-14 pt-4 space-y-3">
+        <button onClick={onChangePhoto}
+          className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3.5 rounded-2xl text-sm active:scale-[0.98] transition-all">
+          Change Photo
+        </button>
+        <button onClick={onClose}
+          className="w-full bg-white/10 text-white font-semibold py-3.5 rounded-2xl text-sm">
+          Close
+        </button>
+      </div>
 
-    const handleAvatarDelete = async () => {
-        try {
-            setUploading(true);
-            
-            // Update database to remove avatar
-            await updateProfile(user.uid, { 
-                avatar_url: null
-            });
+      {/* Remove confirm overlay */}
+      <AnimatePresence>
+        {confirmRemove && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/80 flex items-center justify-center px-8 z-20">
+            <motion.div
+              initial={{ scale: 0.88 }} animate={{ scale: 1 }} exit={{ scale: 0.88 }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              className="bg-[#1c2333] border border-white/10 rounded-3xl p-6 w-full max-w-xs text-center">
+              <p className="text-4xl mb-3">🗑️</p>
+              <h3 className="text-white font-bold text-base mb-1">Remove photo?</h3>
+              <p className="text-gray-400 text-sm mb-6">Your profile will show initials instead.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmRemove(false)}
+                  className="flex-1 bg-white/8 border border-white/10 text-gray-300 font-semibold py-3 rounded-xl text-sm">
+                  Cancel
+                </button>
+                <button onClick={() => { onRemove(); onClose(); }}
+                  className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl text-sm">
+                  Remove
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
 
-            // Update local state
-            setFormData(prev => ({ ...prev, avatarUrl: '' }));
-            
-            // Small delay to ensure database has committed the change
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Force refresh profile
-            await refreshProfile();
-            
-            setShowAvatarModal(false);
-            notify("☁️ Avatar removed", "success");
-        } catch (error) {
-            notify(error.message, "error");
-        } finally {
-            setUploading(false);
-        }
-    };
+// ─── Photo Action Sheet ───────────────────────────────────────────────────────
+const PhotoActionSheet = ({ hasPhoto, onClose, onPickFile, onRemove, theme }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
+    <motion.div
+      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+      transition={{ type: "spring", damping: 28, stiffness: 300 }}
+      onClick={(e) => e.stopPropagation()}
+      className={`w-full max-w-sm border rounded-t-3xl p-5 pb-12 ${theme.sheet}`}>
+      <div className={`w-10 h-1 rounded-full mx-auto mb-5 ${theme.muted} bg-current opacity-30`} />
+      <h2 className={`text-base font-bold ${theme.primary} mb-4`}>Profile Photo</h2>
 
-    const _handleResetBio = async () => {
-        try {
-            // Reset bio using Firebase
-            await updateProfile(user.uid, {
-                bio: null
-            });
-            
-            // Update local state
-            setFormData(prev => ({ ...prev, bio: '' }));
-            
-            // Refresh profile
-            await refreshProfile();
-            
-            notify("Bio reset to default", "success");
-        } catch (error) {
-            notify(error.message, "error");
-        }
-    };
+      <button onClick={onPickFile}
+        className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl mb-2 text-sm font-medium border transition-all active:scale-[0.98] ${theme.cardInner} ${theme.primary}`}>
+        <span className="text-xl w-8 text-center">📷</span>
+        Upload new photo
+      </button>
 
+      {hasPhoto && (
+        <button onClick={onRemove}
+          className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl mb-2 text-sm font-medium border bg-red-500/8 text-red-500 border-red-500/15 active:scale-[0.98] transition-all">
+          <span className="text-xl w-8 text-center">🗑️</span>
+          Remove photo
+        </button>
+      )}
 
-    const handlePasswordChange = async (e) => {
-        e.preventDefault();
-        if (passwordData.new !== passwordData.confirm) return notify("Passwords mismatch", "error");
-        setLoading(true);
-        try {
-            await updatePassword(auth.currentUser, passwordData.new);
-            notify("☁️ Security updated", "success");
-            setShowPasswordModal(false);
-            setPasswordData({ current: '', new: '', confirm: '' });
-        } catch (err) {
-            notify(err.message, "error");
-        } finally {
-            setLoading(false);
-        }
-    };
+      <button onClick={onClose}
+        className={`w-full py-3 rounded-2xl text-sm font-semibold ${theme.secondary} mt-1`}>
+        Cancel
+      </button>
+    </motion.div>
+  </motion.div>
+);
 
-    const handleDeleteAccount = async () => {
-        setLoading(true);
-        try {
-            await deleteDocument('profiles', user.uid);
-            await signOut(auth);
-            notify("Account deleted", "success");
-        } catch (err) {
-            notify(err.message, "error");
-        } finally {
-            setLoading(false);
-            setShowDeleteModal(false);
-        }
-    };
+// ─── Edit Profile Sheet ───────────────────────────────────────────────────────
+const EditSheet = ({ profile, onClose, onSave, theme }) => {
+  const [name,   setName]   = useState(profile?.full_name  || "");
+  const [dept,   setDept]   = useState(profile?.department || "");
+  const [year,   setYear]   = useState(profile?.year_of_study || "");
+  const [section, setSection] = useState(profile?.section || "");
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState("");
 
-    const handleSubmit = async () => {
-        const sanitizedName = stripHtml(formData.fullName).trim();
-        if (!sanitizedName) return notify("Name is required", "error");
+  const handleSave = async () => {
+    if (!name.trim()) return setError("Name cannot be empty");
+    setSaving(true); setError("");
+    try { 
+      await onSave({ 
+        full_name: name.trim(), 
+        department: dept.trim(),
+        year_of_study: year.trim(),
+        section: section.trim()
+      }); 
+      onClose(); 
+    }
+    catch { setError("Failed to save. Please try again."); }
+    finally { setSaving(false); }
+  };
 
-        const validatePhone = (num) => {
-            const clean = num.replace(/\D/g, '');
-            return clean.length >= 7 && clean.length <= 15;
-        };
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
+      <motion.div
+        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 28, stiffness: 300 }}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-sm border rounded-t-3xl p-6 pb-12 ${theme.sheet}`}>
+        <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${theme.muted} bg-current opacity-30`} />
+        <h2 className={`text-lg font-bold ${theme.primary} mb-5`}>Edit Profile</h2>
+        {[
+          { label: "Full Name",  val: name, set: setName, ph: "Your name"    },
+          { label: "Department", val: dept, set: setDept, ph: "e.g. ECE, CSE" },
+          { label: "Year of Study", val: year, set: setYear, ph: "e.g. 3rd Year" },
+          { label: "Section", val: section, set: setSection, ph: "e.g. A" },
+        ].map(({ label, val, set, ph }) => (
+          <div key={label} className="mb-4">
+            <label className={`text-xs font-semibold ${theme.muted} uppercase tracking-wider mb-1.5 block`}>{label}</label>
+            <input value={val} onChange={(e) => set(e.target.value)} placeholder={ph} style={{ fontSize: 16 }}
+              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`} />
+          </div>
+        ))}
+        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
+        <button onClick={handleSave} disabled={saving}
+          className="w-full bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50">
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+};
 
-        if (formData.mobileNumber && !validatePhone(formData.mobileNumber)) {
-            return notify("Please enter a valid mobile number.", "error");
-        }
+// ─── Change Password Sheet ────────────────────────────────────────────────────
+const PasswordSheet = ({ onClose, theme }) => {
+  const [fields,  setFields]  = useState(["", "", ""]);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState("");
+  const [success, setSuccess] = useState(false);
+  const set = (i, v) => setFields((p) => { const n = [...p]; n[i] = v; return n; });
 
-        setLoading(true);
-        try {
-            const sanitizedBio = stripHtml(formData.bio).trim();
-            
-            await updateProfile(user.uid, {
-                full_name: sanitizedName,
-                title: formData.title || null,
-                gender_title: formData.genderTitle || null,
-                academic_title: formData.academicTitle || null,
-                subject_taught: formData.role === 'teacher' ? (stripHtml(formData.subjectTaught).trim() || null) : null,
-                role: formData.role,
-                department: formData.dept,
-                year_of_study: formData.role === 'student' ? formData.yearOfStudy : null,
-                section: formData.role === 'student' ? formData.section : null,
-                class_branch: formData.role === 'student' ? `${formData.yearOfStudy} ${formData.dept} ${formData.section}` : null,
-                college_role: formData.role === 'teacher' ? stripHtml(formData.collegeRole).trim() : null,
-                mobile_number: stripHtml(formData.mobileNumber).trim(),
-                whatsapp_number: stripHtml(formData.whatsappNumber).trim(),
-                bio: sanitizedBio || null,
-                country_code: formData.countryCode,
-                daily_intro_enabled: formData.dailyIntroEnabled,
-                greeting_language: formData.greetingLanguage,
-                intro_frequency: formData.introFrequency,
-                status: profile?.email?.toLowerCase().endsWith('@methodist.edu.in') ? 'active' : (profile?.status || 'active')
-            });
+  const handleChange = async () => {
+    if (fields[1].length < 6)    return setError("Password must be at least 6 characters");
+    if (fields[1] !== fields[2]) return setError("Passwords do not match");
+    setSaving(true); setError("");
+    try {
+      const user = auth.currentUser;
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, fields[0]));
+      await updatePassword(user, fields[1]);
+      setSuccess(true);
+      setTimeout(onClose, 1600);
+    } catch (e) {
+      setError(e.code === "auth/wrong-password" ? "Current password is incorrect" : "Failed. Try again.");
+    } finally { setSaving(false); }
+  };
 
-            notify("☁️ Changes saved to cloud", "success");
-            await refreshProfile();
-            setIsEditMode(true);
-        } catch (err) {
-            notify(err.message, "error");
-        } finally {
-            setLoading(false);
-        }
-    };
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
+      <motion.div
+        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 28, stiffness: 300 }}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-sm border rounded-t-3xl p-6 pb-12 ${theme.sheet}`}>
+        <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${theme.muted} bg-current opacity-30`} />
+        <h2 className={`text-lg font-bold ${theme.primary} mb-5`}>Change Password</h2>
+        {["Current password", "New password", "Confirm new password"].map((label, i) => (
+          <div key={i} className="mb-4">
+            <label className={`text-xs font-semibold ${theme.muted} uppercase tracking-wider mb-1.5 block`}>{label}</label>
+            <input type="password" value={fields[i]} onChange={(e) => set(i, e.target.value)}
+              style={{ fontSize: 16 }}
+              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`} />
+          </div>
+        ))}
+        {error   && <p className="text-xs text-red-500 mb-4">{error}</p>}
+        {success && <p className="text-xs text-green-500 mb-4">✓ Password updated!</p>}
+        <button onClick={handleChange} disabled={saving}
+          className="w-full bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50">
+          {saving ? "Updating…" : "Update Password"}
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+};
 
-    const nextStep = () => {
-        if (currentStep === 1) {
-            if (!formData.fullName.trim()) return notify("Enter your name", "error");
-        }
-        setDirection(1);
-        setCurrentStep(prev => prev + 1);
-    };
+// ─── Delete Account Confirm ──────────────────────────────────────────────────
+const DeleteConfirm = ({ onConfirm, onCancel, theme, isGoogleUser }) => {
+  const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
-    const prevStep = () => {
-        setDirection(-1);
-        setCurrentStep(prev => prev - 1);
-    };
+  const handleDelete = async () => {
+    if (isGoogleUser) {
+      if (confirmText.toLowerCase() !== "circular") return setError("Please type 'circular' to confirm");
+    } else {
+      if (!password) return setError("Password is required");
+    }
+    
+    setDeleting(true);
+    try {
+      await onConfirm(isGoogleUser ? null : password);
+    } catch (err) {
+      setError(err.message || "Failed to delete account");
+      setDeleting(false);
+    }
+  };
 
-    const renderStep1 = () => (
-        <motion.div key="step1" custom={direction} initial="enter" animate="center" exit="exit" variants={{ enter: _d => ({ x: _d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: _d => ({ x: _d > 0 ? -50 : 50, opacity: 0 }) }} className="space-y-8">
-            <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-text-muted flex items-center gap-2" htmlFor="fullName"><UserCircle size={14} />Legal Name</label>
-                <input id="fullName" name="fullName" className="w-full h-16 px-6 rounded-3xl bg-bg-light border border-border-light focus:border-primary outline-none font-bold text-lg" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} />
-            </div>
-            <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Institutional Position</label>
-                <div className="grid grid-cols-2 gap-4">
-                    {[{ id: 'student', icon: GraduationCap, label: 'Student' }, { id: 'teacher', icon: Building2, label: 'Professor' }].map(r => (
-                        <button key={r.id} onClick={() => setFormData({ ...formData, role: r.id })} className={`p-6 rounded-[32px] border text-left flex flex-col gap-2 ${formData.role === r.id ? 'bg-primary/10 border-primary' : 'bg-bg-light border-border-light'}`}>
-                            <r.icon size={24} className={formData.role === r.id ? 'text-primary' : 'text-text-muted'} />
-                            <p className="font-black text-sm">{r.label}</p>
-                        </button>
-                    ))}
-                </div>
-            </div>
-        </motion.div>
-    );
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-6" onClick={onCancel}>
+      <motion.div
+        initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.88, opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-sm border rounded-3xl p-6 text-center ${theme.sheet}`}>
+        <div className="text-4xl mb-3">⚠️</div>
+        <h3 className={`text-base font-bold ${theme.primary} mb-1`}>Delete Account?</h3>
+        <p className={`text-xs ${theme.secondary} mb-6`}>
+          This action is permanent and cannot be undone. All your data will be removed.
+        </p>
+        
+        {isGoogleUser ? (
+          <div className="mb-6">
+            <label className={`text-[10px] font-bold uppercase ${theme.muted} block mb-2`}>Type "circular" to confirm</label>
+            <input 
+              value={confirmText} 
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="circular"
+              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`}
+            />
+          </div>
+        ) : (
+          <div className="mb-6">
+            <label className={`text-[10px] font-bold uppercase ${theme.muted} block mb-2`}>Enter password to confirm</label>
+            <input 
+              type="password"
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`}
+            />
+          </div>
+        )}
 
-    const renderStep2 = () => (
-        <motion.div key="step2" custom={direction} initial="enter" animate="center" exit="exit" variants={{ enter: _d => ({ x: _d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: _d => ({ x: _d > 0 ? -50 : 50, opacity: 0 }) }} className="space-y-8">
-            <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-text-muted">Department Hub</label>
-                <div className="grid grid-cols-4 gap-2">
-                    {DEPTS.map(dept => (
-                        <button key={dept} onClick={() => setFormData({ ...formData, dept: dept })} className={`h-11 rounded-xl font-bold text-[10px] border ${formData.dept === dept ? 'bg-primary text-white' : 'bg-bg-light border-border-light'}`}>{dept}</button>
-                    ))}
-                </div>
-            </div>
-            {formData.role === 'student' ? (
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted" htmlFor="yearOfStudy">Year</label>
-                        <select id="yearOfStudy" name="yearOfStudy" className="w-full h-12 px-4 rounded-xl border border-border-light bg-bg-light font-bold" value={formData.yearOfStudy} onChange={e => setFormData({ ...formData, yearOfStudy: e.target.value })}>
-                            {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y} Year</option>)}
-                        </select>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted" htmlFor="section">Section</label>
-                        <select id="section" name="section" className="w-full h-12 px-4 rounded-xl border border-border-light bg-bg-light font-bold" value={formData.section} onChange={e => setFormData({ ...formData, section: e.target.value })}>
-                            {['A', 'B', 'C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
-                        </select>
-                    </div>
-                </div>
-            ) : (
-                <input placeholder="College Role" className="w-full h-14 px-4 rounded-xl border border-border-light font-bold" value={formData.collegeRole} onChange={e => setFormData({ ...formData, collegeRole: e.target.value })} />
-            )}
-        </motion.div>
-    );
-
-    const renderStep3 = () => (
-        <motion.div key="step3" custom={direction} initial="enter" animate="center" exit="exit" variants={{ enter: _d => ({ x: _d > 0 ? 50 : -50, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: _d => ({ x: _d > 0 ? -50 : 50, opacity: 0 }) }} className="space-y-6">
-            <div className="p-8 rounded-[32px] bg-primary/10 border border-primary/20 space-y-4">
-                <div className="flex items-center gap-2 text-primary"><ShieldCheck size={20} /><p className="font-black text-xs uppercase">Summary</p></div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div><p className="text-[9px] font-bold text-text-muted uppercase">Name</p><p className="font-black text-sm">{formData.fullName}</p></div>
-                    <div><p className="text-[9px] font-bold text-text-muted uppercase">Dept</p><p className="font-black text-sm">{formData.dept}</p></div>
-                </div>
-            </div>
-            <div className="flex gap-3">
-                <CountrySelect value={formData.countryCode} onChange={c => setFormData({ ...formData, countryCode: c })} />
-                <input placeholder="Mobile Number" className="flex-1 h-12 px-4 rounded-xl border border-border-light font-bold" type="tel" value={formData.mobileNumber} onChange={e => setFormData({ ...formData, mobileNumber: e.target.value })} />
-            </div>
-        </motion.div>
-    );
-
-    const renderEditMode = () => (
-        <div className="space-y-8">
-            <header className="flex items-center justify-between bg-bg-light p-8 rounded-[32px] border border-border-light shadow-sm">
-                <div className="flex items-center gap-6">
-                    <div 
-                        className="relative h-20 w-20 rounded-full border-2 border-primary overflow-hidden bg-surface-light/50 flex items-center justify-center cursor-pointer group"
-                        onClick={() => setShowAvatarModal(true)}
-                    >
-                        {formData.avatarUrl ? (
-                            <img 
-                                src={optimizeCloudinaryUrl(formData.avatarUrl, { width: 96, height: 96 })} 
-                                className="h-full w-full object-cover" 
-                                alt="Profile avatar"
-                                loading="lazy"
-                                onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.parentElement.innerHTML = '<svg class="text-primary" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
-                                }}
-                            />
-                        ) : (
-                            <UserCircle size={40} className="text-primary" />
-                        )}
-                        {uploading && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                <Loader2 size={20} className="animate-spin text-white" />
-                            </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
-                            <Camera size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black">
-                            {profile?.academic_title && <span className="font-medium mr-1">{profile.academic_title}.</span>}
-                            {profile?.gender_title && <span className="font-medium mr-1">{profile.gender_title}.</span>}
-                            {!profile?.academic_title && !profile?.gender_title && profile?.title && <span className="font-medium mr-1">{profile.title}.</span>}
-                            {profile?.full_name}
-                        </h2>
-                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">{profile?.role} • {profile?.department}</p>
-                    </div>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={() => setShowPasswordModal(true)} className="h-11 px-6 rounded-xl border border-border-light font-black text-[10px] uppercase hover:bg-surface-light/50 transition-all">Security</button>
-                    <button onClick={handleSubmit} disabled={loading} className="btn-primary h-11 px-8 rounded-xl font-bold flex items-center gap-2">
-                        {loading ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                <span>Saving...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Save size={16} />
-                                <span>Save</span>
-                            </>
-                        )}
-                    </button>
-                </div>
-            </header>
-
-            <div className="flex gap-1 bg-surface-light/50 p-1 rounded-2xl w-fit border border-border-light shadow-sm">
-                {['profile', 'preferences'].map(t => (
-                    <button key={t} onClick={() => setActiveTab(t)} className={`px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t ? 'bg-bg-light text-primary shadow-sm' : 'text-text-muted'}`}>
-                        {t === 'profile' ? 'Profile' : 'Settings'}
-                    </button>
-                ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-                <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-                    {activeTab === 'profile' ? (
-                        <>
-                            {/* Profile Card - Google Style */}
-                            <div className="bg-bg-light rounded-3xl border border-border-light overflow-hidden">
-                                <div className="p-8 space-y-6">
-                                    <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Profile Information</h3>
-                                    
-                                    {/* Title and Name */}
-                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-medium text-text-muted">Gender Title</label>
-                                            <select 
-                                                className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all bg-white dark:bg-bg-surface" 
-                                                value={formData.genderTitle || ''} 
-                                                onChange={e => setFormData({ ...formData, genderTitle: e.target.value })}
-                                            >
-                                                <option value="">None</option>
-                                                <option value="Mr">Mr</option>
-                                                <option value="Mrs">Mrs</option>
-                                                <option value="Ms">Ms</option>
-                                                <option value="Dr">Dr</option>
-                                            </select>
-                                        </div>
-                                        {formData.role === 'teacher' && (
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-medium text-text-muted">Academic Title</label>
-                                                <select 
-                                                    className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all bg-white dark:bg-bg-surface" 
-                                                    value={formData.academicTitle || ''} 
-                                                    onChange={e => setFormData({ ...formData, academicTitle: e.target.value })}
-                                                >
-                                                    <option value="">None</option>
-                                                    <option value="Prof">Prof</option>
-                                                    <option value="Asst Prof">Asst Prof</option>
-                                                    <option value="Assoc Prof">Assoc Prof</option>
-                                                    <option value="HOD">HOD</option>
-                                                    <option value="Principal">Principal</option>
-                                                    <option value="Dean">Dean</option>
-                                                </select>
-                                            </div>
-                                        )}
-                                        <div className={`space-y-2 ${formData.role === 'teacher' ? 'md:col-span-3' : 'md:col-span-4'}`}>
-                                            <label className="text-xs font-medium text-text-muted">Full Name</label>
-                                            <input 
-                                                className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                value={formData.fullName} 
-                                                onChange={e => setFormData({ ...formData, fullName: e.target.value })} 
-                                                placeholder="Enter your full name"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Subject Taught - Only for Teachers */}
-                                    {formData.role === 'teacher' && (
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-medium text-text-muted">Subject Taught</label>
-                                            <input 
-                                                className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                value={formData.subjectTaught} 
-                                                onChange={e => setFormData({ ...formData, subjectTaught: e.target.value })} 
-                                                placeholder="e.g., Computer Science, Mathematics, Physics"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Bio */}
-                                    <div className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-xs font-medium text-text-muted">Bio (Optional)</label>
-                                            {formData.bio && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setFormData({ ...formData, bio: '' })}
-                                                    className="text-xs font-semibold text-danger hover:text-danger/80 transition-colors flex items-center gap-1"
-                                                >
-                                                    <X size={12} />
-                                                    Clear Bio
-                                                </button>
-                                            )}
-                                        </div>
-                                        <textarea 
-                                            className="w-full h-24 px-4 py-3 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all resize-none" 
-                                            value={formData.bio} 
-                                            onChange={e => setFormData({ ...formData, bio: e.target.value })} 
-                                            placeholder="Tell us about yourself..."
-                                            maxLength={200}
-                                        />
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-xs text-text-muted">Share a brief description about yourself</p>
-                                            <p className="text-xs text-text-muted font-semibold">{formData.bio?.length || 0}/200</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Department */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium text-text-muted">Department</label>
-                                        <select 
-                                            className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                            value={formData.dept} 
-                                            onChange={e => setFormData({ ...formData, dept: e.target.value })}
-                                        >
-                                            {DEPTS.filter(dept => dept !== 'ALL').map(dept => <option key={dept} value={dept}>{dept}</option>)}
-                                        </select>
-                                    </div>
-
-                                    {/* Year and Section - Only for Students */}
-                                    {formData.role === 'student' && (
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-medium text-text-muted">Year</label>
-                                                <select 
-                                                    className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                    value={formData.yearOfStudy} 
-                                                    onChange={e => setFormData({ ...formData, yearOfStudy: e.target.value })}
-                                                >
-                                                    {[1, 2, 3, 4].map(y => <option key={y} value={y}>{y} Year</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-medium text-text-muted">Section</label>
-                                                <select 
-                                                    className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                    value={formData.section} 
-                                                    onChange={e => setFormData({ ...formData, section: e.target.value })}
-                                                >
-                                                    {['A', 'B', 'C', 'D'].map(s => <option key={s} value={s}>Section {s}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            {/* Settings - WhatsApp & Preferences */}
-                            <div className="bg-bg-light rounded-3xl border border-border-light overflow-hidden">
-                                <div className="p-8 space-y-6">
-                                    <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Contact Settings</h3>
-                                    
-                                    {/* WhatsApp Number */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium text-text-muted">WhatsApp Number</label>
-                                        <div className="flex gap-3">
-                                            <CountrySelect value={formData.countryCode} onChange={c => setFormData({ ...formData, countryCode: c })} />
-                                            <input 
-                                                placeholder="WhatsApp Number" 
-                                                className="flex-1 h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                type="tel" 
-                                                value={formData.whatsappNumber} 
-                                                onChange={e => setFormData({ ...formData, whatsappNumber: e.target.value })} 
-                                            />
-                                        </div>
-                                        <p className="text-xs text-text-muted">Used for circular notifications and updates</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Theme Preference */}
-                            <div className="bg-bg-light rounded-3xl border border-border-light overflow-hidden">
-                                <div className="p-8 space-y-6">
-                                    <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Appearance</h3>
-                                    
-                                    <div className="grid grid-cols-3 gap-4">
-                                        {[
-                                            { value: 'light', label: 'Light', icon: '☀️' },
-                                            { value: 'dark', label: 'Dark', icon: '🌙' },
-                                            { value: 'system', label: 'System', icon: '💻' }
-                                        ].map(t => (
-                                            <button
-                                                key={t.value}
-                                                type="button"
-                                                onClick={() => setTheme(t.value)}
-                                                className={`h-20 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
-                                                    theme === t.value 
-                                                        ? 'bg-primary/5 border-primary text-primary' 
-                                                        : 'bg-bg-light border-border-light text-text-muted hover:border-primary/40'
-                                                }`}
-                                            >
-                                                <span className="text-2xl">{t.icon}</span>
-                                                <span className="text-xs font-semibold">{t.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Language Preference */}
-                            <div className="bg-bg-light rounded-3xl border border-border-light overflow-hidden">
-                                <div className="p-8 space-y-6">
-                                    <div>
-                                        <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Language / भाषा</h3>
-                                        <p className="text-xs text-text-muted mt-2">Changes app name and slogan display</p>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium text-text-muted">Select Language</label>
-                                        <select 
-                                            className="w-full h-14 px-4 rounded-xl border border-border-light font-medium text-base focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                            value={language} 
-                                            onChange={e => setLanguage(e.target.value)}
-                                        >
-                                            <option value="en">English - SuchnaX Link</option>
-                                            <option value="hi">हिन्दी - सूचनाX लिंक</option>
-                                            <option value="te">తెలుగు - సూచనాX లింక్</option>
-                                            <option value="ta">தமிழ் - சூச்சனாX லிங்க்</option>
-                                            <option value="kn">ಕನ್ನಡ - ಸೂಚನಾX ಲಿಂಕ್</option>
-                                        </select>
-                                        <p className="text-xs text-text-muted mt-2">
-                                            The brand name and slogan will automatically update throughout the app
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Apple Intro Preferences */}
-                            <div className="bg-bg-light rounded-3xl border border-border-light overflow-hidden">
-                                <div className="p-8 space-y-6">
-                                    <h3 className="text-sm font-bold text-text-muted uppercase tracking-wider">Welcome Animation</h3>
-                                    
-                                    {/* Enable/Disable Toggle */}
-                                    <div 
-                                        onClick={() => setFormData(f => ({ ...f, dailyIntroEnabled: !f.dailyIntroEnabled }))} 
-                                        className="flex items-center justify-between p-5 rounded-2xl border border-border-light cursor-pointer hover:border-primary/40 transition-all"
-                                    >
-                                        <div>
-                                            <p className="text-sm font-semibold text-text-main">Show Welcome Screen</p>
-                                            <p className="text-xs text-text-muted mt-1">Apple-style greeting animation on login</p>
-                                        </div>
-                                        <div className={`h-8 w-14 rounded-full p-1 transition-all ${formData.dailyIntroEnabled ? 'bg-primary' : 'bg-border-light'}`}>
-                                            <div className={`h-6 w-6 bg-white rounded-full transition-all shadow-sm ${formData.dailyIntroEnabled ? 'translate-x-6' : ''}`} />
-                                        </div>
-                                    </div>
-
-                                    {/* Frequency and Language */}
-                                    {formData.dailyIntroEnabled && (
-                                        <div className="grid grid-cols-2 gap-4 pt-2">
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-medium text-text-muted">Frequency</label>
-                                                <select 
-                                                    className="w-full h-12 px-4 rounded-xl border border-border-light font-medium text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                    value={formData.introFrequency} 
-                                                    onChange={e => setFormData({ ...formData, introFrequency: e.target.value })}
-                                                >
-                                                    <option value="daily">Once Daily</option>
-                                                    <option value="always">Every Login</option>
-                                                    <option value="never">Never Show</option>
-                                                </select>
-                                                <p className="text-[10px] text-text-muted">
-                                                    {formData.introFrequency === 'daily' && 'Shows once per day'}
-                                                    {formData.introFrequency === 'always' && 'Shows on every login'}
-                                                    {formData.introFrequency === 'never' && 'Animation disabled'}
-                                                </p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-medium text-text-muted">Language</label>
-                                                <select 
-                                                    className="w-full h-12 px-4 rounded-xl border border-border-light font-medium text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" 
-                                                    value={formData.greetingLanguage} 
-                                                    onChange={e => setFormData({ ...formData, greetingLanguage: e.target.value })}
-                                                >
-                                                    <optgroup label="Popular">
-                                                        <option value="Mixed">Mixed (Multiple)</option>
-                                                    </optgroup>
-                                                    <optgroup label="International">
-                                                        <option value="English">English</option>
-                                                        <option value="Spanish">Spanish</option>
-                                                        <option value="French">French</option>
-                                                        <option value="German">German</option>
-                                                        <option value="Chinese">Chinese</option>
-                                                        <option value="Japanese">Japanese</option>
-                                                        <option value="Arabic">Arabic</option>
-                                                        <option value="Russian">Russian</option>
-                                                        <option value="Portuguese">Portuguese</option>
-                                                        <option value="Italian">Italian</option>
-                                                        <option value="Korean">Korean</option>
-                                                    </optgroup>
-                                                    <optgroup label="Indian Languages">
-                                                        <option value="Hindi">Hindi</option>
-                                                        <option value="Telugu">Telugu</option>
-                                                        <option value="Tamil">Tamil</option>
-                                                        <option value="Bengali">Bengali</option>
-                                                        <option value="Marathi">Marathi</option>
-                                                        <option value="Gujarati">Gujarati</option>
-                                                        <option value="Kannada">Kannada</option>
-                                                        <option value="Malayalam">Malayalam</option>
-                                                        <option value="Punjabi">Punjabi</option>
-                                                    </optgroup>
-                                                    <optgroup label="With English">
-                                                        <option value="English+Hindi">English + Hindi</option>
-                                                        <option value="English+Telugu">English + Telugu</option>
-                                                        <option value="English+Tamil">English + Tamil</option>
-                                                        <option value="English+Spanish">English + Spanish</option>
-                                                        <option value="English+French">English + French</option>
-                                                    </optgroup>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Danger Zone */}
-                            <div className="bg-danger/5 rounded-3xl border-2 border-danger/20 overflow-hidden">
-                                <div className="p-8 space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <AlertTriangle size={20} className="text-danger" />
-                                        <h3 className="text-sm font-bold text-danger uppercase tracking-wider">Danger Zone</h3>
-                                    </div>
-                                    <p className="text-sm text-text-muted">Once you delete your account, there is no going back. All your data will be permanently removed.</p>
-                                    <button 
-                                        onClick={() => setShowDeleteModal(true)} 
-                                        className="w-full h-12 border-2 border-danger text-danger font-semibold rounded-xl text-sm hover:bg-danger hover:text-white transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <Trash2 size={16} />
-                                        Delete My Account
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </motion.div>
-            </AnimatePresence>
+        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
+        
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className={`flex-1 border font-semibold py-3 rounded-xl text-sm ${theme.cardInner} ${theme.secondary}`}>
+            Cancel
+          </button>
+          <button onClick={handleDelete} disabled={deleting}
+            className="flex-1 bg-red-600 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98] disabled:opacity-50">
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
         </div>
-    );
-
-    return (
-        <main className="min-h-[80vh] flex flex-col justify-center max-w-6xl mx-auto px-4 py-12">
-            <AnimatePresence>
-                {showPasswordModal && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPasswordModal(false)} className="fixed inset-0 modal-backdrop bg-black/70 dark:bg-black/80" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-bg-light p-8 rounded-[40px] w-full max-w-md border-2 shadow-2xl modal-glow" style={{ borderColor: 'var(--royal-blue)', boxShadow: '0 0 40px rgba(26, 115, 232, 0.3), 0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
-                            <h3 className="text-2xl font-black mb-6">Update Security</h3>
-                            <form onSubmit={handlePasswordChange} className="space-y-6">
-                                <input type="password" required placeholder="New Password" className="w-full h-14 px-4 rounded-xl border border-border-light font-bold" value={passwordData.new} onChange={e => setPasswordData({ ...passwordData, new: e.target.value })} />
-                                <input type="password" required placeholder="Confirm Password" className="w-full h-14 px-4 rounded-xl border border-border-light font-bold" value={passwordData.confirm} onChange={e => setPasswordData({ ...passwordData, confirm: e.target.value })} />
-                                <button type="submit" disabled={loading} className="w-full h-14 bg-text-primary text-white rounded-2xl font-black uppercase text-[11px] shadow-lg">Update Credentials</button>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-                {showDeleteModal && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowDeleteModal(false)} className="fixed inset-0 modal-backdrop bg-black/70 dark:bg-black/80" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-bg-light p-10 rounded-[40px] w-full max-w-sm text-center border-2 border-danger shadow-2xl" style={{ boxShadow: '0 0 40px rgba(234, 67, 53, 0.3), 0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
-                            <AlertTriangle size={48} className="text-danger mx-auto mb-4" />
-                            <h3 className="text-2xl font-black">Final Confirmation</h3>
-                            <p className="text-xs font-medium text-text-muted mt-2 mb-8">This action is irreversible. All data will be wiped.</p>
-                            <div className="flex flex-col gap-3">
-                                <button onClick={handleDeleteAccount} className="h-14 bg-danger text-white rounded-2xl font-black uppercase text-[11px]">Confirm Deletion</button>
-                                <button onClick={() => setShowDeleteModal(false)} className="h-14 bg-surface-light/50 text-text-main rounded-2xl font-black uppercase text-[11px]">Cancel</button>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-                {showAvatarModal && (
-                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div 
-                            initial={{ opacity: 0 }} 
-                            animate={{ opacity: 1 }} 
-                            exit={{ opacity: 0 }} 
-                            onClick={() => !uploading && setShowAvatarModal(false)} 
-                            className="fixed inset-0 modal-backdrop bg-black/70 dark:bg-black/80" 
-                        />
-                        <motion.div 
-                            initial={{ scale: 0.9, opacity: 0 }} 
-                            animate={{ scale: 1, opacity: 1 }} 
-                            exit={{ scale: 0.9, opacity: 0 }} 
-                            className="relative bg-bg-light p-8 rounded-[32px] w-full max-w-md border-2 shadow-2xl modal-glow"
-                            style={{
-                                borderColor: 'var(--royal-blue)',
-                                boxShadow: '0 0 40px rgba(26, 115, 232, 0.3), 0 20px 25px -5px rgba(0, 0, 0, 0.3)'
-                            }}
-                        >
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-black">Profile Picture</h3>
-                                <button 
-                                    onClick={() => !uploading && setShowAvatarModal(false)}
-                                    disabled={uploading}
-                                    className="p-2 hover:bg-surface-light rounded-xl transition-all"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <div className="space-y-6">
-                                {/* Avatar Preview */}
-                                <div className="flex justify-center">
-                                    <div className="relative h-32 w-32 rounded-full border-4 border-primary overflow-hidden bg-surface-light flex items-center justify-center">
-                                        {formData.avatarUrl ? (
-                                            <img 
-                                                src={optimizeCloudinaryUrl(formData.avatarUrl, { width: 128, height: 128 })} 
-                                                className="h-full w-full object-cover" 
-                                                alt="Profile avatar"
-                                                loading="lazy"
-                                            />
-                                        ) : (
-                                            <UserCircle size={64} className="text-primary" />
-                                        )}
-                                        {uploading && (
-                                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                                <Loader2 size={32} className="animate-spin text-white" />
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="space-y-3">
-                                    <label className="block">
-                                        <input 
-                                            type="file" 
-                                            accept="image/jpeg,image/jpg,image/png,image/webp"
-                                            onChange={handleAvatarUpload}
-                                            disabled={uploading}
-                                            className="hidden"
-                                        />
-                                        <div className="w-full h-14 bg-primary text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 cursor-pointer hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                            <Camera size={18} />
-                                            {formData.avatarUrl ? 'Change Picture' : 'Upload Picture'}
-                                        </div>
-                                    </label>
-
-                                    {formData.avatarUrl && (
-                                        <button 
-                                            onClick={handleAvatarDelete}
-                                            disabled={uploading}
-                                            className="w-full h-14 bg-danger/10 text-danger border-2 border-danger/20 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 hover:bg-danger hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            <Trash2 size={18} />
-                                            Remove Picture
-                                        </button>
-                                    )}
-
-                                    <button 
-                                        onClick={() => setShowAvatarModal(false)}
-                                        disabled={uploading}
-                                        className="w-full h-12 bg-surface-light text-text-main rounded-xl font-bold text-sm hover:bg-border-light transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-
-                                {/* File Requirements */}
-                                <div className="bg-surface-light p-4 rounded-xl border border-border-light">
-                                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Requirements</p>
-                                    <ul className="text-xs text-text-dim space-y-1">
-                                        <li>• Max file size: 2MB</li>
-                                        <li>• Formats: JPG, PNG, WEBP</li>
-                                        <li>• Recommended: Square image</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {isEditMode ? renderEditMode() : (
-                <div className="grid lg:grid-cols-5 gap-16 items-center">
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="h-14 w-14 bg-primary/10 text-primary rounded-[20px] flex items-center justify-center border border-primary/20"><ShieldCheck size={28} /></div>
-                        <h1 className="text-5xl font-black tracking-tighter leading-[0.9]">Identity Setup<span className="text-primary">.</span></h1>
-                        <p className="text-text-muted font-medium max-w-xs">Mandatory profile completion for institutional access.</p>
-                        <div className="pt-8 space-y-4">
-                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-primary"><span>Progress</span><span>{currentStep}/3</span></div>
-                            <div className="h-1 bg-border-light/20 rounded-full overflow-hidden"><motion.div className="h-full bg-primary" initial={{ width: 0 }} animate={{ width: `${(currentStep / 3) * 100}%` }} /></div>
-                        </div>
-                    </div>
-                    <div className="lg:col-span-3 bg-bg-light p-10 rounded-[40px] border border-border-light shadow-md min-h-[480px] flex flex-col relative overflow-hidden">
-                        <div className="flex-1 relative z-10">
-                            <AnimatePresence mode="wait">{currentStep === 1 ? renderStep1() : currentStep === 2 ? renderStep2() : renderStep3()}</AnimatePresence>
-                        </div>
-                        <div className="mt-8 flex gap-4">
-                            {currentStep > 1 && <button onClick={prevStep} className="h-14 px-8 rounded-2xl border border-border-light font-black text-[10px] uppercase flex items-center gap-2"><ChevronLeft size={16} />Back</button>}
-                            <button onClick={currentStep === 3 ? handleSubmit : nextStep} className="flex-1 h-14 bg-primary text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2">{currentStep === 3 ? <><Save size={16} />Finish</> : <><ArrowRight size={16} />Next</>}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </main>
-    );
+      </motion.div>
+    </motion.div>
+  );
 };
+
+// ─── Language Sheet ──────────────────────────────────────────────────────────
+const LanguageSheet = ({ current, onClose, onSave, theme }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
+    <motion.div
+      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+      transition={{ type: "spring", damping: 28, stiffness: 300 }}
+      onClick={(e) => e.stopPropagation()}
+      className={`w-full max-w-sm border rounded-t-3xl p-6 pb-12 ${theme.sheet}`}>
+      <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${theme.muted} bg-current opacity-30`} />
+      <h2 className={`text-lg font-bold ${theme.primary} mb-5`}>Choose Language</h2>
+      <div className="grid grid-cols-1 gap-2">
+        {LANGUAGES.map((lang) => (
+          <button
+            key={lang.id}
+            onClick={() => { onSave(lang.id); onClose(); }}
+            className={`flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all active:scale-[0.98] ${
+              current === lang.id 
+                ? "border-red-500 bg-red-500/5 text-red-600" 
+                : `${theme.cardInner} ${theme.primary} border-transparent`
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">{lang.flag}</span>
+              <div className="text-left">
+                <p className="text-sm font-bold">{lang.native}</p>
+                <p className={`text-[10px] uppercase tracking-widest ${theme.muted}`}>{lang.label}</p>
+              </div>
+            </div>
+            {current === lang.id && <span className="text-red-500 font-bold">✓</span>}
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  </motion.div>
+);
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═════════════════════════════════════════════════════════════════════════════
+const ProfilePage = () => {
+  const { profile, stats, signOut, refreshProfile } = useAuth();
+  const { darkMode, toggleDarkMode }                = useContext(ThemeContext);
+
+  const theme       = t(darkMode);
+  const fileRef     = useRef(null);
+
+  const [sheet,         setSheet]         = useState(null); // 'edit'|'password'|'signout'|'delete'|'photo'|'language'
+  const [photoViewer,   setPhotoViewer]   = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [progress,      setProgress]      = useState(null); // 0–100 | null
+  const [uploadError,   setUploadError]   = useState("");
+
+  const isGoogleUser = auth.currentUser?.providerData?.some(p => p.providerId === 'google.com');
+
+  const initials  = profile?.full_name
+    ? profile.full_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : "??";
+  const roleColor = { admin: "red", teacher: "green", student: "blue" }[profile?.role] || "muted";
+  const roleLabel = { admin: "System Admin", teacher: "Faculty", student: "Student" }[profile?.role] || profile?.role;
+
+  // ── Photo upload ──────────────────────────────────────────────────────────
+  const handleFileSelected = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return setUploadError("Please select an image file.");
+    if (file.size > 5 * 1024 * 1024)     return setUploadError("Image must be under 5 MB.");
+
+    setUploadError(""); setSheet(null); setProgress(5);
+    try {
+      const photoURL = await uploadToCloudinary(file, (p) => setProgress(p));
+      setProgress(80);
+      await updateProfile(auth.currentUser, { photoURL });
+      setProgress(90);
+      await updateDoc(doc(db, "profiles", auth.currentUser.uid), { photoURL, updated_at: new Date() });
+      setProgress(100);
+      await refreshProfile?.();
+      setTimeout(() => setProgress(null), 700);
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+      setUploadError("Upload failed. Please try again.");
+      setProgress(null);
+    }
+    e.target.value = "";
+  }, [refreshProfile]);
+
+  // ── Photo remove ──────────────────────────────────────────────────────────
+  const handleRemovePhoto = useCallback(async () => {
+    setUploadError(""); setProgress(20);
+    try {
+      await updateProfile(auth.currentUser, { photoURL: null });
+      setProgress(60);
+      await updateDoc(doc(db, "profiles", auth.currentUser.uid), { photoURL: null, updated_at: new Date() });
+      setProgress(100);
+      await refreshProfile?.();
+      setTimeout(() => setProgress(null), 700);
+    } catch {
+      setUploadError("Failed to remove photo. Try again.");
+      setProgress(null);
+    }
+  }, [refreshProfile]);
+
+  // ── Save profile text ─────────────────────────────────────────────────────
+  const handleSaveProfile = async (data) => {
+    await updateDoc(doc(db, "profiles", auth.currentUser.uid), { ...data, updated_at: new Date() });
+    if (data.full_name) await updateProfile(auth.currentUser, { displayName: data.full_name });
+    await refreshProfile?.();
+  };
+
+  // ── Save Language ─────────────────────────────────────────────────────────
+  const handleSaveLanguage = async (langId) => {
+    await updateDoc(doc(db, "profiles", auth.currentUser.uid), { 
+      greeting_language: langId, 
+      updated_at: new Date() 
+    });
+    await refreshProfile?.();
+  };
+
+  // ── Delete Account ────────────────────────────────────────────────────────
+  const handleDeleteAccount = async (password) => {
+    const user = auth.currentUser;
+    if (!isGoogleUser && password) {
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    }
+    // Delete Firestore profile first
+    await updateDoc(doc(db, "profiles", user.uid), { status: 'deleted', deleted_at: new Date() });
+    // In a real app, you might use a cloud function to fully purge data
+    await deleteUser(user);
+    window.location.href = '/';
+  };
+
+  return (
+    <>
+      {/* Upload progress bar */}
+      <AnimatePresence>
+        {progress !== null && <UploadProgress progress={progress} />}
+      </AnimatePresence>
+
+      {/* Hidden file input */}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
+
+      {/* Full-screen photo viewer */}
+      <AnimatePresence>
+        {photoViewer && profile?.photoURL && (
+          <PhotoViewer
+            url={profile.photoURL}
+            name={profile.full_name}
+            onClose={() => setPhotoViewer(false)}
+            onRemove={() => { handleRemovePhoto(); setPhotoViewer(false); }}
+            onChangePhoto={() => { setPhotoViewer(false); fileRef.current?.click(); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Main page ── */}
+      <motion.div
+        initial="hidden" animate="show"
+        variants={{ show: { transition: { staggerChildren: 0.06 } } }}
+        className={`min-h-screen ${theme.page} pb-28 px-5 pt-4 transition-colors duration-300`}
+      >
+        {/* India tricolor strip */}
+        <motion.div variants={fadeUp} className="h-0.5 rounded-full mb-5 opacity-50"
+          style={{ background: theme.strip }} />
+
+        {/* ── Avatar ── */}
+        <motion.div variants={fadeUp} className="flex flex-col items-center pb-6">
+          <div className="relative mb-4 group">
+            {/* Main avatar button — tap to open full viewer if has photo, else open sheet */}
+            <button
+              onClick={() => profile?.photoURL ? setPhotoViewer(true) : setSheet("photo")}
+              className="relative w-24 h-24 rounded-[22px] border-2 border-red-500 p-0.5 focus:outline-none focus:ring-4 focus:ring-red-500/30 overflow-hidden"
+              aria-label={profile?.photoURL ? "View profile photo" : "Add profile photo"}
+            >
+              {profile?.photoURL ? (
+                <img src={profile.photoURL} alt={profile.full_name}
+                  className="w-full h-full rounded-[18px] object-cover" />
+              ) : (
+                <div className="w-full h-full rounded-[18px] bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-white">{initials}</span>
+                </div>
+              )}
+              {/* Hover overlay */}
+              <div className="absolute inset-0 rounded-[18px] bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-white text-xl">📷</span>
+              </div>
+            </button>
+
+            {/* Edit badge */}
+            <button onClick={() => setSheet("photo")} aria-label="Change photo"
+              className={`absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-red-500 rounded-full border-2 ${theme.avatarBorder} flex items-center justify-center text-white text-xs shadow-md`}>
+              ✏️
+            </button>
+
+            {/* Online dot */}
+            <span className={`absolute -top-1 -left-1 w-4 h-4 bg-green-500 border-2 ${theme.avatarBorder} rounded-full`} />
+          </div>
+
+          <h1 className={`text-xl font-bold ${theme.primary} mb-1`}>{profile?.full_name || "Loading…"}</h1>
+          <p className={`text-xs ${theme.muted} uppercase tracking-wider mb-3`}>
+            {profile?.department ? `${profile.department} · ` : ""}{roleLabel}
+          </p>
+          <div className="flex gap-2 flex-wrap justify-center">
+            <Badge color={roleColor}>{roleLabel}</Badge>
+            {profile?.status === "active" && <Badge color="green">Verified ✓</Badge>}
+          </div>
+
+          {uploadError && (
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="text-xs text-red-500 mt-3 text-center px-4">
+              {uploadError}
+            </motion.p>
+          )}
+        </motion.div>
+
+        {/* ── Stats ── */}
+        <motion.div variants={fadeUp} className="flex gap-3 mb-6">
+          {[
+            { value: stats?.myPosts ?? "—", label: "Circulars posted", color: "text-red-500" },
+            { value: stats?.membersManaged  ?? "—", label: "Members managed",  color: "text-green-500"  },
+            { value: stats?.totalViews      ?? "—", label: "Total views",       color: "text-blue-500"   },
+          ].map(({ value, label, color }) => (
+            <div key={label} className={`flex-1 border rounded-2xl p-4 ${theme.cardInner}`}>
+              <p className={`text-2xl font-bold ${color} mb-0.5`}>{value}</p>
+              <p className={`text-xs ${theme.muted}`}>{label}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* ── Account ── */}
+        <motion.div variants={fadeUp}>
+          <SectionLabel theme={theme}>Account</SectionLabel>
+          <SettingRow theme={theme} icon="👤" title="Edit Profile"    subtitle="Name, department, year, section"
+            right={<span className={`${theme.muted} text-xl`}>›</span>} onClick={() => setSheet("edit")} />
+          <SettingRow theme={theme} icon="🖼️" title="Profile Photo"   subtitle="Change or remove your photo"
+            right={<span className={`${theme.muted} text-xl`}>›</span>} onClick={() => setSheet("photo")} />
+          <SettingRow theme={theme} icon="🌐" title="Language"        subtitle="UI Language"
+            right={<span className={`text-[10px] font-bold uppercase bg-red-500/10 text-red-500 px-2 py-0.5 rounded`}>
+              {LANGUAGES.find(l => l.id === profile?.greeting_language)?.label || 'EN'}
+            </span>}
+            onClick={() => setSheet("language")} />
+          <SettingRow theme={theme} icon="🔔" title="Notifications"   subtitle="Push & email alerts"
+            right={<Toggle on={notifications} onToggle={() => setNotifications((p) => !p)} />} />
+          <SettingRow theme={theme} icon="🌙" title="Dark Mode"       subtitle={darkMode ? "Currently dark" : "Currently light"}
+            right={<Toggle on={darkMode} onToggle={toggleDarkMode} />} />
+          {!isGoogleUser && (
+            <SettingRow theme={theme} icon="🔒" title="Change Password" subtitle="Update security credentials"
+              right={<span className={`${theme.muted} text-xl`}>›</span>} onClick={() => setSheet("password")} />
+          )}
+        </motion.div>
+
+        {/* ── Info ── */}
+        <motion.div variants={fadeUp}>
+          <SectionLabel theme={theme}>Info</SectionLabel>
+          <div className={`border rounded-2xl overflow-hidden ${theme.card} divide-y ${theme.divider}`}>
+            {[
+              { label: "Email",      value: profile?.email      || "—" },
+              { label: "Role",       value: roleLabel            || "—" },
+              { label: "Department", value: profile?.department  || "—" },
+              { label: "Year",       value: profile?.year_of_study || "—" },
+              { label: "Section",    value: profile?.section      || "—" },
+              { label: "Status",     value: profile?.status      || "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between px-4 py-3">
+                <span className={`text-xs ${theme.muted}`}>{label}</span>
+                <span className={`text-sm font-medium ${theme.primary}`}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── Sign out ── */}
+        <motion.div variants={fadeUp}>
+          <SectionLabel theme={theme}>Session</SectionLabel>
+          <button onClick={() => setSheet("signout")}
+            className={`w-full flex items-center justify-between ${theme.danger} border rounded-2xl px-4 py-4 mb-3 active:scale-[0.98] transition-transform`}>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-red-500">Sign Out</p>
+              <p className={`text-xs ${theme.muted} mt-0.5`}>End current session</p>
+            </div>
+            <span className={`${theme.muted} text-lg`}>↩</span>
+          </button>
+          <button onClick={() => setSheet("delete")}
+            className={`w-full flex items-center justify-between bg-red-600/5 border border-red-600/10 rounded-2xl px-4 py-4 active:scale-[0.98] transition-transform`}>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-red-600">Delete Account</p>
+              <p className={`text-[10px] uppercase font-bold text-red-600/60 mt-0.5`}>Irreversible Action</p>
+            </div>
+            <span className={`text-red-600 text-lg`}>🗑️</span>
+          </button>
+        </motion.div>
+
+        <motion.p variants={fadeUp} className={`text-center text-[11px] ${theme.muted} mt-8 tracking-wider`}>
+          Proudly Built for India 🇮🇳 · v2.0
+        </motion.p>
+      </motion.div>
+
+      {/* ── Sheets & Modals ── */}
+      <AnimatePresence>
+        {sheet === "photo" && (
+          <PhotoActionSheet theme={theme} hasPhoto={!!profile?.photoURL}
+            onClose={() => setSheet(null)}
+            onPickFile={() => { setSheet(null); fileRef.current?.click(); }}
+            onRemove={() => { handleRemovePhoto(); setSheet(null); }} />
+        )}
+        {sheet === "edit" && (
+          <EditSheet theme={theme} profile={profile}
+            onClose={() => setSheet(null)} onSave={handleSaveProfile} />
+        )}
+        {sheet === "password" && (
+          <PasswordSheet theme={theme} onClose={() => setSheet(null)} />
+        )}
+        {sheet === "language" && (
+          <LanguageSheet current={profile?.greeting_language || "en"} theme={theme} onSave={handleSaveLanguage} onClose={() => setSheet(null)} />
+        )}
+        {sheet === "signout" && (
+          <SignOutConfirm theme={theme} onConfirm={signOut} onCancel={() => setSheet(null)} />
+        )}
+        {sheet === "delete" && (
+          <DeleteConfirm theme={theme} isGoogleUser={isGoogleUser} onConfirm={handleDeleteAccount} onCancel={() => setSheet(null)} />
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+// ─── Sign Out Confirm ─────────────────────────────────────────────────────────
+const SignOutConfirm = ({ onConfirm, onCancel, theme }) => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-6" onClick={onCancel}>
+      <motion.div
+        initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.88, opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-xs border rounded-3xl p-6 text-center ${theme.sheet}`}>
+        <div className="text-4xl mb-3">👋</div>
+        <h3 className={`text-base font-bold ${theme.primary} mb-1`}>Sign out?</h3>
+        <p className={`text-sm ${theme.secondary} mb-6`}>You'll need to sign in again to access Suchna X Link.</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className={`flex-1 border font-semibold py-3 rounded-xl text-sm ${theme.cardInner} ${theme.secondary}`}>
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98]">
+            Sign Out
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 
 export default ProfilePage;

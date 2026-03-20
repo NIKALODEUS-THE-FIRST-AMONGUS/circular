@@ -5,13 +5,18 @@ import { Trash2, FileText, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useNotify } from '../components/Toaster';
+import { useConfirm } from '../components/ConfirmDialog';
+import { useIsMobile } from '../hooks/useIsMobile';
+import BottomNav from '../components/BottomNav';
 
 const MyPosts = () => {
     const { user } = useAuth();
     const notify = useNotify();
     const navigate = useNavigate();
+    const confirm = useConfirm();
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const isMobile = useIsMobile();
 
     const fetchPosts = useCallback(async () => {
         try {
@@ -33,7 +38,15 @@ const MyPosts = () => {
     }, [user, fetchPosts]);
 
     const handleDelete = async (postId) => {
-        if (!window.confirm("Delete this circular permanently?")) return;
+        const ok = await confirm({
+            title: 'Delete Circular?',
+            message: 'Are you sure you want to permanently delete this circular? This action cannot be undone.',
+            type: 'danger',
+            confirmText: 'Delete Now',
+            cancelText: 'Keep it'
+        });
+        
+        if (!ok) return;
         try {
             await deleteCircular(postId);
             setPosts(posts.filter(p => p.id !== postId));
@@ -99,6 +112,7 @@ const MyPosts = () => {
                     ))}
                 </div>
             )}
+            {isMobile && <BottomNav notifCount={0} />}
         </div>
     );
 };

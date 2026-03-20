@@ -8,6 +8,7 @@ import {
     Calendar, User, FileText, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useConfirm } from '../components/ConfirmDialog';
 import { runCleanupTasks } from '../utils/clientCleanup';
 
 /**
@@ -17,6 +18,7 @@ import { runCleanupTasks } from '../utils/clientCleanup';
 const AuditLogs = () => {
     const { profile } = useAuth();
     const notify = useNotify();
+    const confirm = useConfirm();
     const navigate = useNavigate();
     
     const [activeTab, setActiveTab] = useState('deleted'); // 'deleted', 'history', 'activity', 'archives'
@@ -122,7 +124,15 @@ const AuditLogs = () => {
     };
 
     const handlePermanentDelete = async (circularId) => {
-        if (!window.confirm('Permanently delete this circular? This cannot be undone.')) return;
+        const ok = await confirm({
+            title: 'Permanent Deletion',
+            message: 'Are you sure you want to permanently delete this circular? This action can never be undone and is recorded in the system audit.',
+            type: 'danger',
+            confirmText: 'Delete Permanently',
+            cancelText: 'Cancel'
+        });
+        
+        if (!ok) return;
         
         try {
             await deleteDocument('deleted_circulars', circularId);

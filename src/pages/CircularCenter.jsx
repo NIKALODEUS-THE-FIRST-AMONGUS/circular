@@ -37,7 +37,7 @@ const DEPARTMENTS = [
 ];
 
 const CircularCenter = ({ externalSearchTerm = '' }) => {
-    const { profile, user } = useAuth();
+    const { profile, user, stats } = useAuth();
     const notify = useNotify();
     const location = useLocation();
     const circularFeatures = useCircularFeatures(user?.id);
@@ -78,77 +78,6 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
     }, [externalSearchTerm]);
 
     const PAGE_SIZE = 10;
-    const [stats, setStats] = useState({
-        pendingApprovals: 0,
-        totalUsers: 0,
-        myPosts: 0,
-        todayCount: 0
-    });
-
-    const fetchStats = useCallback(async () => {
-        if (!profile) return;
-        
-        // Prevent multiple simultaneous calls
-        if (fetchStats.isRunning) return;
-        fetchStats.isRunning = true;
-
-        try {
-            // Consolidate all stats queries into a single parallel fetch
-            const queries = [];
-            
-            // Always fetch today's count
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            queries.push(
-                getDocuments('circulars', {
-                    where: [['created_at', '>=', today.toISOString()]]
-                }).then(docs => docs.length)
-            );
-
-            if (profile.role === 'admin') {
-                // Add admin-specific queries
-                queries.push(
-                    getDocuments('profiles', {
-                        where: [['status', '==', 'pending']]
-                    }).then(docs => docs.length),
-                    getDocuments('profiles').then(docs => docs.length)
-                );
-            } else if (profile.role === 'teacher') {
-                // Add teacher-specific query
-                queries.push(
-                    getDocuments('circulars', {
-                        where: [['author_id', '==', user.uid]]
-                    }).then(docs => docs.length)
-                );
-            }
-
-            // Execute all queries in parallel
-            const results = await Promise.all(queries);
-
-            // Parse results based on role
-            const newStats = { todayCount: results[0] || 0 };
-            
-            if (profile.role === 'admin') {
-                newStats.pendingApprovals = results[1] || 0;
-                newStats.totalUsers = results[2] || 0;
-            } else if (profile.role === 'teacher') {
-                newStats.myPosts = results[1] || 0;
-            }
-
-            setStats(prev => ({ ...prev, ...newStats }));
-        } catch {
-            // console.error("Stats Fetch Error");
-        } finally {
-            fetchStats.isRunning = false;
-        }
-    }, [profile, user]);
-
-    useEffect(() => { 
-        if (profile) {
-            fetchStats(); 
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [profile?.id, profile?.role]); // Only re-run when profile ID or role changes
 
     // --- Firebase Data Fetching with Client-Side Filtering ---
     const fetchPage = useCallback(async (pageNum = 0, retryCount = 0) => {
@@ -198,6 +127,13 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
 
             // Client-side filtering (Firebase doesn't support all Supabase query operations)
             allCirculars = allCirculars.filter(circular => {
+                // ── Draft filter: Hide drafts unless user is the author or an admin ──
+                if (circular.status === 'draft') {
+                    if (!profile || (profile.role !== 'admin' && circular.author_id !== user?.uid)) {
+                        return false; // Hide from normal users
+                    }
+                }
+
                 // Department filter
                 if (selectedDept !== 'ALL') {
                     if (circular.department_target !== 'ALL' && circular.department_target !== selectedDept) {
@@ -265,13 +201,14 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
             }
             throw error;
         }
-    }, [selectedDept, priorityFilter, profile, advancedFilters]);
+    }, [selectedDept, priorityFilter, profile, advancedFilters, user?.uid]);
 
     const { isLoading: queryLoading, refetch } = useCachedQuery(
         `circulars_${selectedDept}_${priorityFilter}_${JSON.stringify(advancedFilters)}`,
         () => fetchPage(0),
         {
             staleTime: 300000, // 5 minutes - increased from 1 minute
+            enabled: profile?.status === 'active', // ← only query when user is confirmed active
             onSuccess: (data) => {
                 // Only update if we have data to prevent flickering
                 if (data) {
@@ -529,8 +466,9 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
             />
 
             <header className="space-y-6">
-                <div className="relative overflow-hidden p-6 md:p-8 rounded-3xl bg-gradient-to-br from-bg-light to-surface-light border border-border-light shadow-lg">
-                    <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-center">
+                <div className="bg-bg-surface rounded-3xl p-8 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] border border-border-light relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none"></div>
+                    <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 items-center">
                         <CircularHeader profile={profile} />
 
                         <CircularStats
@@ -555,6 +493,7 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
                   onApplyFilters={handleApplyFilters}
                   onClearFilters={handleClearFilters}
                   isAdmin={profile?.role === 'admin'}
+                  isStudent={profile?.role === 'student'}
                   onDeleteAllClick={() => setShowDeleteConfirm(true)}
                 />
 

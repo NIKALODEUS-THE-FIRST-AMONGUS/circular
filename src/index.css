@@ -14,20 +14,20 @@
   --royal-blue-hover: #1557b0;
 
   --bg-main: #ffffff;
-  --bg-surface: #f8f9fa;
+  --bg-surface: #f3f4f6;
   --border-main: #e5e7eb;
 
-  --text-primary: #111827;
+  --text-primary: #000000;
   --text-muted: #4b5563;
 }
 
-/* Incognito-style Dark Mode - Mildly Dark */
+/* Deep Black Dark Mode */
 .dark {
-  --bg-main: #2d2d2d;
-  --bg-surface: #3a3a3a;
-  --border-main: #4a4a4a;
+  --bg-main: #000000;
+  --bg-surface: #121212;
+  --border-main: #1f1f1f;
 
-  --text-primary: #e8eaed;
+  --text-primary: #ffffff;
   --text-muted: #9aa0a6;
   
   /* Enhanced colors for dark mode */
@@ -37,41 +37,41 @@
 
 /* Dark mode enhancements */
 .dark .glass-card {
-  background: rgba(53, 53, 53, 0.7);
-  border-color: rgba(74, 74, 74, 0.5);
+  background: rgba(18, 18, 18, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
 .dark .glass-panel {
-  background: #3a3a3a;
-  border-color: #4a4a4a;
+  background: #121212;
+  border-color: #1f1f1f;
 }
 
 .dark input,
 .dark textarea,
 .dark select {
-  background: #353535;
-  border-color: #4a4a4a;
-  color: #e8eaed;
+  background: #121212;
+  border-color: #333333;
+  color: #ffffff;
 }
 
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus {
   border-color: #4a9eff;
-  background: #3a3a3a;
+  background: #1a1a1a;
 }
 
 .dark .btn-secondary {
-  background: #3a3a3a;
-  border-color: #4a4a4a;
-  color: #e8eaed;
+  background: #121212;
+  border-color: #333333;
+  color: #ffffff;
 }
 
 .dark .btn-secondary:hover {
-  background: #404040;
+  background: #1a1a1a;
 }
 
 @theme {
@@ -83,13 +83,13 @@
   --color-primary-hover: var(--royal-blue-hover);
 
   --color-bg-light: var(--bg-main);
-  --color-bg-dark: #2d2d2d;
+  --color-bg-dark: #000000;
 
   --color-surface-light: var(--bg-surface);
-  --color-surface-dark: #3a3a3a;
+  --color-surface-dark: #121212;
 
   --color-border-light: var(--border-main);
-  --color-border-dark: #4a4a4a;
+  --color-border-dark: #1f1f1f;
 
   --color-text-main: var(--text-primary);
   --color-text-muted: var(--text-muted);

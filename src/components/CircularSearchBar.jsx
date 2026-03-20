@@ -22,6 +22,7 @@ const CircularSearchBar = memo(({
   onApplyFilters,
   onClearFilters,
   isAdmin = false,
+  isStudent = false,
   onDeleteAllClick,
 }) => {
   return (
@@ -70,6 +71,7 @@ const CircularSearchBar = memo(({
       <AdvancedFilters 
         onApply={onApplyFilters}
         onClear={onClearFilters}
+        isStudent={isStudent}
       />
 
       {/* Delete All Button (Admin only) */}

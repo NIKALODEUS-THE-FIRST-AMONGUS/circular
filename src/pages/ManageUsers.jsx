@@ -38,11 +38,13 @@ import {
 } from 'lucide-react';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
+import { useConfirm } from '../components/ConfirmDialog';
 import { useCachedQuery } from '../hooks/useCachedQuery';
 import { withAdaptiveTimeout } from '../lib/networkSpeed';
 
 const ManageUsers = () => {
     const notify = useNotify();
+    const confirm = useConfirm();
     const { user } = useAuth();
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('student');
@@ -336,7 +338,16 @@ const ManageUsers = () => {
             notify("🔒 Cannot remove Master Admin", "error");
             return;
         }
-        if (!window.confirm(`Permanently remove ${userEmail} from the registry?`)) return;
+        
+        const ok = await confirm({
+            title: 'Remove Member?',
+            message: `Are you sure you want to permanently remove ${userEmail} from the registry?`,
+            type: 'danger',
+            confirmText: 'Remove Member',
+            cancelText: 'Cancel'
+        });
+        
+        if (!ok) return;
 
         notify('Deleting member...', 'info');
         try {
@@ -349,7 +360,15 @@ const ManageUsers = () => {
     };
 
     const handleDeletePreApproval = async (targetEmail) => {
-        if (!window.confirm(`Revoke invitation for ${targetEmail}?`)) return;
+        const ok = await confirm({
+            title: 'Revoke Invitation?',
+            message: `Are you sure you want to revoke the invitation for ${targetEmail}?`,
+            type: 'danger',
+            confirmText: 'Revoke Now',
+            cancelText: 'Cancel'
+        });
+        
+        if (!ok) return;
         
         notify('Revoking invitation...', 'info');
         try {

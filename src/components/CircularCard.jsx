@@ -7,7 +7,7 @@ import {
     ChevronRight, Clock, Tag, Pencil, Trash2, Check,
     AlertTriangle, Loader2, FileText, FileImage, FileSpreadsheet,
     FileArchive, Film, Music, File, TrendingDown, Users, Maximize2, Trash,
-    Shield, X, Link2, List
+    Shield, X, Link2, List, Download
 } from 'lucide-react';
 import { createDocument, deleteCircular } from '../lib/firebase-db';
 import { useNotify as useToast } from './Toaster';

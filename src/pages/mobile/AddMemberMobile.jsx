@@ -41,24 +41,7 @@ const AddMemberMobile = () => {
     };
 
     return (
-        <div className="min-h-screen bg-bg-light">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-slate-900 text-white p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-800 rounded-lg">
-                        <ChevronLeft size={24} />
-                    </button>
-                    <h1 className="text-lg font-bold">Add Member</h1>
-                </div>
-                <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="px-4 py-2 bg-primary text-white rounded-lg font-semibold text-sm disabled:opacity-50 flex items-center gap-2"
-                >
-                    {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-                    Add
-                </button>
-            </div>
+        <div className="min-h-screen bg-bg-light pb-20">
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
@@ -122,6 +105,19 @@ const AddMemberMobile = () => {
                         <option value="CIVIL">Civil</option>
                         <option value="EEE">Electrical</option>
                     </select>
+                </div>
+                <div className="pt-6">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20 flex items-center justify-center gap-3 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                        {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={18} />}
+                        <span>Finalize & Add Member</span>
+                    </button>
+                    <p className="text-[10px] text-center text-text-muted font-bold uppercase tracking-widest mt-6">
+                        Fields marked with * are strictly mandatory
+                    </p>
                 </div>
             </form>
         </div>

@@ -16,35 +16,33 @@ const CircularHeader = memo(({
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
       className="space-y-4"
     >
-      <div className="flex items-center gap-3">
-        <div className="h-0.5 w-12 bg-primary/40 rounded-full" />
-        <span className="text-[11px] font-extrabold text-primary uppercase tracking-[0.25em]">
+      <div className="mb-2">
+        <p className="text-[10px] font-medium text-text-muted/70 tracking-wide uppercase">Proudly Made in India by SxL Labs</p>
+      </div>
+      
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-px bg-primary pointer-events-none"></div>
+        <span className="text-[10px] font-bold text-primary tracking-widest uppercase">
           {profile?.role === 'admin' ? 'Administrative Node' : profile?.role === 'teacher' ? 'Faculty Portal' : 'Student Hub'}
         </span>
       </div>
 
-      <div className="space-y-2">
-        <h1 className="text-5xl md:text-6xl font-black text-text-main tracking-tighter leading-none flex flex-wrap items-baseline gap-x-3">
-          <span className="opacity-90">Circular</span>
-          <span className="text-primary uppercase">Center</span>
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-primary"
-          >
-            .
-          </motion.span>
-          {/* Indian Flag SVG */}
-          <motion.img 
-            src="/indian-flag.svg"
-            alt="Indian Flag"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className="h-8 w-12 rounded-md shadow-md border-2 border-border-light/50 ml-2"
-          />
+      <div className="space-y-1">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-text-main tracking-tighter leading-none flex flex-wrap items-center gap-x-3">
+          Circular <span className="text-primary uppercase tracking-tight">Center.</span>
+          
+          {/* Indian Flag */}
+          <div className="w-8 h-5 bg-white border border-border-light flex flex-col shadow-sm shrink-0 ml-2 rounded-[2px] overflow-hidden">
+            <div className="h-[33.33%] bg-[#FF9933]"></div>
+            <div className="h-[33.33%] bg-white relative flex items-center justify-center">
+              <div className="absolute w-2.5 h-2.5 rounded-full border border-[#000080] flex items-center justify-center">
+                <div className="w-1 h-1 rounded-full bg-[#000080]"></div>
+              </div>
+            </div>
+            <div className="h-[33.33%] bg-[#138808]"></div>
+          </div>
         </h1>
-        <p className="text-text-muted font-semibold text-base md:text-lg max-w-2xl leading-relaxed">
+        <p className="text-text-muted font-medium text-sm md:text-base max-w-2xl mt-3">
           {profile?.role === 'admin'
             ? "System metrics and approvals consolidated."
             : `Accessing broadcasts for ${profile?.department || 'all'} departments.`

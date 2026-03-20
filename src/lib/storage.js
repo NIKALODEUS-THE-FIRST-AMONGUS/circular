@@ -1,19 +1,38 @@
-/**
- * Unified Storage Helper
- * Uses Cloudinary for ALL file types (images, PDFs, Word docs, etc.)
- */
-
 import { getThumbnailUrl, getResponsiveUrls } from './cloudinary';
+import { uploadToSupabase } from './supabase-storage';
+
+const FIVE_MB = 5 * 1024 * 1024;
 
 /**
- * Upload any file to Cloudinary
- * Supports: Images, PDFs, Word docs, Excel, etc.
+ * Upload any file to the appropriate storage provider
+ * Uses Cloudinary for small files/images (< 5MB)
+ * Uses Supabase Storage for large files (5MB - 100MB)
  * 
  * @param {File} file - File to upload
- * @param {string} _userId - User ID for organizing files (reserved for future use)
+ * @param {string} _userId - User ID for organizing files
  * @returns {Promise<{url: string, error: null} | {url: null, error: Error}>}
  */
 export async function uploadFile(file, _userId) {
+  const isLargeFile = file.size > FIVE_MB;
+
+  if (isLargeFile) {
+    console.log(`📤 Uploading LARGE file (${(file.size / (1024 * 1024)).toFixed(1)}MB) to Supabase:`, file.name);
+    const { url, error } = await uploadToSupabase(file);
+    
+    if (error) {
+      console.error('Supabase upload error:', error);
+      return { url: null, error: error };
+    }
+
+    return {
+      url,
+      provider: 'supabase',
+      type: file.type.startsWith('image/') ? 'image' : 'document',
+      size: file.size,
+      error: null
+    };
+  }
+
   try {
     // Get Cloudinary config
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;

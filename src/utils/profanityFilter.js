@@ -1,252 +1,167 @@
 /**
  * Profanity Filter for English and 30+ Indian Languages
  * Detects offensive words, curse words, and inappropriate content
+ * Supports: English, Hindi/Urdu, Tamil, Telugu, Kannada, Malayalam,
+ *           Bengali, Marathi, Gujarati, Punjabi, Odia, Assamese
+ * Features: Leetspeak detection, severity grading, auto-sanitize
  */
 
-// English profanity patterns
+// ─── English ──────────────────────────────────────────────────────────────────
 const englishProfanity = [
-    'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'damn', 'hell',
-    'crap', 'piss', 'dick', 'cock', 'pussy', 'whore', 'slut',
-    'fck', 'fuk', 'sht', 'btch', 'a$$', 'a55', 'sh1t', 'f*ck',
-    'idiot', 'stupid', 'dumb', 'moron', 'retard', 'loser'
+  "fuck","shit","bitch","asshole","bastard","damn","hell",
+  "crap","piss","dick","cock","pussy","whore","slut",
+  "fck","fuk","sht","btch","a$$","a55","sh1t","f*ck",
+  "idiot","stupid","dumb","moron","retard","loser",
 ];
 
-// Extremely offensive words - AUTOMATIC REJECTION
+// Extremely offensive — AUTOMATIC REJECTION, no clean option
 const extremelyOffensive = [
-    'nigger', 'nigga', 'hitler', 'nazi', 'kike', 'chink', 'gook',
-    'spic', 'wetback', 'raghead', 'terrorist', 'jihad', 'rape',
-    'rapist', 'pedophile', 'pedo', 'molest', 'genocide', 'holocaust',
-    'faggot', 'fag', 'dyke', 'tranny', 'retard', 'cunt'
+  "nigger","nigga","hitler","nazi","kike","chink","gook",
+  "spic","wetback","raghead","terrorist","jihad","rape",
+  "rapist","pedophile","pedo","molest","genocide","holocaust",
+  "faggot","fag","dyke","tranny","retard","cunt",
 ];
 
-// Hindi/Urdu profanity
+// ─── Indian Languages ─────────────────────────────────────────────────────────
 const hindiProfanity = [
-    'chutiya', 'madarchod', 'behenchod', 'bhosdike', 'gandu',
-    'harami', 'kamina', 'kutta', 'saala', 'kutte', 'haramzada',
-    'randi', 'bhosdi', 'lodu', 'laude', 'gaandu', 'chut', 'lund',
-    'mc', 'bc', 'mkc', 'bkl', 'bhenchod', 'maderchod'
+  "chutiya","madarchod","behenchod","bhosdike","gandu",
+  "harami","kamina","kutta","saala","kutte","haramzada",
+  "randi","bhosdi","lodu","laude","gaandu","chut","lund",
+  "mc","bc","mkc","bkl","bhenchod","maderchod",
 ];
-
-// Tamil profanity
 const tamilProfanity = [
-    'punda', 'pundai', 'oombu', 'koothi', 'sunni', 'thevdiya',
-    'otha', 'poda', 'podi', 'loosu', 'naaye', 'paiya'
+  "punda","pundai","oombu","koothi","sunni","thevdiya",
+  "otha","poda","podi","loosu","naaye","paiya",
 ];
-
-// Telugu profanity
 const teluguProfanity = [
-    'dengu', 'puka', 'modda', 'gudda', 'boothu', 'lanjakodaka',
-    'koduku', 'pichi', 'erri', 'nakodaka', 'boothulu'
+  "dengu","puka","modda","gudda","boothu","lanjakodaka",
+  "koduku","pichi","erri","nakodaka","boothulu",
 ];
-
-// Kannada profanity
 const kannadaProfanity = [
-    'bekku', 'nayi', 'thika', 'munde', 'kathe', 'keya',
-    'thunni', 'boli', 'magane', 'muchkond', 'sulimaga'
+  "bekku","nayi","thika","munde","kathe","keya",
+  "thunni","boli","magane","muchkond","sulimaga",
 ];
-
-// Malayalam profanity
 const malayalamProfanity = [
-    'patti', 'poori', 'thendi', 'myre', 'kunna', 'poda',
-    'maire', 'thenga', 'poda', 'podi', 'myran', 'thayoli'
+  "patti","poori","thendi","myre","kunna","poda",
+  "maire","thenga","podi","myran","thayoli",
 ];
-
-// Bengali profanity
 const bengaliProfanity = [
-    'choda', 'magir', 'baal', 'gud', 'magi', 'haramzada',
-    'khanki', 'shala', 'bokachoda', 'gadha', 'chhoto'
+  "choda","magir","baal","gud","magi","haramzada",
+  "khanki","shala","bokachoda","gadha","chhoto",
 ];
-
-// Marathi profanity
 const marathiProfanity = [
-    'zhavadya', 'bhikari', 'gandu', 'lavdya', 'chutiya',
-    'randi', 'ghaan', 'lavde', 'bhosad', 'madarchod'
+  "zhavadya","bhikari","gandu","lavdya","chutiya",
+  "randi","ghaan","lavde","bhosad","madarchod",
 ];
-
-// Gujarati profanity
 const gujaratiProfanity = [
-    'gando', 'chodu', 'madarchod', 'bhen', 'lodu', 'bhosdi',
-    'harami', 'kutta', 'gadhedu', 'bewakoof'
+  "gando","chodu","madarchod","bhen","lodu","bhosdi",
+  "harami","kutta","gadhedu","bewakoof",
 ];
-
-// Punjabi profanity
 const punjabiProfanity = [
-    'bhen', 'chod', 'kutta', 'kamina', 'gandu', 'madarchod',
-    'bhenchod', 'lund', 'bhosdike', 'harami', 'kutte'
+  "bhen","chod","kutta","kamina","gandu","madarchod",
+  "bhenchod","lund","bhosdike","harami","kutte",
 ];
-
-// Odia profanity
 const odiaProfanity = [
-    'gandu', 'madarchod', 'bhen', 'harami', 'sala', 'kutta',
-    'gadha', 'bewakoof', 'pagal', 'chutiya'
+  "gandu","madarchod","bhen","harami","sala","kutta",
+  "gadha","bewakoof","pagal","chutiya",
 ];
-
-// Assamese profanity
 const assameseProfanity = [
-    'sala', 'harami', 'gandu', 'kutta', 'gadha', 'pagal',
-    'bewakoof', 'madarchod', 'bhen', 'chutiya'
+  "sala","harami","gandu","kutta","gadha","pagal",
+  "bewakoof","madarchod","bhen","chutiya",
 ];
 
-// Combine all profanity lists
+// ─── Combined list ────────────────────────────────────────────────────────────
 const allProfanity = [
-    ...englishProfanity,
-    ...hindiProfanity,
-    ...tamilProfanity,
-    ...teluguProfanity,
-    ...kannadaProfanity,
-    ...malayalamProfanity,
-    ...bengaliProfanity,
-    ...marathiProfanity,
-    ...gujaratiProfanity,
-    ...punjabiProfanity,
-    ...odiaProfanity,
-    ...assameseProfanity
+  ...englishProfanity,
+  ...hindiProfanity,
+  ...tamilProfanity,
+  ...teluguProfanity,
+  ...kannadaProfanity,
+  ...malayalamProfanity,
+  ...bengaliProfanity,
+  ...marathiProfanity,
+  ...gujaratiProfanity,
+  ...punjabiProfanity,
+  ...odiaProfanity,
+  ...assameseProfanity,
 ];
+
+// ─── Leetspeak normalizer ─────────────────────────────────────────────────────
+const normalizeLeet = (text) =>
+  text
+    .toLowerCase()
+    .replace(/4/g, "a").replace(/3/g, "e").replace(/1/g, "i")
+    .replace(/0/g, "o").replace(/5/g, "s").replace(/\$/g, "s")
+    .replace(/@/g, "a").replace(/\*/g, "").replace(/#/g, "")
+    .replace(/%/g, "").replace(/\^/g, "").replace(/&/g, "")
+    .replace(/_/g, "").replace(/-/g, "");
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 /**
- * Check if text contains extremely offensive content that should be auto-rejected
- * @param {string} text - Text to check
- * @returns {Object} - { isExtreme: boolean, matches: string[] }
+ * Check for extremely offensive content → auto-reject, no clean option
+ * @returns {{ isExtreme: boolean, matches: string[] }}
  */
 export const checkExtremeOffensive = (text) => {
-    if (!text || typeof text !== 'string') {
-        return { isExtreme: false, matches: [] };
-    }
-
-    const lowerText = text.toLowerCase();
-    const matches = [];
-
-    // Simple substring check
-    for (const word of extremelyOffensive) {
-        if (lowerText.includes(word)) {
-            matches.push(word);
-        }
-    }
-
-    // Check for leetspeak variations
-    const leetVariations = lowerText
-        .replace(/4/g, 'a')
-        .replace(/3/g, 'e')
-        .replace(/1/g, 'i')
-        .replace(/0/g, 'o')
-        .replace(/5/g, 's')
-        .replace(/\$/g, 's')
-        .replace(/@/g, 'a')
-        .replace(/\*/g, '')
-        .replace(/#/g, '')
-        .replace(/%/g, '')
-        .replace(/\^/g, '')
-        .replace(/&/g, '')
-        .replace(/_/g, '')
-        .replace(/-/g, '');
-
-    for (const word of extremelyOffensive) {
-        if (leetVariations.includes(word) && !matches.includes(word)) {
-            matches.push(word);
-        }
-    }
-
-    return {
-        isExtreme: matches.length > 0,
-        matches: [...new Set(matches)]
-    };
+  if (!text || typeof text !== "string") return { isExtreme: false, matches: [] };
+  const lower = text.toLowerCase();
+  const leet  = normalizeLeet(text);
+  const matches = extremelyOffensive.filter(
+    (w) => lower.includes(w) || leet.includes(w)
+  );
+  return { isExtreme: matches.length > 0, matches: [...new Set(matches)] };
 };
 
 /**
- * Check if text contains profanity
- * @param {string} text - Text to check
- * @returns {Object} - { hasProfanity: boolean, matches: string[] }
+ * Check for anti-Semitic content
+ * @returns {{ found: boolean }}
+ */
+export const checkAntiSemitism = (text) => {
+  if (!text || typeof text !== "string") return { found: false };
+  const lower    = text.toLowerCase();
+  const keywords = ["hitler", "jewish", "jew"];
+  return { found: keywords.some((k) => lower.includes(k)) };
+};
+
+/**
+ * Check if text contains profanity (regular severity)
+ * @returns {{ hasProfanity: boolean, matches: string[] }}
  */
 export const checkProfanity = (text) => {
-    if (!text || typeof text !== 'string') {
-        return { hasProfanity: false, matches: [] };
-    }
-
-    const lowerText = text.toLowerCase();
-    const matches = [];
-
-    // Simple substring check for profanity
-    for (const word of allProfanity) {
-        if (lowerText.includes(word)) {
-            matches.push(word);
-        }
-    }
-
-    // Check for leetspeak variations (a=4, e=3, i=1, o=0, s=5)
-    const leetVariations = lowerText
-        .replace(/4/g, 'a')
-        .replace(/3/g, 'e')
-        .replace(/1/g, 'i')
-        .replace(/0/g, 'o')
-        .replace(/5/g, 's')
-        .replace(/\$/g, 's')
-        .replace(/@/g, 'a')
-        .replace(/\*/g, '')
-        .replace(/#/g, '')
-        .replace(/%/g, '')
-        .replace(/\^/g, '')
-        .replace(/&/g, '')
-        .replace(/_/g, '')
-        .replace(/-/g, '');
-
-    for (const word of allProfanity) {
-        if (leetVariations.includes(word) && !matches.includes(word)) {
-            matches.push(word);
-        }
-    }
-
-    return {
-        hasProfanity: matches.length > 0,
-        matches: [...new Set(matches)] // Remove duplicates
-    };
+  if (!text || typeof text !== "string") return { hasProfanity: false, matches: [] };
+  const lower = text.toLowerCase();
+  const leet  = normalizeLeet(text);
+  const matches = allProfanity.filter(
+    (w) => lower.includes(w) || leet.includes(w)
+  );
+  return { hasProfanity: matches.length > 0, matches: [...new Set(matches)] };
 };
 
 /**
- * Sanitize text by replacing profanity with asterisks
- * @param {string} text - Text to sanitize
- * @returns {string} - Sanitized text
+ * Replace profane words with asterisks
+ * @returns {string}
  */
 export const sanitizeProfanity = (text) => {
-    if (!text || typeof text !== 'string') {
-        return text;
-    }
-
-    let sanitized = text;
-
-    for (const word of allProfanity) {
-        // Simple case-insensitive replacement
-        const regex = new RegExp(word, 'gi');
-        sanitized = sanitized.replace(regex, '*'.repeat(word.length));
-    }
-
-    return sanitized;
+  if (!text || typeof text !== "string") return text;
+  return allProfanity.reduce(
+    (t, w) => t.replace(new RegExp(w, "gi"), "*".repeat(w.length)),
+    text
+  );
 };
 
 /**
- * Get severity level of profanity
- * @param {string[]} matches - Array of matched profane words
- * @returns {string} - 'none', 'low', 'medium', 'high', 'extreme'
+ * Get severity level: 'none' | 'low' | 'medium' | 'high' | 'extreme'
+ * @param {string[]} matches
+ * @returns {string}
  */
 export const getProfanitySeverity = (matches) => {
-    if (matches.length === 0) return 'none';
-    
-    // Check if any match is extremely offensive
-    const hasExtreme = matches.some(word => 
-        extremelyOffensive.some(extreme => word.includes(extreme))
-    );
-    
-    if (hasExtreme) return 'extreme';
-    
-    const highSeverityWords = [
-        'madarchod', 'behenchod', 'bhosdike', 'fuck', 'motherfucker',
-        'bhenchod', 'maderchod', 'chutiya', 'randi', 'whore'
-    ];
-
-    const hasHighSeverity = matches.some(word => 
-        highSeverityWords.some(severe => word.includes(severe))
-    );
-
-    if (hasHighSeverity) return 'high';
-    if (matches.length >= 3) return 'medium';
-    return 'low';
+  if (!matches || matches.length === 0) return "none";
+  if (matches.some((w) => extremelyOffensive.some((e) => w.includes(e)))) return "extreme";
+  const highWords = [
+    "madarchod","behenchod","bhosdike","fuck","motherfucker",
+    "bhenchod","maderchod","chutiya","randi","whore",
+  ];
+  if (matches.some((w) => highWords.some((h) => w.includes(h)))) return "high";
+  if (matches.length >= 3) return "medium";
+  return "low";
 };

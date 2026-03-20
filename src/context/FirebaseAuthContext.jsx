@@ -6,7 +6,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase-config';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
@@ -90,9 +90,71 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const [stats, setStats] = useState({ 
+        myPosts: 0, 
+        membersManaged: 0, 
+        totalViews: 0,
+        totalUsers: 0,
+        pendingApprovals: 0,
+        todayCount: 0
+    });
+
+    useEffect(() => {
+        // Only start listeners when the user is fully active — pending users will hit
+        // permission-denied errors because Firestore rules require status === 'active'.
+        if (!user || profile?.status !== 'active') return;
+
+        const unsubscribes = [];
+
+        // 1. Listen for user's own circulars to count posts and views (Teachers/Admins)
+        if (profile?.role === 'teacher' || profile?.role === 'admin') {
+            const circularsQuery = query(collection(db, 'circulars'), where('author_id', '==', user.uid));
+            const unsubscribeStats = onSnapshot(circularsQuery, (snapshot) => {
+                let posts = 0;
+                let views = 0;
+                snapshot.forEach(doc => {
+                    posts++;
+                    views += (doc.data().view_count || 0);
+                });
+                setStats(prev => ({ ...prev, myPosts: posts, totalViews: views }));
+            });
+            unsubscribes.push(unsubscribeStats);
+
+            // Listen for circulars created today (Teachers/Admins)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayQuery = query(collection(db, 'circulars'), where('created_at', '>=', Timestamp.fromDate(today)));
+            const unsubscribeToday = onSnapshot(todayQuery, (snapshot) => {
+                setStats(prev => ({ ...prev, todayCount: snapshot.size }));
+            });
+            unsubscribes.push(unsubscribeToday);
+        }
+
+        // 2. Listen for total users & pending users (Admins Only)
+        // This is where the permission-denied error was coming from for students!
+        if (profile?.role === 'admin') {
+            const profilesQuery = query(collection(db, 'profiles'));
+            const unsubscribeUsers = onSnapshot(profilesQuery, (snapshot) => {
+                setStats(prev => ({ ...prev, totalUsers: snapshot.size, membersManaged: snapshot.size }));
+            });
+            unsubscribes.push(unsubscribeUsers);
+
+            const pendingQuery = query(collection(db, 'profiles'), where('status', '==', 'pending'));
+            const unsubscribePending = onSnapshot(pendingQuery, (snapshot) => {
+                setStats(prev => ({ ...prev, pendingApprovals: snapshot.size }));
+            });
+            unsubscribes.push(unsubscribePending);
+        }
+
+        return () => {
+            unsubscribes.forEach(unsub => unsub());
+        };
+    }, [user, profile?.status, profile?.role]);
+
     const value = {
         user,
         profile,
+        stats,
         refreshProfile,
         loading,
         setLoading,

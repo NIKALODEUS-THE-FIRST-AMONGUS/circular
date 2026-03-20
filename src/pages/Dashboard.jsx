@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Link } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
@@ -6,7 +6,7 @@ import RoleGuard from '../components/RoleGuard';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { getBrandName, getSlogan } from '../config/branding';
+import { getBrandName } from '../config/branding';
 import {
     Bell, Settings as SettingsIcon, LogOut, ShieldAlert,
     ShieldCheck, GraduationCap, Building2, Layers, Check, Loader2, X, RefreshCw,
@@ -14,20 +14,22 @@ import {
 } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationManager } from '../hooks/useNotificationManager';
-import { useLocation } from 'react-router-dom';
-import AppleIntro from '../components/AppleIntro';
-import { getDocuments } from '../lib/firebase-db';
-import { optimizeCloudinaryUrl } from '../lib/cloudinary';
-import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
-import ProgressLoader from '../components/ProgressLoader';
-import { useParallelFetch } from '../hooks/useFastFetch';
 import { useNotify } from '../components/Toaster';
+import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
+import { useParallelFetch } from '../hooks/useFastFetch';
+import { getDocuments } from '../lib/firebase-db';
+
+import Navbar from '../components/Navbar';
+import MobileSidebar from '../components/MobileSidebar';
+import AppleIntro from '../components/AppleIntro';
+
 
 // Lazy load heavy route components
 const CircularCenter = lazy(() => import('./CircularCenter'));
 const CreateCircular = lazy(() => import('./CreateCircular'));
 const Drafts = lazy(() => import('./Drafts'));
 const Feedback = lazy(() => import('./Feedback'));
+const FeedbackMobile = lazy(() => import('./mobile/FeedbackMobile'));
 const MyPosts = lazy(() => import('./MyPosts'));
 const ManageUsers = lazy(() => import('./ManageUsers'));
 const AddMember = lazy(() => import('./AddMember'));
@@ -43,6 +45,12 @@ const CircularDetailMobile = lazy(() => import('./mobile/CircularDetailMobile'))
 const CreateCircularMobile = lazy(() => import('./mobile/CreateCircularMobile'));
 const AddMemberMobile = lazy(() => import('./mobile/AddMemberMobile'));
 const ActivityCloudMobile = lazy(() => import('./mobile/ActivityCloudMobile'));
+const ProfilePageMobile = lazy(() => import('./mobile/ProfilePageMobile'));
+const DraftsMobile = lazy(() => import('./mobile/DraftsMobile'));
+const MyPostsMobile = lazy(() => import('./mobile/MyPostsMobile'));
+const ApprovalsMobile = lazy(() => import('./mobile/ApprovalsMobile'));
+const SettingsMobile = lazy(() => import('./mobile/SettingsMobile'));
+const ManageUsersMobile = lazy(() => import('./mobile/ManageUsersMobile'));
 
 // Compact Logo for Headers
 const HeaderLogo = () => {
@@ -115,17 +123,16 @@ const getDisplayName = (profile, user, options = {}) => {
 };
 
 const Dashboard = () => {
-    const { profile, isSkipped, user, signOut } = useAuth();
-    const { language } = useLanguage();
+    const { profile, isSkipped, user, signOut, stats } = useAuth();
+    const _language = useLanguage().language;
     const location = useLocation();
+    const navigate = useNavigate();
     const notify = useNotify();
     const isMobile = useIsMobile();
 
-    const [showNotifications, setShowNotifications] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showAppleIntro, setShowAppleIntro] = useState(false);
     const [reminderDismissed, setReminderDismissed] = useState(false);
-    const [bellShaking, setBellShaking] = useState(false);
 
     // Dynamic Progress for global load
     const { progress: globalProgress, complete: completeGlobal } = useSimulatedProgress(!profile && !isSkipped, { slowdownPoint: 95 });
@@ -145,10 +152,10 @@ const Dashboard = () => {
         notifications: managedNotifications,
         unreadCount,
         hasNewNotification,
-        loading: notifLoading,
-        markAsRead,
-        markAllAsRead,
-        clearNewNotificationFlag
+        loading: _notifLoading,
+        markAsRead: _markAsRead,
+        markAllAsRead: _markAllAsRead,
+        clearNewNotificationFlag: _clearNewNotificationFlag
     } = useNotificationManager(user?.id, profile);
 
     const handleIntroComplete = () => {
@@ -187,8 +194,8 @@ const Dashboard = () => {
     // Dynamic Progress for Notifications - removed, using simple loader instead
     // const { progress: notifProgress, complete: completeNotifs } = useSimulatedProgress(false, { slowdownPoint: 90 });
 
-    // --- Fast Parallel Fetch for Stats ---
-    const { results } = useParallelFetch(
+    // Parallel fetch for stats
+    useParallelFetch(
         [
             {
                 key: 'stats',
@@ -211,8 +218,6 @@ const Dashboard = () => {
     );
 
     // Derive state from results
-    const statsForNotifs = useMemo(() => results.stats || null, [results.stats]);
-    
     // Use managed notifications instead
     const notifications = managedNotifications;
 
@@ -225,8 +230,10 @@ const Dashboard = () => {
             if (!profile.full_name) return true;
 
             if (profile.role === 'admin') return false;
-            if (profile.role === 'student') return !profile.class_branch;
-            if (profile.role === 'teacher') return !profile.class_branch || !profile.college_role;
+            
+            // Onboarding saves: department, year_of_study, section
+            if (profile.role === 'student') return !profile.department || !profile.year_of_study || !profile.section;
+            if (profile.role === 'teacher') return !profile.department;
 
             return false;
         };
@@ -252,7 +259,7 @@ const Dashboard = () => {
         setReminderDismissed(true);
     };
 
-    // Handle new notification - shake bell and show toast
+    // Handle new notification - show toast
     useEffect(() => {
         if (hasNewNotification && notifications.length > 0) {
             const latestNotification = notifications.find(n => !n.isRead);
@@ -260,34 +267,13 @@ const Dashboard = () => {
             if (latestNotification) {
                 // Use setTimeout to avoid setState in effect
                 const timer = setTimeout(() => {
-                    setBellShaking(true);
                     notify(`New Circular: ${latestNotification.title}`, 'info');
-                    
-                    // Stop shaking after 3 seconds
-                    setTimeout(() => setBellShaking(false), 3000);
                 }, 0);
 
                 return () => clearTimeout(timer);
             }
         }
     }, [hasNewNotification, notifications, notify]);
-
-    // Handle notification click
-    const handleNotificationClick = (notificationId) => {
-        markAsRead(notificationId);
-        setShowNotifications(false);
-        clearNewNotificationFlag();
-        setBellShaking(false);
-    };
-
-    // Handle notification panel open
-    const handleNotificationPanelOpen = () => {
-        setShowNotifications(!showNotifications);
-        if (!showNotifications) {
-            clearNewNotificationFlag();
-            setBellShaking(false);
-        }
-    };
 
     if (isPending) {
         return (
@@ -350,7 +336,7 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="flex h-screen bg-bg-light font-sans text-text-main overflow-hidden relative">
+        <div className="min-h-screen bg-bg-light font-sans text-text-main relative">
             <AnimatePresence>
                 {showAppleIntro && (
                     <AppleIntro
@@ -361,15 +347,19 @@ const Dashboard = () => {
                 )}
             </AnimatePresence>
 
-            <div
-                className={`backdrop-blur-overlay ${isSidebarOpen ? 'active' : ''}`}
-                onClick={() => setIsSidebarOpen(false)}
+            <Navbar 
+                onMenuClick={() => setIsSidebarOpen(true)}
+                approvalCount={stats?.pendingApprovals || 0}
+                notifCount={unreadCount || 0}
             />
 
-            {/* Hide sidebar on mobile - mobile has its own nav */}
-            {!isMobile && <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />}
+            <MobileSidebar 
+                open={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                approvalCount={stats?.pendingApprovals || 0}
+            />
 
-            <main id="main-content" className={`flex-1 flex flex-col relative min-w-0 bg-bg-light/50 backdrop-blur-sm ${isSidebarOpen ? 'active' : ''}`}>
+            <main id="main-content" className="flex-1 bg-bg-light/50 backdrop-blur-sm relative">
                 <AnimatePresence>
                     {permission === 'default' && (
                         <motion.div
@@ -400,231 +390,8 @@ const Dashboard = () => {
                     )}
                 </AnimatePresence>
 
-                {/* Mobile header - hidden when using mobile layout */}
-                {!isMobile && (
-                    <header className="h-14 lg:hidden flex-shrink-0 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-4 z-40 relative">
-                        {/* Tricolor accent at top */}
-                        <div className="absolute top-0 left-0 right-0 h-[2px] flex">
-                            <div className="flex-1 bg-[#FF9933]" />
-                            <div className="flex-1 bg-white" />
-                            <div className="flex-1 bg-[#138808]" />
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                            <label className="hamburger scale-75 hamburger-white">
-                                <input
-                                    type="checkbox"
-                                    checked={isSidebarOpen}
-                                    onChange={(e) => setIsSidebarOpen(e.target.checked)}
-                                />
-                                <svg viewBox="0 0 32 32">
-                                    <path className="line line-top-bottom" d="M27 10 13 10C10.8 10 9 8.2 9 6 9 3.5 10.8 2 13 2 15.2 2 17 3.8 17 6L17 26C17 28.2 18.8 30 21 30 23.2 30 25 28.2 25 26 25 23.8 23.2 22 21 22L7 22"></path>
-                                    <path className="line" d="M7 16 27 16"></path>
-                                </svg>
-                            </label>
-                            <HeaderLogo />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleNotificationPanelOpen}
-                                className={`h-9 w-9 flex items-center justify-center rounded-full hover:bg-slate-800 text-white relative ${bellShaking ? 'animate-shake' : ''}`}
-                            >
-                                <Bell size={18} />
-                                {(unreadCount > 0 || (profile?.role === 'admin' && statsForNotifs?.pendingApprovals > 0)) && (
-                                    <div className="absolute top-2 right-2 h-1.5 w-1.5 bg-red-500 rounded-full border-2 border-slate-900" />
-                                )}
-                            </button>
-                        </div>
-                    </header>
-                )}
-
-                <header className="h-16 hidden lg:flex flex-shrink-0 bg-bg-light border-b border-border-light items-center justify-between px-8 z-40 relative">
-                    {/* Tricolor accent at top */}
-                    <div className="absolute top-0 left-0 right-0 h-[2px] flex">
-                        <div className="flex-1 bg-[#FF9933]" />
-                        <div className="flex-1 bg-white" />
-                        <div className="flex-1 bg-[#138808]" />
-                    </div>
-                    
-                    <div className="flex items-center gap-6 flex-1">
-                        <label className="hamburger scale-75" aria-label="Toggle sidebar menu">
-                            <input
-                                type="checkbox"
-                                checked={isSidebarOpen}
-                                onChange={(e) => setIsSidebarOpen(e.target.checked)}
-                                aria-label="Sidebar menu toggle"
-                            />
-                            <svg viewBox="0 0 32 32" aria-hidden="true">
-                                <path className="line line-top-bottom" d="M27 10 13 10C10.8 10 9 8.2 9 6 9 3.5 10.8 2 13 2 15.2 2 17 3.8 17 6L17 26C17 28.2 18.8 30 21 30 23.2 30 25 28.2 25 26 25 23.8 23.2 22 21 22L7 22"></path>
-                                <path className="line" d="M7 16 27 16"></path>
-                            </svg>
-                        </label>
-                        <HeaderLogo />
-                        <div className="h-6 w-px bg-border-light" />
-                        <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                            {getSlogan(language)}
-                        </p>
-                        <div className="h-6 w-px bg-border-light ml-2" />
-                        <p className="text-[9px] font-bold text-text-dim uppercase tracking-widest">
-                            Developed by <span className="text-primary">SXL Labs</span> <span className="text-text-dim/60">(SuchnaXLink)</span>
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <button
-                                onClick={handleNotificationPanelOpen}
-                                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-                                aria-expanded={showNotifications}
-                                className={`h-10 w-10 flex items-center justify-center rounded-full transition-colors relative ${showNotifications ? 'bg-primary/10 text-primary' : 'hover:bg-surface-light text-text-muted'} ${bellShaking ? 'animate-shake' : ''}`}
-                            >
-                                <Bell size={20} />
-                                {(unreadCount > 0 || (profile?.role === 'admin' && statsForNotifs?.pendingApprovals > 0)) && (
-                                    <div className="absolute top-2 right-2 h-2 w-2 bg-danger rounded-full border-2 border-bg-light" />
-                                )}
-                            </button>
-
-                            <AnimatePresence>
-                                {showNotifications && (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setShowNotifications(false)}
-                                        />
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                            role="dialog"
-                                            aria-label="Notifications panel"
-                                            className="absolute right-0 mt-2 w-80 bg-bg-light rounded-3xl shadow-2xl border border-border-light z-50 overflow-hidden"
-                                        >
-                                            <div className="p-5 border-b border-border-light flex items-center justify-between bg-clip-padding bg-text-main/10 dark:bg-text-main/20">
-                                                <h3 className="text-xs font-black uppercase tracking-widest text-text-main">Notifications</h3>
-                                                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Recent</span>
-                                            </div>
-
-                                            <div className="max-h-[400px] overflow-y-auto">
-                                                {notifLoading ? (
-                                                    <div className="p-10 flex flex-col items-center justify-center gap-3">
-                                                        <Loader2 size={24} className="animate-spin text-primary" />
-                                                        <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">Refreshing...</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="py-2">
-                                                        {profile?.role === 'admin' && statsForNotifs?.pendingApprovals > 0 && (
-                                                            <Link
-                                                                to="/dashboard/approvals"
-                                                                onClick={() => setShowNotifications(false)}
-                                                                className="mx-4 mt-2 mb-4 p-3 bg-primary text-white rounded-2xl flex items-center justify-between group hover:bg-primary-hover transition-all no-underline shadow-sm"
-                                                            >
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center text-white">
-                                                                        <ShieldAlert size={16} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <p className="text-[11px] font-black uppercase">Verify Members</p>
-                                                                        <p className="text-[10px] opacity-70">{statsForNotifs?.pendingApprovals || 0} pending requests</p>
-                                                                    </div>
-                                                                </div>
-                                                                <ArrowRight size={14} />
-                                                            </Link>
-                                                        )}
-
-                                                        <div className="px-2 space-y-1">
-                                                            {notifLoading ? (
-                                                                <div className="py-12 flex flex-col items-center justify-center gap-4">
-                                                                    <Loader2 size={24} className="animate-spin text-primary" />
-                                                                    <p className="text-[10px] font-bold text-text-dim uppercase tracking-widest">Loading...</p>
-                                                                </div>
-                                                            ) : notifications.filter(n => !n.isRead).length === 0 ? (
-                                                                !(profile?.role === 'admin' && statsForNotifs?.pendingApprovals > 0) && (
-                                                                    <div className="py-12 text-center space-y-2">
-                                                                        <div className="h-12 w-12 bg-surface-light rounded-full flex items-center justify-center mx-auto text-text-dim">
-                                                                            <Bell size={20} />
-                                                                        </div>
-                                                                        <p className="text-[11px] font-bold text-text-dim uppercase tracking-widest">No Unread Notifications</p>
-                                                                    </div>
-                                                                )
-                                                            ) : (
-                                                                notifications.filter(n => !n.isRead).map((n) => (
-                                                                    <Link
-                                                                        key={n.id}
-                                                                        to={`/dashboard/center/${n.id}`}
-                                                                        onClick={() => handleNotificationClick(n.id)}
-                                                                        className={`block p-4 rounded-2xl hover:bg-surface-light transition-all border border-transparent hover:border-border-light/30 ${n.priority === 'important' ? 'bg-danger/5' : ''}`}
-                                                                    >
-                                                                        <div className="flex justify-between items-start mb-1">
-                                                                            <h4 className="text-xs font-black text-text-main line-clamp-1 flex items-center gap-1.5">
-                                                                                {n.priority === 'important' && <span className="h-2 w-2 rounded-full bg-danger animate-pulse" />}
-                                                                                {n.title}
-                                                                            </h4>
-                                                                            <span className="text-[9px] font-bold text-text-dim whitespace-nowrap bg-surface-light px-1.5 py-0.5 rounded-md">
-                                                                                {new Date(n.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                                                            </span>
-                                                                        </div>
-                                                                        <p className="text-[10px] text-text-dim font-medium uppercase tracking-tight">
-                                                                            {n.author_name} {n.priority === 'important' && <span className="text-danger font-black ml-1 text-[8px] tracking-widest">• HIGH ALERT</span>}
-                                                                        </p>
-                                                                    </Link>
-                                                                ))
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="p-3 bg-bg-light border-t border-border-light flex justify-center gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        markAllAsRead();
-                                                        notify('All notifications marked as read', 'success');
-                                                    }}
-                                                    disabled={unreadCount === 0}
-                                                    className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    Mark All Read
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    </>
-                                )}
-                            </AnimatePresence>
-                        </div>
-                        <div className="h-8 w-px bg-border-light/50 mx-2" />
-                        <Link 
-                            to="/dashboard/profile" 
-                            className="flex items-center gap-3 pl-2 group"
-                            aria-label={`Profile: ${getDisplayName(profile, user, { firstNameOnly: true })}`}
-                        >
-                            <div className="text-right hidden sm:block">
-                                <p className="text-[12px] font-bold text-text-main leading-tight group-hover:text-primary transition-colors">
-                                    {getDisplayName(profile, user, { firstNameOnly: true })}
-                                </p>
-                                <p className="text-[10px] font-medium text-text-dim leading-tight italic uppercase tracking-tighter">{profile?.role}</p>
-                            </div>
-                            <div className="h-9 w-9 rounded-full bg-primary-container text-primary flex items-center justify-center font-black border border-primary/20 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
-                                {profile?.avatar_url ? (
-                                    <img 
-                                        src={optimizeCloudinaryUrl(profile.avatar_url, { width: 96, height: 96 })} 
-                                        alt="Profile" 
-                                        className="h-full w-full object-cover"
-                                        loading="lazy"
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            e.target.parentElement.textContent = (profile?.full_name || user?.email)?.[0] || 'U';
-                                        }}
-                                    />
-                                ) : (
-                                    (profile?.full_name || user?.email)?.[0] || 'U'
-                                )}
-                            </div>
-                        </Link>
-                    </div>
-                </header>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {/* Content area */}
+                <div className="relative">
 
                     <AnimatePresence>
                         {showReminder && (
@@ -645,12 +412,12 @@ const Dashboard = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <Link
-                                            to="/dashboard/profile"
-                                            className="btn-primary h-10 px-6 py-0 text-[10px] uppercase tracking-widest shadow-none hover:shadow-m3-1"
+                                        <button
+                                            onClick={() => navigate('/dashboard/profile')}
+                                            className="btn-primary h-10 px-6 py-0 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest shadow-none hover:shadow-m3-1"
                                         >
                                             Complete Now
-                                        </Link>
+                                        </button>
                                         <button
                                             onClick={snoozeReminder}
                                             className="p-2 text-text-dim hover:text-text-main transition-colors"
@@ -692,23 +459,23 @@ const Dashboard = () => {
                                         } />
                                         <Route path="drafts" element={
                                             <RoleGuard allowedRoles={['admin', 'teacher']}>
-                                                <Drafts />
+                                                {isMobile ? <DraftsMobile /> : <Drafts />}
                                             </RoleGuard>
                                         } />
-                                        <Route path="feedback" element={<Feedback />} />
+                                        <Route path="feedback" element={isMobile ? <FeedbackMobile /> : <Feedback />} />
                                         <Route path="my-posts" element={
                                             <RoleGuard allowedRoles={['admin', 'teacher']}>
-                                                <MyPosts />
+                                                {isMobile ? <MyPostsMobile /> : <MyPosts />}
                                             </RoleGuard>
                                         } />
                                         <Route path="approvals" element={
                                             <RoleGuard allowedRoles={['admin']}>
-                                                <Approvals />
+                                                {isMobile ? <ApprovalsMobile /> : <Approvals />}
                                             </RoleGuard>
                                         } />
                                         <Route path="manage-users" element={
                                             <RoleGuard allowedRoles={['admin']}>
-                                                <ManageUsers />
+                                                {isMobile ? <ManageUsersMobile /> : <ManageUsers />}
                                             </RoleGuard>
                                         } />
                                         <Route path="add-member" element={
@@ -722,6 +489,7 @@ const Dashboard = () => {
                                             </RoleGuard>
                                         } />
                                         <Route path="profile" element={<ProfilePage />} />
+                                        <Route path="settings" element={isMobile ? <SettingsMobile /> : <ProfilePage />} />
                                         <Route path="audit-logs" element={
                                             <RoleGuard allowedRoles={['admin']}>
                                                 {isMobile ? <ActivityCloudMobile /> : <AuditLogs />}
@@ -732,6 +500,7 @@ const Dashboard = () => {
                                                 <DiagnosticTool />
                                             </RoleGuard>
                                         } />
+                                        <Route path="alerts" element={isMobile ? <ActivityCloudMobile /> : <AuditLogs />} />
                                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                                     </Routes>
                                 </Suspense>

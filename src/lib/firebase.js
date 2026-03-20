@@ -1,7 +1,7 @@
-import { initializeApp } from 'firebase/app';
+import app from './firebase-config';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
-// Firebase Configuration
+// Use same config as main app
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -11,9 +11,6 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 
 // Initialize messaging only in browser context
 let messaging = null;

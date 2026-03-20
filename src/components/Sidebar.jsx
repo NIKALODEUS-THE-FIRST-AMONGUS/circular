@@ -36,25 +36,30 @@ const getNavItems = (isAdmin, isTeacher) => {
     return items;
 };
 
-const getManagementItems = () => [
-    { path: '/dashboard/audit-logs', label: 'Logs', icon: 'history', iconClass: 'text-[22px]' },
-    { path: '/dashboard/feedback', label: 'Feedback', icon: 'chat', iconClass: 'text-[22px]' },
-    { path: '/dashboard/profile', label: 'Settings', icon: 'settings', iconClass: 'text-[22px]' }
-];
+const getManagementItems = (isAdmin) => {
+    const items = [
+        { path: '/dashboard/feedback', label: 'Feedback', icon: 'chat', iconClass: 'text-[22px]' },
+        { path: '/dashboard/profile', label: 'Settings', icon: 'settings', iconClass: 'text-[22px]' }
+    ];
+    if (isAdmin) {
+        items.unshift({ path: '/dashboard/audit-logs', label: 'Logs', icon: 'history', iconClass: 'text-[22px]' });
+    }
+    return items;
+};
 
 // Material Icon Component
 const MaterialIcon = ({ icon, className = '' }) => {
     return <span className={`material-symbols-outlined ${className}`}>{icon}</span>;
 };
 
-const Sidebar = ({ isOpen, onClose }) => {
+const Sidebar = ({ _isOpen, onClose }) => {
     const { profile, isAdmin, isTeacher, user } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const { isOffline, isChecking } = useNetwork();
     const location = useLocation();
 
     const navItems = getNavItems(isAdmin, isTeacher);
-    const managementItems = getManagementItems();
+    const managementItems = getManagementItems(isAdmin);
 
     // Get pending approvals count (mock for now, should come from real-time data)
     const pendingCount = 4;
@@ -62,8 +67,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     return (
         <aside
             className={`
-                fixed inset-y-0 left-0 z-[60] w-72 bg-[#0f172a] text-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out
-                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+                sticky top-[56px] h-[calc(100vh-56px)] w-72 bg-[#0f172a] text-white shadow-2xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar
             `}
         >
             {/* Branding Header */}
