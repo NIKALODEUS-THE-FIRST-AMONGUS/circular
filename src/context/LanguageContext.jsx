@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useEffect, useState, useContext } from 'react';
 import { updateDocument } from '../lib/firebase-db';
-import { AuthContext } from './AuthContext';
+import { AuthContext } from './FirebaseAuthContext';
 
 export const LanguageContext = createContext();
 

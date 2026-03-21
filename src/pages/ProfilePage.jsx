@@ -1,9 +1,11 @@
-import { useState, useRef, useCallback, useContext } from "react";
+import { useState, useRef, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "../lib/firebase-config";
 import { doc, updateDoc } from "firebase/firestore";
-import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteUser } from "firebase/auth";
+import { updateProfile } from "firebase/auth";
+import { User, Shield, Palette, Info, LogOut, Trash2, Camera, Check, Globe, Bell, PlayCircle, RefreshCw, X, Pencil, ExternalLink, ShieldCheck } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useTutorial } from "../hooks/useTutorial";
 import { ThemeContext } from "../context/ThemeContext";
 
 const LANGUAGES = [
@@ -12,21 +14,44 @@ const LANGUAGES = [
   { id: "te",    label: "Telugu",     native: "తెలుగు",       flag: "🇮🇳" },
   { id: "ta",    label: "Tamil",      native: "தமிழ்",        flag: "🇮🇳" },
   { id: "kn",    label: "Kannada",    native: "ಕನ್ನಡ",        flag: "🇮🇳" },
+  { id: "mr",    label: "Marathi",    native: "मराठी",        flag: "🇮🇳" },
 ];
 
-// ─── Cloudinary upload helper ─────────────────────────────────────────────────
-const uploadToCloudinary = async (file, onProgress) => {
+const DEPTS      = ['CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
+const YEARS      = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+const SECTIONS   = ['A', 'B', 'C', 'D'];
+
+/** ── Design tokens ── */
+const tk = (dark) => ({
+  page:      dark ? "bg-black text-white" : "bg-white text-slate-900",
+  sidebar:   dark ? "bg-[#0d1117]/80 border-white/6" : "bg-slate-50/80 border-slate-200",
+  card:      dark ? "bg-[#161b22] border-white/10 shadow-2xl" : "bg-white border-slate-200 shadow-xl",
+  input:     dark ? "bg-white/5 border-white/10 text-white placeholder-slate-600 focus:border-red-500/50"
+                  : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500",
+  hover:     dark ? "hover:bg-white/5" : "hover:bg-slate-100",
+  divider:   dark ? "border-white/5" : "border-slate-100",
+  muted:     dark ? "text-slate-500" : "text-slate-400",
+  accent:    "linear-gradient(90deg,#FF9933 33%,#fff 33%,#fff 66%,#138808 66%)",
+});
+
+/** ── Transitions ── */
+const fadeUp = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  exit:    { opacity: 0, scale: 0.98, transition: { duration: 0.2 } },
+};
+
+/** ── Photo upload helper ── */
+const uploadAvatar = async (file, onProgress) => {
   const cloudName    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   return new Promise((resolve, reject) => {
     const formData = new FormData();
-    formData.append("file",           file);
-    formData.append("upload_preset",  uploadPreset);
-    formData.append("folder",         "suchna_x/avatars");
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset);
+    formData.append("folder", "suchna_x/avatars");
     const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 70));
-    };
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100)); };
     xhr.onload = () => {
       const data = JSON.parse(xhr.responseText);
       data.secure_url ? resolve(data.secure_url) : reject(new Error("Upload failed"));
@@ -37,732 +62,494 @@ const uploadToCloudinary = async (file, onProgress) => {
   });
 };
 
-// ─── Theme token map — single source of truth for both modes ─────────────────
-const t = (dark) => ({
-  page:      dark ? "bg-black"                               : "bg-white",
-  card:      dark ? "bg-[#121212] border-white/8"            : "bg-white border-gray-200",
-  cardInner: dark ? "bg-white/5  border-white/8"             : "bg-gray-100 border-gray-200",
-  input:     dark ? "bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-red-500/60"
-                  : "bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-red-500",
-  sheet:     dark ? "bg-[#121212] border-white/10"           : "bg-white border-gray-200",
-  divider:   dark ? "divide-white/5"                         : "divide-gray-100",
-  rowBorder: dark ? "border-white/5"                         : "border-gray-100",
-  primary:   dark ? "text-gray-100"                          : "text-gray-900",
-  secondary: dark ? "text-gray-400"                          : "text-gray-500",
-  muted:     dark ? "text-gray-600"                          : "text-gray-400",
-  danger:    dark ? "bg-red-500/6 border-red-500/15"         : "bg-red-50 border-red-200",
-  iconBg:    dark ? "bg-white/5 border-white/8"              : "bg-gray-100 border-gray-200",
-  avatarBorder: dark ? "border-[#0d1117]"                    : "border-white",
-  strip:     "linear-gradient(90deg,#FF9933 33%,#fff 33%,#fff 66%,#138808 66%)",
-});
-
-// ─── Variants ─────────────────────────────────────────────────────────────────
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show:  (i = 0) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.065, duration: 0.38, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
-// ─── Micro components ─────────────────────────────────────────────────────────
-const Badge = ({ children, color = "red" }) => {
-  const map = {
-    red:    "bg-red-500/10 text-red-500 border-red-500/25",
-    green:  "bg-green-500/10  text-green-500  border-green-500/25",
-    blue:   "bg-blue-500/10   text-blue-500   border-blue-500/25",
-    muted:  "bg-gray-500/10   text-gray-400   border-gray-400/20",
-  };
-  return (
-    <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${map[color] || map.muted}`}>
-      {children}
-    </span>
-  );
-};
-
-const Toggle = ({ on, onToggle }) => (
-  <button onClick={onToggle} role="switch" aria-checked={on}
-    className={`relative w-11 h-6 rounded-full border transition-all duration-200
-      focus:outline-none focus:ring-2 focus:ring-red-500/40
-      ${on ? "bg-red-500 border-red-500" : "bg-gray-200 border-gray-300"}`}>
-    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${on ? "translate-x-5" : ""}`} />
-  </button>
-);
-
-const SectionLabel = ({ children, theme }) => (
-  <p className={`text-[11px] font-bold tracking-widest uppercase ${theme.muted} mt-6 mb-2.5`}>{children}</p>
-);
-
-const SettingRow = ({ icon, title, subtitle, right, onClick, theme }) => (
-  <motion.div variants={fadeUp} onClick={onClick}
-    className={`flex items-center justify-between py-3.5 border-b ${theme.rowBorder} ${onClick ? "cursor-pointer active:opacity-60" : ""}`}>
-    <div className="flex items-center gap-3 flex-1 min-w-0">
-      <div className={`w-9 h-9 rounded-xl border ${theme.iconBg} flex items-center justify-center text-[15px] shrink-0`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className={`text-sm font-medium ${theme.primary} truncate`}>{title}</p>
-        {subtitle && <p className={`text-xs ${theme.secondary} mt-0.5 truncate`}>{subtitle}</p>}
-      </div>
-    </div>
-    <div className="shrink-0 ml-3">{right}</div>
-  </motion.div>
-);
-
-const UploadProgress = ({ progress }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed top-0 left-0 right-0 z-[70] h-1 bg-gray-200/50">
-    <motion.div className="h-full bg-red-500 rounded-full"
-      initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.25 }} />
-  </motion.div>
-);
-
-// ─── Full-screen Photo Viewer ─────────────────────────────────────────────────
-const PhotoViewer = ({ url, name, onClose, onRemove, onChangePhoto }) => {
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] bg-black flex flex-col select-none">
-
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-3 bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0 right-0 z-10">
-        <button onClick={onClose}
-          className="w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white text-xl">
-          ←
-        </button>
-        <p className="text-white font-semibold text-sm truncate max-w-[55%]">{name}</p>
-        <button onClick={() => setConfirmRemove(true)}
-          className="w-10 h-10 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white text-base">
-          🗑
-        </button>
-      </div>
-
-      {/* Photo */}
-      <div className="flex-1 flex items-center justify-center">
-        <motion.img
-          initial={{ scale: 0.88, opacity: 0 }}
-          animate={{ scale: 1,    opacity: 1 }}
-          transition={{ type: "spring", damping: 22, stiffness: 250 }}
-          src={url} alt={name}
-          className="max-w-full object-contain rounded-2xl"
-          style={{ maxHeight: "72vh", maxWidth: "92vw" }}
-        />
-      </div>
-
-      {/* Bottom actions */}
-      <div className="px-6 pb-14 pt-4 space-y-3">
-        <button onClick={onChangePhoto}
-          className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3.5 rounded-2xl text-sm active:scale-[0.98] transition-all">
-          Change Photo
-        </button>
-        <button onClick={onClose}
-          className="w-full bg-white/10 text-white font-semibold py-3.5 rounded-2xl text-sm">
-          Close
-        </button>
-      </div>
-
-      {/* Remove confirm overlay */}
-      <AnimatePresence>
-        {confirmRemove && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/80 flex items-center justify-center px-8 z-20">
-            <motion.div
-              initial={{ scale: 0.88 }} animate={{ scale: 1 }} exit={{ scale: 0.88 }}
-              transition={{ type: "spring", damping: 24, stiffness: 300 }}
-              className="bg-[#1c2333] border border-white/10 rounded-3xl p-6 w-full max-w-xs text-center">
-              <p className="text-4xl mb-3">🗑️</p>
-              <h3 className="text-white font-bold text-base mb-1">Remove photo?</h3>
-              <p className="text-gray-400 text-sm mb-6">Your profile will show initials instead.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setConfirmRemove(false)}
-                  className="flex-1 bg-white/8 border border-white/10 text-gray-300 font-semibold py-3 rounded-xl text-sm">
-                  Cancel
-                </button>
-                <button onClick={() => { onRemove(); onClose(); }}
-                  className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl text-sm">
-                  Remove
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-};
-
-// ─── Photo Action Sheet ───────────────────────────────────────────────────────
-const PhotoActionSheet = ({ hasPhoto, onClose, onPickFile, onRemove, theme }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
-    <motion.div
-      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-      transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      onClick={(e) => e.stopPropagation()}
-      className={`w-full max-w-sm border rounded-t-3xl p-5 pb-12 ${theme.sheet}`}>
-      <div className={`w-10 h-1 rounded-full mx-auto mb-5 ${theme.muted} bg-current opacity-30`} />
-      <h2 className={`text-base font-bold ${theme.primary} mb-4`}>Profile Photo</h2>
-
-      <button onClick={onPickFile}
-        className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl mb-2 text-sm font-medium border transition-all active:scale-[0.98] ${theme.cardInner} ${theme.primary}`}>
-        <span className="text-xl w-8 text-center">📷</span>
-        Upload new photo
-      </button>
-
-      {hasPhoto && (
-        <button onClick={onRemove}
-          className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl mb-2 text-sm font-medium border bg-red-500/8 text-red-500 border-red-500/15 active:scale-[0.98] transition-all">
-          <span className="text-xl w-8 text-center">🗑️</span>
-          Remove photo
-        </button>
-      )}
-
-      <button onClick={onClose}
-        className={`w-full py-3 rounded-2xl text-sm font-semibold ${theme.secondary} mt-1`}>
-        Cancel
-      </button>
-    </motion.div>
-  </motion.div>
-);
-
-// ─── Edit Profile Sheet ───────────────────────────────────────────────────────
-const EditSheet = ({ profile, onClose, onSave, theme }) => {
-  const [name,   setName]   = useState(profile?.full_name  || "");
-  const [dept,   setDept]   = useState(profile?.department || "");
-  const [year,   setYear]   = useState(profile?.year_of_study || "");
-  const [section, setSection] = useState(profile?.section || "");
-  const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState("");
-
-  const handleSave = async () => {
-    if (!name.trim()) return setError("Name cannot be empty");
-    setSaving(true); setError("");
-    try { 
-      await onSave({ 
-        full_name: name.trim(), 
-        department: dept.trim(),
-        year_of_study: year.trim(),
-        section: section.trim()
-      }); 
-      onClose(); 
-    }
-    catch { setError("Failed to save. Please try again."); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
-      <motion.div
-        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-sm border rounded-t-3xl p-6 pb-12 ${theme.sheet}`}>
-        <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${theme.muted} bg-current opacity-30`} />
-        <h2 className={`text-lg font-bold ${theme.primary} mb-5`}>Edit Profile</h2>
-        {[
-          { label: "Full Name",  val: name, set: setName, ph: "Your name"    },
-          { label: "Department", val: dept, set: setDept, ph: "e.g. ECE, CSE" },
-          { label: "Year of Study", val: year, set: setYear, ph: "e.g. 3rd Year" },
-          { label: "Section", val: section, set: setSection, ph: "e.g. A" },
-        ].map(({ label, val, set, ph }) => (
-          <div key={label} className="mb-4">
-            <label className={`text-xs font-semibold ${theme.muted} uppercase tracking-wider mb-1.5 block`}>{label}</label>
-            <input value={val} onChange={(e) => set(e.target.value)} placeholder={ph} style={{ fontSize: 16 }}
-              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`} />
-          </div>
-        ))}
-        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
-        <button onClick={handleSave} disabled={saving}
-          className="w-full bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50">
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ─── Change Password Sheet ────────────────────────────────────────────────────
-const PasswordSheet = ({ onClose, theme }) => {
-  const [fields,  setFields]  = useState(["", "", ""]);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-  const [success, setSuccess] = useState(false);
-  const set = (i, v) => setFields((p) => { const n = [...p]; n[i] = v; return n; });
-
-  const handleChange = async () => {
-    if (fields[1].length < 6)    return setError("Password must be at least 6 characters");
-    if (fields[1] !== fields[2]) return setError("Passwords do not match");
-    setSaving(true); setError("");
-    try {
-      const user = auth.currentUser;
-      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, fields[0]));
-      await updatePassword(user, fields[1]);
-      setSuccess(true);
-      setTimeout(onClose, 1600);
-    } catch (e) {
-      setError(e.code === "auth/wrong-password" ? "Current password is incorrect" : "Failed. Try again.");
-    } finally { setSaving(false); }
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
-      <motion.div
-        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 28, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-sm border rounded-t-3xl p-6 pb-12 ${theme.sheet}`}>
-        <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${theme.muted} bg-current opacity-30`} />
-        <h2 className={`text-lg font-bold ${theme.primary} mb-5`}>Change Password</h2>
-        {["Current password", "New password", "Confirm new password"].map((label, i) => (
-          <div key={i} className="mb-4">
-            <label className={`text-xs font-semibold ${theme.muted} uppercase tracking-wider mb-1.5 block`}>{label}</label>
-            <input type="password" value={fields[i]} onChange={(e) => set(i, e.target.value)}
-              style={{ fontSize: 16 }}
-              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`} />
-          </div>
-        ))}
-        {error   && <p className="text-xs text-red-500 mb-4">{error}</p>}
-        {success && <p className="text-xs text-green-500 mb-4">✓ Password updated!</p>}
-        <button onClick={handleChange} disabled={saving}
-          className="w-full bg-red-500 hover:bg-red-600 active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50">
-          {saving ? "Updating…" : "Update Password"}
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ─── Delete Account Confirm ──────────────────────────────────────────────────
-const DeleteConfirm = ({ onConfirm, onCancel, theme, isGoogleUser }) => {
-  const [confirmText, setConfirmText] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDelete = async () => {
-    if (isGoogleUser) {
-      if (confirmText.toLowerCase() !== "circular") return setError("Please type 'circular' to confirm");
-    } else {
-      if (!password) return setError("Password is required");
-    }
-    
-    setDeleting(true);
-    try {
-      await onConfirm(isGoogleUser ? null : password);
-    } catch (err) {
-      setError(err.message || "Failed to delete account");
-      setDeleting(false);
-    }
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-6" onClick={onCancel}>
-      <motion.div
-        initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.88, opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-sm border rounded-3xl p-6 text-center ${theme.sheet}`}>
-        <div className="text-4xl mb-3">⚠️</div>
-        <h3 className={`text-base font-bold ${theme.primary} mb-1`}>Delete Account?</h3>
-        <p className={`text-xs ${theme.secondary} mb-6`}>
-          This action is permanent and cannot be undone. All your data will be removed.
-        </p>
-        
-        {isGoogleUser ? (
-          <div className="mb-6">
-            <label className={`text-[10px] font-bold uppercase ${theme.muted} block mb-2`}>Type "circular" to confirm</label>
-            <input 
-              value={confirmText} 
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="circular"
-              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`}
-            />
-          </div>
-        ) : (
-          <div className="mb-6">
-            <label className={`text-[10px] font-bold uppercase ${theme.muted} block mb-2`}>Enter password to confirm</label>
-            <input 
-              type="password"
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your password"
-              className={`w-full border rounded-xl px-4 py-3 text-sm outline-none transition-colors ${theme.input}`}
-            />
-          </div>
-        )}
-
-        {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
-        
-        <div className="flex gap-3">
-          <button onClick={onCancel}
-            className={`flex-1 border font-semibold py-3 rounded-xl text-sm ${theme.cardInner} ${theme.secondary}`}>
-            Cancel
-          </button>
-          <button onClick={handleDelete} disabled={deleting}
-            className="flex-1 bg-red-600 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98] disabled:opacity-50">
-            {deleting ? "Deleting…" : "Delete"}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// ─── Language Sheet ──────────────────────────────────────────────────────────
-const LanguageSheet = ({ current, onClose, onSave, theme }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-    className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center" onClick={onClose}>
-    <motion.div
-      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-      transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      onClick={(e) => e.stopPropagation()}
-      className={`w-full max-w-sm border rounded-t-3xl p-6 pb-12 ${theme.sheet}`}>
-      <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${theme.muted} bg-current opacity-30`} />
-      <h2 className={`text-lg font-bold ${theme.primary} mb-5`}>Choose Language</h2>
-      <div className="grid grid-cols-1 gap-2">
-        {LANGUAGES.map((lang) => (
-          <button
-            key={lang.id}
-            onClick={() => { onSave(lang.id); onClose(); }}
-            className={`flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all active:scale-[0.98] ${
-              current === lang.id 
-                ? "border-red-500 bg-red-500/5 text-red-600" 
-                : `${theme.cardInner} ${theme.primary} border-transparent`
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-xl">{lang.flag}</span>
-              <div className="text-left">
-                <p className="text-sm font-bold">{lang.native}</p>
-                <p className={`text-[10px] uppercase tracking-widest ${theme.muted}`}>{lang.label}</p>
-              </div>
-            </div>
-            {current === lang.id && <span className="text-red-500 font-bold">✓</span>}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  </motion.div>
-);
-
-
 // ═════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════════════
 const ProfilePage = () => {
   const { profile, stats, signOut, refreshProfile } = useAuth();
-  const { darkMode, toggleDarkMode }                = useContext(ThemeContext);
+  const { theme, toggleDarkMode } = useContext(ThemeContext);
+  const { startTutorial } = useTutorial();
+  const fileRef = useRef(null);
 
-  const theme       = t(darkMode);
-  const fileRef     = useRef(null);
+  const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const T = tk(dark);
 
-  const [sheet,         setSheet]         = useState(null); // 'edit'|'password'|'signout'|'delete'|'photo'|'language'
-  const [photoViewer,   setPhotoViewer]   = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [progress,      setProgress]      = useState(null); // 0–100 | null
-  const [uploadError,   setUploadError]   = useState("");
+  // ── Logic State ──
+  const [activeTab,    setActiveTab]    = useState("account"); // account | appearance | security | about
+  const [editing,      setEditing]      = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [uploading,    setUploading]    = useState(false);
+  const [progress,     setProgress]     = useState(0);
+  const [error,        setError]        = useState("");
+  const [confirmModal, setConfirmModal] = useState(null); // signout | delete
+
+  // ── Form State ──
+  const [name,    setName]    = useState(profile?.full_name || "");
+  const [dept,    setDept]    = useState(profile?.department || DEPTS[0]);
+  const [year,    setYear]    = useState(profile?.year_of_study || YEARS[0]);
+  const [section, setSection] = useState(profile?.section || SECTIONS[0]);
 
   const isGoogleUser = auth.currentUser?.providerData?.some(p => p.providerId === 'google.com');
+  const initials = profile?.full_name?.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) || "??";
 
-  const initials  = profile?.full_name
-    ? profile.full_name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
-    : "??";
-  const roleColor = { admin: "red", teacher: "green", student: "blue" }[profile?.role] || "muted";
-  const roleLabel = { admin: "System Admin", teacher: "Faculty", student: "Student" }[profile?.role] || profile?.role;
-
-  // ── Photo upload ──────────────────────────────────────────────────────────
-  const handleFileSelected = useCallback(async (e) => {
+  // ── Photo Ops ──
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) return setUploadError("Please select an image file.");
-    if (file.size > 5 * 1024 * 1024)     return setUploadError("Image must be under 5 MB.");
-
-    setUploadError(""); setSheet(null); setProgress(5);
+    if (file.size > 5 * 1024 * 1024) return setError("Image must be under 5MB");
+    
+    setUploading(true); setProgress(0); setError("");
     try {
-      const photoURL = await uploadToCloudinary(file, (p) => setProgress(p));
-      setProgress(80);
-      await updateProfile(auth.currentUser, { photoURL });
-      setProgress(90);
-      await updateDoc(doc(db, "profiles", auth.currentUser.uid), { photoURL, updated_at: new Date() });
-      setProgress(100);
-      await refreshProfile?.();
-      setTimeout(() => setProgress(null), 700);
-    } catch (err) {
-      console.error("Photo upload failed:", err);
-      setUploadError("Upload failed. Please try again.");
-      setProgress(null);
-    }
-    e.target.value = "";
-  }, [refreshProfile]);
+      const url = await uploadAvatar(file, (p) => setProgress(p));
+      await updateProfile(auth.currentUser, { photoURL: url });
+      await updateDoc(doc(db, "profiles", auth.currentUser.uid), { photoURL: url, updated_at: new Date() });
+      await refreshProfile();
+    } catch { setError("Upload failed. Please try again."); }
+    finally { setUploading(false); setProgress(0); e.target.value = ""; }
+  };
 
-  // ── Photo remove ──────────────────────────────────────────────────────────
-  const handleRemovePhoto = useCallback(async () => {
-    setUploadError(""); setProgress(20);
+  const handleRemovePhoto = async () => {
+    setUploading(true); setError("");
     try {
       await updateProfile(auth.currentUser, { photoURL: null });
-      setProgress(60);
       await updateDoc(doc(db, "profiles", auth.currentUser.uid), { photoURL: null, updated_at: new Date() });
-      setProgress(100);
-      await refreshProfile?.();
-      setTimeout(() => setProgress(null), 700);
-    } catch {
-      setUploadError("Failed to remove photo. Try again.");
-      setProgress(null);
-    }
-  }, [refreshProfile]);
-
-  // ── Save profile text ─────────────────────────────────────────────────────
-  const handleSaveProfile = async (data) => {
-    await updateDoc(doc(db, "profiles", auth.currentUser.uid), { ...data, updated_at: new Date() });
-    if (data.full_name) await updateProfile(auth.currentUser, { displayName: data.full_name });
-    await refreshProfile?.();
+      await refreshProfile();
+    } catch { setError("Failed to remove photo."); }
+    finally { setUploading(false); }
   };
 
-  // ── Save Language ─────────────────────────────────────────────────────────
-  const handleSaveLanguage = async (langId) => {
-    await updateDoc(doc(db, "profiles", auth.currentUser.uid), { 
-      greeting_language: langId, 
-      updated_at: new Date() 
-    });
-    await refreshProfile?.();
+  // ── Profile Ops ──
+  const handleSaveProfile = async () => {
+    setSaving(true); setError("");
+    try {
+      await updateDoc(doc(db, "profiles", auth.currentUser.uid), {
+        full_name: name.trim(),
+        department: dept.trim(),
+        year_of_study: year.trim(),
+        section: section.trim(),
+        updated_at: new Date()
+      });
+      await updateProfile(auth.currentUser, { displayName: name.trim() });
+      await refreshProfile();
+      setEditing(false);
+    } catch { setError("Failed to save changes."); }
+    finally { setSaving(false); }
   };
 
-  // ── Delete Account ────────────────────────────────────────────────────────
-  const handleDeleteAccount = async (password) => {
-    const user = auth.currentUser;
-    if (!isGoogleUser && password) {
-      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
-    }
-    // Delete Firestore profile first
-    await updateDoc(doc(db, "profiles", user.uid), { status: 'deleted', deleted_at: new Date() });
-    // In a real app, you might use a cloud function to fully purge data
-    await deleteUser(user);
-    window.location.href = '/';
+  const handleLanguageUpdate = async (langId) => {
+    try {
+      await updateDoc(doc(db, "profiles", auth.currentUser.uid), { greeting_language: langId, updated_at: new Date() });
+      await refreshProfile();
+    } catch { setError("Failed to update language."); }
   };
+
+  // ── Sidebar Tabs ──
+  const tabs = [
+    { id: "account",    label: "Account",    icon: User,    desc: "Personal information & stats" },
+    { id: "appearance", label: "Appearance", icon: Palette, desc: "Theme & language preferences" },
+    { id: "security",   label: "Security",   icon: Shield,  desc: "Password & account safety" },
+    { id: "about",      label: "About",      icon: Info,    desc: "System info & build version" },
+  ];
 
   return (
-    <>
-      {/* Upload progress bar */}
-      <AnimatePresence>
-        {progress !== null && <UploadProgress progress={progress} />}
-      </AnimatePresence>
+    <div className={`min-h-screen pt-20 transition-colors duration-300 ${T.page}`}>
+      <div className="max-w-6xl mx-auto px-6 pb-20 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-12">
 
-      {/* Hidden file input */}
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
+        {/* ── SIDEBAR ── */}
+        <aside className="space-y-8">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-black tracking-tight mb-1">Settings</h1>
+            <p className={`text-xs ${T.muted} uppercase font-bold tracking-[0.2em]`}>Institutional Preferences</p>
+          </div>
 
-      {/* Full-screen photo viewer */}
-      <AnimatePresence>
-        {photoViewer && profile?.photoURL && (
-          <PhotoViewer
-            url={profile.photoURL}
-            name={profile.full_name}
-            onClose={() => setPhotoViewer(false)}
-            onRemove={() => { handleRemovePhoto(); setPhotoViewer(false); }}
-            onChangePhoto={() => { setPhotoViewer(false); fileRef.current?.click(); }}
-          />
-        )}
-      </AnimatePresence>
+          <nav className="space-y-2">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 relative group ${
+                    active ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : `${T.hover} ${T.page}`
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                  <div className="text-left">
+                    <p className="text-sm font-bold">{tab.label}</p>
+                    <p className={`text-[10px] ${active ? "text-white/70" : T.muted} font-medium`}>{tab.desc}</p>
+                  </div>
+                  {active && (
+                    <motion.div layoutId="nav-active" className="absolute left-1.5 w-1 h-6 bg-white rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
-      {/* ── Main page ── */}
-      <motion.div
-        initial="hidden" animate="show"
-        variants={{ show: { transition: { staggerChildren: 0.06 } } }}
-        className={`min-h-screen ${theme.page} pb-28 px-5 pt-4 transition-colors duration-300`}
-      >
-        {/* India tricolor strip */}
-        <motion.div variants={fadeUp} className="h-0.5 rounded-full mb-5 opacity-50"
-          style={{ background: theme.strip }} />
-
-        {/* ── Avatar ── */}
-        <motion.div variants={fadeUp} className="flex flex-col items-center pb-6">
-          <div className="relative mb-4 group">
-            {/* Main avatar button — tap to open full viewer if has photo, else open sheet */}
+          <div className={`pt-8 border-t ${T.divider}`}>
             <button
-              onClick={() => profile?.photoURL ? setPhotoViewer(true) : setSheet("photo")}
-              className="relative w-24 h-24 rounded-[22px] border-2 border-red-500 p-0.5 focus:outline-none focus:ring-4 focus:ring-red-500/30 overflow-hidden"
-              aria-label={profile?.photoURL ? "View profile photo" : "Add profile photo"}
+              onClick={() => setConfirmModal("signout")}
+              className="w-full flex items-center justify-between px-4 py-4 rounded-2xl bg-red-500/5 hover:bg-red-500/10 text-red-500 border border-red-500/20 transition-all font-bold group active:scale-[0.98]"
             >
-              {profile?.photoURL ? (
-                <img src={profile.photoURL} alt={profile.full_name}
-                  className="w-full h-full rounded-[18px] object-cover" />
-              ) : (
-                <div className="w-full h-full rounded-[18px] bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">{initials}</span>
+              <span className="text-sm">Sign Out</span>
+              <LogOut size={18} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT ── */}
+        <main>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial="initial" animate="animate" exit="exit" variants={fadeUp}
+              className={`p-8 lg:p-12 rounded-[48px] border ${T.card}`}
+            >
+              {/* India tricolor rhythm strip */}
+              <div className="h-1 w-24 rounded-full mb-8 origin-left shadow-sm" style={{ background: T.accent }} />
+
+              {/* ── TAB: ACCOUNT ── */}
+              {activeTab === "account" && (
+                <div className="space-y-10">
+                  {/* Photo & Identity Section */}
+                  <div className="flex flex-col md:flex-row items-center gap-8">
+                    <div className="relative group">
+                      <div className={`w-36 h-36 rounded-[42px] border-4 p-1.5 overflow-hidden transition-all duration-500 bg-gradient-to-br from-red-500 via-orange-500 to-green-500 ${dark ? "border-white/10" : "border-slate-100 shadow-xl"}`}>
+                        {profile?.photoURL ? (
+                          <img src={profile.photoURL} alt={profile.full_name} className="w-full h-full rounded-[34px] object-cover" />
+                        ) : (
+                          <div className={`w-full h-full rounded-[34px] flex items-center justify-center font-black text-4xl ${dark ? "bg-[#0d1117] text-white" : "bg-white text-slate-900"}`}>
+                            {initials}
+                          </div>
+                        )}
+                        {uploading && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+                            <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                              <motion.div className="h-full bg-red-500" initial={{ width: 0 }} animate={{ width: `${progress}%` }} />
+                            </div>
+                            <span className="text-[10px] text-white font-black mt-2 uppercase tracking-widest">{progress}%</span>
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => fileRef.current?.click()}
+                        className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-red-500 text-white border-4 border-white dark:border-[#161b22] flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+                      >
+                        <Camera size={18} strokeWidth={2.5} />
+                      </button>
+                      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                    </div>
+
+                    <div className="flex-1 text-center md:text-left">
+                      <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                        <h2 className="text-3xl font-black tracking-tight">{profile?.full_name}</h2>
+                        {profile?.status === 'active' && <ShieldCheck size={22} className="text-blue-500" />}
+                      </div>
+                      <p className={`text-base font-medium ${T.muted} mb-4`}>
+                        {profile?.email} <span className="mx-2 opacity-30">|</span> {profile?.role?.toUpperCase()}
+                      </p>
+                      <div className="flex gap-2 justify-center md:justify-start">
+                        {profile?.photoURL && (
+                          <button onClick={handleRemovePhoto} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-all">
+                            Remove Photo
+                          </button>
+                        )}
+                        <button onClick={() => setEditing(true)} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-white/30 transition-all flex items-center gap-2">
+                          <Pencil size={12} /> Edit Detail
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Stats (Premium Cards) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { l: "Posts",  v: stats?.myPosts ?? 0, c: "text-orange-500", i: PlayCircle },
+                      { l: "Views",  v: stats?.totalViews ?? 0, c: "text-blue-500",   i: User },
+                      { l: "Groups", v: profile?.department ?? "—", c: "text-green-500",  i: Shield },
+                    ].map((s, i) => {
+                      const Icon = s.i;
+                      return (
+                        <div key={i} className={`p-6 rounded-3xl border ${T.sidebar} group hover:border-white/20 transition-all`}>
+                          <div className={`w-10 h-10 rounded-xl mb-4 flex items-center justify-center ${dark ? "bg-white/5" : "bg-white border border-slate-100 shadow-sm"}`}>
+                            <Icon size={20} className={s.c} />
+                          </div>
+                          <p className={`text-3xl font-black ${s.c} mb-1 transition-transform group-hover:scale-105 origin-left`}>{s.v}</p>
+                          <p className={`text-[10px] ${T.muted} uppercase font-black tracking-widest`}>{s.l}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
-              {/* Hover overlay */}
-              <div className="absolute inset-0 rounded-[18px] bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-white text-xl">📷</span>
-              </div>
-            </button>
 
-            {/* Edit badge */}
-            <button onClick={() => setSheet("photo")} aria-label="Change photo"
-              className={`absolute -bottom-1.5 -right-1.5 w-7 h-7 bg-red-500 rounded-full border-2 ${theme.avatarBorder} flex items-center justify-center text-white text-xs shadow-md`}>
-              ✏️
-            </button>
+              {/* ── TAB: APPEARANCE ── */}
+              {activeTab === "appearance" && (
+                <div className="space-y-12">
+                  <section className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Palette size={20} className="text-red-500" />
+                      <h3 className="text-xl font-black tracking-tight">Visual Theme</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {['light', 'dark'].map((m) => (
+                        <button key={m} onClick={toggleDarkMode}
+                          className={`p-6 rounded-3xl border-2 transition-all flex flex-col gap-3 group ${
+                            (m === 'dark' ? dark : !dark) ? "border-red-500 bg-red-500/5 shadow-xl shadow-red-500/10" : "border-transparent bg-white/5 opacity-50 hover:opacity-80"
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${m === 'dark' ? 'bg-black text-white' : 'bg-white text-slate-800 border'}`}>
+                            {m === 'dark' ? '🌙' : '☀️'}
+                          </div>
+                          <div className="text-left font-black uppercase tracking-widest text-xs">
+                            {m} Mode
+                            {(m === 'dark' ? dark : !dark) && <span className="ml-2 text-red-500 font-black">✓</span>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
 
-            {/* Online dot */}
-            <span className={`absolute -top-1 -left-1 w-4 h-4 bg-green-500 border-2 ${theme.avatarBorder} rounded-full`} />
-          </div>
+                  <section className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Globe size={20} className="text-blue-500" />
+                      <h3 className="text-xl font-black tracking-tight">Greeting Language</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {LANGUAGES.map((l) => (
+                        <button key={l.id} onClick={() => handleLanguageUpdate(l.id)}
+                          className={`p-4 rounded-2xl border transition-all flex items-center justify-between ${
+                            profile?.greeting_language === l.id ? "bg-blue-500/10 border-blue-500/30 text-blue-500" : "bg-white/5 border-transparent hover:border-white/10"
+                          }`}
+                        >
+                          <div className="flex items-center gap-4 text-left">
+                            <span className="text-2xl">{l.flag}</span>
+                            <div>
+                              <p className="text-sm font-black">{l.native}</p>
+                              <p className={`text-[10px] uppercase font-bold ${T.muted}`}>{l.label}</p>
+                            </div>
+                          </div>
+                          {profile?.greeting_language === l.id && <Check size={16} strokeWidth={3} />}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
 
-          <h1 className={`text-xl font-bold ${theme.primary} mb-1`}>{profile?.full_name || "Loading…"}</h1>
-          <p className={`text-xs ${theme.muted} uppercase tracking-wider mb-3`}>
-            {profile?.department ? `${profile.department} · ` : ""}{roleLabel}
-          </p>
-          <div className="flex gap-2 flex-wrap justify-center">
-            <Badge color={roleColor}>{roleLabel}</Badge>
-            {profile?.status === "active" && <Badge color="green">Verified ✓</Badge>}
-          </div>
+                  <section className={`pt-8 border-t ${T.divider}`}>
+                    <div className="flex items-center justify-between p-6 rounded-3xl bg-orange-500/10 border border-orange-500/20">
+                      <div className="flex items-center gap-5">
+                        <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white shadow-xl shadow-orange-500/30">
+                          <PlayCircle size={28} />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-orange-500 tracking-tight">First-Time Tutorial</h4>
+                          <p className="text-xs font-medium opacity-70">Experience the guided walkthrough again</p>
+                        </div>
+                      </div>
+                      <button onClick={() => { startTutorial(); window.location.href = "/dashboard"; }}
+                        className="px-6 py-3 rounded-xl bg-orange-500 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all">
+                        Launch Tutorial
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
 
-          {uploadError && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="text-xs text-red-500 mt-3 text-center px-4">
-              {uploadError}
-            </motion.p>
-          )}
-        </motion.div>
+              {/* ── TAB: SECURITY ── */}
+              {activeTab === "security" && (
+                <div className="space-y-12">
+                  <section className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Shield size={20} className="text-red-500" />
+                      <h3 className="text-xl font-black tracking-tight">Password Management</h3>
+                    </div>
+                    <div className={`p-8 rounded-3xl border ${T.sidebar} space-y-6`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                          <ShieldCheck size={20} />
+                        </div>
+                        <p className="text-sm font-medium">Your account is secured with standard encryption.</p>
+                      </div>
+                      {!isGoogleUser ? (
+                        <button onClick={() => setEditing("password")} className="w-full bg-red-500 text-white font-black uppercase tracking-widest text-xs py-4 rounded-xl shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all">
+                          Change Account Password
+                        </button>
+                      ) : (
+                        <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 text-blue-500">
+                          <Globe size={16} />
+                          <p className="text-xs font-bold">Authenticated via Google. Manage security at google.com</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
 
-        {/* ── Stats ── */}
-        <motion.div variants={fadeUp} className="flex gap-3 mb-6">
-          {[
-            { value: stats?.myPosts ?? "—", label: "Circulars posted", color: "text-red-500" },
-            { value: stats?.membersManaged  ?? "—", label: "Members managed",  color: "text-green-500"  },
-            { value: stats?.totalViews      ?? "—", label: "Total views",       color: "text-blue-500"   },
-          ].map(({ value, label, color }) => (
-            <div key={label} className={`flex-1 border rounded-2xl p-4 ${theme.cardInner}`}>
-              <p className={`text-2xl font-bold ${color} mb-0.5`}>{value}</p>
-              <p className={`text-xs ${theme.muted}`}>{label}</p>
-            </div>
-          ))}
-        </motion.div>
+                  <section className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Trash2 size={20} className="text-red-600" />
+                      <h3 className="text-xl font-black tracking-tight">Danger Zone</h3>
+                    </div>
+                    <div className={`p-8 rounded-3xl border border-red-500/20 bg-red-500/5 space-y-4`}>
+                      <h4 className="text-red-600 font-black">Delete Account</h4>
+                      <p className={`text-sm ${T.muted} leading-relaxed`}>
+                        This action is irreversible. All your circulars, posts, and manage data will be permanently wiped.
+                      </p>
+                      <button onClick={() => setConfirmModal("delete")} className="px-6 py-3 rounded-xl border border-red-500/40 text-red-600 font-black uppercase tracking-widest text-[10px] hover:bg-red-500/10 transition-all">
+                        Request Deletion
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
 
-        {/* ── Account ── */}
-        <motion.div variants={fadeUp}>
-          <SectionLabel theme={theme}>Account</SectionLabel>
-          <SettingRow theme={theme} icon="👤" title="Edit Profile"    subtitle="Name, department, year, section"
-            right={<span className={`${theme.muted} text-xl`}>›</span>} onClick={() => setSheet("edit")} />
-          <SettingRow theme={theme} icon="🖼️" title="Profile Photo"   subtitle="Change or remove your photo"
-            right={<span className={`${theme.muted} text-xl`}>›</span>} onClick={() => setSheet("photo")} />
-          <SettingRow theme={theme} icon="🌐" title="Language"        subtitle="UI Language"
-            right={<span className={`text-[10px] font-bold uppercase bg-red-500/10 text-red-500 px-2 py-0.5 rounded`}>
-              {LANGUAGES.find(l => l.id === profile?.greeting_language)?.label || 'EN'}
-            </span>}
-            onClick={() => setSheet("language")} />
-          <SettingRow theme={theme} icon="🔔" title="Notifications"   subtitle="Push & email alerts"
-            right={<Toggle on={notifications} onToggle={() => setNotifications((p) => !p)} />} />
-          <SettingRow theme={theme} icon="🌙" title="Dark Mode"       subtitle={darkMode ? "Currently dark" : "Currently light"}
-            right={<Toggle on={darkMode} onToggle={toggleDarkMode} />} />
-          {!isGoogleUser && (
-            <SettingRow theme={theme} icon="🔒" title="Change Password" subtitle="Update security credentials"
-              right={<span className={`${theme.muted} text-xl`}>›</span>} onClick={() => setSheet("password")} />
-          )}
-        </motion.div>
+              {/* ── TAB: ABOUT ── */}
+              {activeTab === "about" && (
+                <div className="space-y-8">
+                  <div className="text-center pb-8 border-b border-white/5">
+                    <div className="w-20 h-20 bg-orange-500 rounded-3xl mx-auto mb-4 flex items-center justify-center text-white text-3xl font-black shadow-2xl shadow-orange-500/30">SX</div>
+                    <h2 className="text-3xl font-black tracking-tight">SuchnaX Link</h2>
+                    <p className={`text-sm font-bold mt-1 ${T.muted} uppercase tracking-[0.3em]`}>Connect · Inform · Lead</p>
+                  </div>
 
-        {/* ── Info ── */}
-        <motion.div variants={fadeUp}>
-          <SectionLabel theme={theme}>Info</SectionLabel>
-          <div className={`border rounded-2xl overflow-hidden ${theme.card} divide-y ${theme.divider}`}>
-            {[
-              { label: "Email",      value: profile?.email      || "—" },
-              { label: "Role",       value: roleLabel            || "—" },
-              { label: "Department", value: profile?.department  || "—" },
-              { label: "Year",       value: profile?.year_of_study || "—" },
-              { label: "Section",    value: profile?.section      || "—" },
-              { label: "Status",     value: profile?.status      || "—" },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between px-4 py-3">
-                <span className={`text-xs ${theme.muted}`}>{label}</span>
-                <span className={`text-sm font-medium ${theme.primary}`}>{value}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { l: "Version", v: "2.0.4-premium", i: Info },
+                      { l: "Platform", v: "Institutional Node", i: Globe },
+                      { l: "Status", v: "Production Stable", i: Check },
+                      { l: "Updated", v: new Date().toLocaleDateString(), i: RefreshCw },
+                    ].map((item, i) => (
+                      <div key={i} className={`p-5 rounded-2xl border ${T.sidebar} flex items-center gap-4`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dark ? "bg-white/5" : "bg-white border"}`}>
+                          <item.i size={18} className="text-blue-500" />
+                        </div>
+                        <div>
+                          <p className={`text-[10px] uppercase font-black tracking-widest ${T.muted}`}>{item.l}</p>
+                          <p className="text-sm font-bold">{item.v}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-        {/* ── Sign out ── */}
-        <motion.div variants={fadeUp}>
-          <SectionLabel theme={theme}>Session</SectionLabel>
-          <button onClick={() => setSheet("signout")}
-            className={`w-full flex items-center justify-between ${theme.danger} border rounded-2xl px-4 py-4 mb-3 active:scale-[0.98] transition-transform`}>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-red-500">Sign Out</p>
-              <p className={`text-xs ${theme.muted} mt-0.5`}>End current session</p>
-            </div>
-            <span className={`${theme.muted} text-lg`}>↩</span>
-          </button>
-          <button onClick={() => setSheet("delete")}
-            className={`w-full flex items-center justify-between bg-red-600/5 border border-red-600/10 rounded-2xl px-4 py-4 active:scale-[0.98] transition-transform`}>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-red-600">Delete Account</p>
-              <p className={`text-[10px] uppercase font-bold text-red-600/60 mt-0.5`}>Irreversible Action</p>
-            </div>
-            <span className={`text-red-600 text-lg`}>🗑️</span>
-          </button>
-        </motion.div>
+                  <div className={`mt-8 p-6 rounded-3xl ${T.sidebar} border-dashed flex flex-col items-center justify-center text-center gap-2`}>
+                    <p className="text-sm font-medium">Proudly Engineered in India 🇮🇳</p>
+                    <p className={`text-xs ${T.muted}`}>Empowering institutional communication at scale.</p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
 
-        <motion.p variants={fadeUp} className={`text-center text-[11px] ${theme.muted} mt-8 tracking-wider`}>
-          Proudly Built for India 🇮🇳 · v2.0
-        </motion.p>
-      </motion.div>
-
-      {/* ── Sheets & Modals ── */}
+      {/* ── MODALS ── */}
       <AnimatePresence>
-        {sheet === "photo" && (
-          <PhotoActionSheet theme={theme} hasPhoto={!!profile?.photoURL}
-            onClose={() => setSheet(null)}
-            onPickFile={() => { setSheet(null); fileRef.current?.click(); }}
-            onRemove={() => { handleRemovePhoto(); setSheet(null); }} />
+        {/* Full Edit Modal */}
+        {editing === true && (
+          <ModalWrapper key="edit" title="Update Profile" onClose={() => setEditing(false)} T={T} dark={dark}>
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Full Name</label>
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="Display name"
+                  className={`w-full px-5 py-3.5 rounded-2xl border outline-none transition-all ${T.input}`} />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Department</label>
+                <select value={dept} onChange={e => setDept(e.target.value)}
+                  className={`w-full px-5 py-3.5 rounded-2xl border outline-none transition-all appearance-none cursor-pointer ${T.input}`}>
+                  {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Year</label>
+                  <select value={year} onChange={e => setYear(e.target.value)}
+                    className={`w-full px-5 py-3.5 rounded-2xl border outline-none transition-all appearance-none cursor-pointer ${T.input}`}>
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Section</label>
+                  <select value={section} onChange={e => setSection(e.target.value)}
+                    className={`w-full px-5 py-3.5 rounded-2xl border outline-none transition-all appearance-none cursor-pointer ${T.input}`}>
+                    {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button onClick={handleSaveProfile} disabled={saving} className="w-full h-14 bg-red-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-red-500/20 active:scale-95 disabled:opacity-50">
+                  {saving ? "Processing…" : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </ModalWrapper>
         )}
-        {sheet === "edit" && (
-          <EditSheet theme={theme} profile={profile}
-            onClose={() => setSheet(null)} onSave={handleSaveProfile} />
+
+        {/* Password Modal */}
+        {editing === "password" && (
+          <ModalWrapper key="pw" title="Security Credentials" onClose={() => setEditing(false)} T={T} dark={dark}>
+             <p className="text-xs opacity-60 mb-6 leading-relaxed">Ensure your local connection is secure before updating sensitive data.</p>
+             <div className="space-y-4">
+                <input type="password" placeholder="Current Password" className={`w-full px-5 py-3.5 rounded-2xl border outline-none ${T.input}`} />
+                <input type="password" placeholder="New Password" className={`w-full px-5 py-3.5 rounded-2xl border outline-none ${T.input}`} />
+                <button className="w-full h-14 bg-red-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl">Apply New Security</button>
+             </div>
+          </ModalWrapper>
         )}
-        {sheet === "password" && (
-          <PasswordSheet theme={theme} onClose={() => setSheet(null)} />
-        )}
-        {sheet === "language" && (
-          <LanguageSheet current={profile?.greeting_language || "en"} theme={theme} onSave={handleSaveLanguage} onClose={() => setSheet(null)} />
-        )}
-        {sheet === "signout" && (
-          <SignOutConfirm theme={theme} onConfirm={signOut} onCancel={() => setSheet(null)} />
-        )}
-        {sheet === "delete" && (
-          <DeleteConfirm theme={theme} isGoogleUser={isGoogleUser} onConfirm={handleDeleteAccount} onCancel={() => setSheet(null)} />
+
+        {/* Confirmation Modal */}
+        {confirmModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-sm rounded-[42px] p-10 text-center border ${T.card}`}>
+              <div className="mb-6 w-20 h-20 rounded-3xl bg-red-500/10 text-red-500 flex items-center justify-center mx-auto">
+                {confirmModal === 'delete' ? <Trash2 size={40} /> : <LogOut size={40} />}
+              </div>
+              <h3 className="text-2xl font-black mb-2 tracking-tight">Confirm {confirmModal}?</h3>
+              <p className={`text-sm ${T.muted} mb-8 leading-relaxed`}>
+                {confirmModal === 'delete' ? 'This is an irreversible institutional action. All node data will be purged.' : 'You will be disconnected from the SuchnaX network.'}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button onClick={() => setConfirmModal(null)} className={`h-14 font-black uppercase tracking-widest text-[10px] rounded-2xl border ${T.divider} hover:bg-white/5`}>Back</button>
+                <button onClick={() => { if(confirmModal==='signout') signOut(); setConfirmModal(null); }} className={`h-14 font-black uppercase tracking-widest text-[10px] rounded-2xl bg-red-500 text-white shadow-lg shadow-red-500/20 active:scale-95`}>Proceed</button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
-    </>
+
+      {error && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl bg-red-500 text-white text-xs font-bold shadow-2xl z-[200]">
+          {error}
+          <button onClick={() => setError("")} className="ml-4 opacity-70 hover:opacity-100">✕</button>
+        </motion.div>
+      )}
+    </div>
   );
 };
 
-// ─── Sign Out Confirm ─────────────────────────────────────────────────────────
-const SignOutConfirm = ({ onConfirm, onCancel, theme }) => (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center px-6" onClick={onCancel}>
-      <motion.div
-        initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.88, opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-xs border rounded-3xl p-6 text-center ${theme.sheet}`}>
-        <div className="text-4xl mb-3">👋</div>
-        <h3 className={`text-base font-bold ${theme.primary} mb-1`}>Sign out?</h3>
-        <p className={`text-sm ${theme.secondary} mb-6`}>You'll need to sign in again to access Suchna X Link.</p>
-        <div className="flex gap-3">
-          <button onClick={onCancel}
-            className={`flex-1 border font-semibold py-3 rounded-xl text-sm ${theme.cardInner} ${theme.secondary}`}>
-            Cancel
-          </button>
-          <button onClick={onConfirm}
-            className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-xl text-sm active:scale-[0.98]">
-            Sign Out
-          </button>
-        </div>
-      </motion.div>
+// ── Shared Wrapper for Modals ──
+const ModalWrapper = ({ title, children, onClose, T }) => (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center p-6 bg-black/80 backdrop-blur-lg pt-24 pb-12 overflow-y-auto">
+    <div className="absolute inset-0" onClick={onClose} />
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0, y: 30 }}
+      animate={{ scale: 1,    opacity: 1, y: 0 }}
+      exit={{ scale: 0.9,     opacity: 0, y: 30 }}
+      className={`relative w-full max-w-lg rounded-[48px] p-10 pt-12 shadow-2xl border ${T.card} overflow-hidden`}
+    >
+      <div className="absolute top-0 left-0 right-0 h-1" style={{ background: T.accent }} />
+      <button onClick={onClose} className="absolute top-8 right-8 text-slate-500 hover:text-red-500 transition-colors">
+        <X size={24} />
+      </button>
+      <h3 className="text-3xl font-black mb-1.5 tracking-tight">{title}</h3>
+      <div className="h-1 w-12 bg-red-500 rounded-full mb-8" />
+      {children}
     </motion.div>
-  );
+  </div>
+);
 
 export default ProfilePage;

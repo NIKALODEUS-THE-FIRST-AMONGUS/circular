@@ -1,16 +1,13 @@
-import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Sidebar from '../components/Sidebar';
 import RoleGuard from '../components/RoleGuard';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { getBrandName } from '../config/branding';
 import {
-    Bell, Settings as SettingsIcon, LogOut, ShieldAlert,
-    ShieldCheck, GraduationCap, Building2, Layers, Check, Loader2, X, RefreshCw,
-    BadgeInfo, UserCircle, CheckCircle2, AlertTriangle, Info, ArrowRight, Eye
+    Bell, LogOut, ShieldAlert,
+    Loader2, X, RefreshCw
 } from 'lucide-react';
 import { useNotifications } from '../hooks/useNotifications';
 import { useNotificationManager } from '../hooks/useNotificationManager';
@@ -22,6 +19,7 @@ import { getDocuments } from '../lib/firebase-db';
 import Navbar from '../components/Navbar';
 import MobileSidebar from '../components/MobileSidebar';
 import AppleIntro from '../components/AppleIntro';
+import FirstTimeTutorial from '../components/FirstTimeTutorial';
 
 
 // Lazy load heavy route components
@@ -52,39 +50,6 @@ const ApprovalsMobile = lazy(() => import('./mobile/ApprovalsMobile'));
 const SettingsMobile = lazy(() => import('./mobile/SettingsMobile'));
 const ManageUsersMobile = lazy(() => import('./mobile/ManageUsersMobile'));
 
-// Compact Logo for Headers
-const HeaderLogo = () => {
-    const { language } = useLanguage();
-    const brandName = getBrandName(language);
-    const parts = brandName.split('X');
-    
-    return (
-        <div className="flex items-center gap-2">
-            <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M25 25L75 75" stroke="#FF9933" strokeWidth="12" strokeLinecap="round"/>
-                <path d="M25 75L75 25" stroke="#138808" strokeWidth="12" strokeLinecap="round"/>
-                <rect x="45" y="40" width="10" height="20" transform="rotate(45 45 40)" fill="white"/>
-            </svg>
-            <span className="text-sm font-bold tracking-tight text-text-main hidden sm:inline flex items-center">
-                <span>{parts[0]}</span>
-                <span className="text-[#FF9933]">X</span>
-                <span className="ml-[0.15em]">{parts[1]}</span>
-            </span>
-            {/* Small Indian Flag */}
-            <div className="hidden md:flex h-4 w-6 rounded-sm overflow-hidden shadow-sm border border-border-light/30 ml-2 relative">
-                <div className="h-full w-full flex flex-col">
-                    <div className="h-[33.33%] bg-[#FF9933]"></div>
-                    <div className="h-[33.33%] bg-white relative flex items-center justify-center">
-                        <div className="absolute w-2 h-2 rounded-full border border-[#000080] flex items-center justify-center">
-                            <div className="w-1 h-1 rounded-full bg-[#000080]"></div>
-                        </div>
-                    </div>
-                    <div className="h-[33.33%] bg-[#138808]"></div>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // Helper function to format display name with title
 const getDisplayName = (profile, user, options = {}) => {
@@ -359,6 +324,8 @@ const Dashboard = () => {
                 approvalCount={stats?.pendingApprovals || 0}
             />
 
+            <FirstTimeTutorial />
+
             <main id="main-content" className="flex-1 bg-bg-light/50 backdrop-blur-sm relative">
                 <AnimatePresence>
                     {permission === 'default' && (
@@ -404,9 +371,6 @@ const Dashboard = () => {
                                 <div className="max-w-7xl mx-auto px-8 py-3 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className="h-9 w-9 bg-primary text-white rounded-full flex items-center justify-center shadow-m3-1">
-                                            <Info size={18} />
-                                        </div>
-                                        <div>
                                             <p className="text-text-main text-[13px] font-black tracking-tight">Identity Profile Missing Critical Data</p>
                                             <p className="text-text-muted text-[10px] font-bold uppercase tracking-wider">Please finalize your setup to ensure seamless departmental communication.</p>
                                         </div>

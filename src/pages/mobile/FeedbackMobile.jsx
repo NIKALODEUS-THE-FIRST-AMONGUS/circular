@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import { ThemeContext } from "../../context/ThemeContext";
 import BottomNav from "../../components/BottomNav";
+import { useNotify } from "../../components/Toaster";
 import {
   checkProfanity, getProfanitySeverity,
   checkExtremeOffensive, sanitizeProfanity,
@@ -45,8 +46,8 @@ const tk = (dark) => ({
   heading:  dark ? "text-white"                      : "text-gray-900",
   sub:      dark ? "text-gray-400"                   : "text-gray-500",
   muted:    dark ? "text-gray-500"                   : "text-gray-400",
-  card:     dark ? "bg-[#161b22] border-white/8"     : "bg-white border-gray-200",
-  cardHov:  dark ? "hover:border-white/15"           : "hover:border-gray-300 hover:shadow-sm",
+  card:     dark ? "bg-[#161b22] border-white/10 shadow-2xl rounded-3xl" : "bg-white border-gray-200 shadow-lg rounded-3xl",
+  cardHov:  dark ? "hover:border-white/20 active:scale-[0.98]" : "hover:border-gray-300 active:scale-[0.98]",
   divider:  dark ? "border-white/6"                  : "border-gray-100",
   input:    dark
     ? "bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-orange-500/50"
@@ -114,6 +115,7 @@ const stagger = { show: { transition: { staggerChildren: 0.07 } } };
 const SubmitForm = ({ dark, onSubmitted, isAdmin: _isAdmin }) => {
   const T = tk(dark);
   const { profile } = useAuth(); // FIXED: useAuth instead of useContext(AuthContext)
+  const notify = useNotify();
 
   const [step,        setStep]        = useState("form"); // form | review | success
   const [type,        setType]        = useState("bug");
@@ -131,11 +133,13 @@ const SubmitForm = ({ dark, onSubmitted, isAdmin: _isAdmin }) => {
     const checkText = `${title} ${description}`;
     
     // Check for anti-Semitism (custom request)
-    if (checkAntiSemitism(checkText).found) {
+    const anti = checkAntiSemitism(checkText);
+    if (anti.found) {
       setProfanityWarning({
         severity: 'extreme',
         message: 'Warning : Anti Semitist found'
       });
+      notify("Hate speech detected! Please be respectful.", "error"); 
       return;
     }
 
@@ -145,6 +149,7 @@ const SubmitForm = ({ dark, onSubmitted, isAdmin: _isAdmin }) => {
         severity: 'extreme',
         message: '🚫 Extremely offensive content detected. It will be flagged or rejected.'
       });
+      notify("Extremely offensive content detected!", "error");
       return;
     }
     const regular = checkProfanity(checkText);
@@ -156,10 +161,11 @@ const SubmitForm = ({ dark, onSubmitted, isAdmin: _isAdmin }) => {
           ? '⚠️ Highly offensive language detected.'
           : '⚠️ Inappropriate language detected.'
       });
+      if (severity === 'high') notify("Warning: Highly offensive language detected.", "error");
     } else {
       setProfanityWarning(null);
     }
-  }, [title, description]);
+  }, [title, description, notify]);
 
   const selectedType = FEEDBACK_TYPES.find((t) => t.id === type);
   const typeMeta     = TYPE_META[type] || TYPE_META.other;
@@ -303,7 +309,7 @@ const SubmitForm = ({ dark, onSubmitted, isAdmin: _isAdmin }) => {
 
   // ── Main form ──
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 pb-4">
 
       {/* Type selector — compact 2x2 */}
       <div>
@@ -404,11 +410,13 @@ const SubmitForm = ({ dark, onSubmitted, isAdmin: _isAdmin }) => {
       {error && <p className="text-xs text-red-500 font-bold mb-2">{error}</p>}
 
       {/* Submit → goes to review */}
-      <button onClick={handleReview}
-        className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold transition-all active:scale-[0.98] shadow-lg shadow-orange-500/20">
-        <Ic size={15}><polyline points="9 18 15 12 9 6"/></Ic>
-        Review & Submit
-      </button>
+      <div className="pt-2">
+        <button onClick={handleReview}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold transition-all active:scale-[0.98] shadow-lg shadow-orange-500/20">
+          <Ic size={15}><polyline points="9 18 15 12 9 6"/></Ic>
+          Review & Submit
+        </button>
+      </div>
 
       {/* Profanity warning modal */}
       <AnimatePresence>
@@ -461,7 +469,7 @@ const FeedbackCard = ({ item, dark, isAdmin: _isAdmin, onVote, onTap, index }) =
 
   return (
     <motion.div variants={fadeUp} custom={index} layout
-      className={`border rounded-2xl p-4 cursor-pointer transition-all duration-200 ${T.card} ${T.cardHov}`}
+      className={`border p-6 cursor-pointer transition-all duration-200 mb-5 ${T.card} ${T.cardHov}`}
       onClick={() => onTap(item)}>
 
       {/* Row 1: type + status + time */}
@@ -767,9 +775,6 @@ const FeedbackMobile = () => {
   const FEED_FILTERS = [
     { id: "all",         label: `All (${items.length})`     },
     { id: "bug",         label: "🐛 Bugs"                   },
-    { id: "feature",     label: "💡 Features"               },
-    { id: "open",        label: "Open"                      },
-    { id: "resolved",    label: "Resolved"                  },
   ];
 
   return (
@@ -777,9 +782,14 @@ const FeedbackMobile = () => {
       <motion.div initial="hidden" animate="show" variants={stagger}
         className={`min-h-screen px-5 pt-20 pb-24 transition-colors duration-300 ${T.page}`}>
 
-        {/* India strip */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-6 rounded-full bg-orange-500" />
+          <h1 className={`text-2xl font-black tracking-tight ${T.heading}`}>Feedback</h1>
+        </div>
+
+        {/* India tricolor strip as a purposeful accent */}
         <motion.div variants={fadeUp}
-          className="h-0.5 rounded-full mb-4 opacity-50"
+          className="h-1 w-24 rounded-full mb-6 origin-left shadow-sm"
           style={{ background: "linear-gradient(90deg,#FF9933 33%,#fff 33%,#fff 66%,#138808 66%)" }} />
 
         {/* Header */}

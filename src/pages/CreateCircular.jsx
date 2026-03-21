@@ -352,7 +352,7 @@ const CreateCircular = () => {
     const canBroadcast = title.trim() && content.trim() && !loading;
 
     return (
-        <div className="max-w-6xl mx-auto px-4 lg:px-0 pb-32">
+        <div className="max-w-6xl mx-auto px-4 lg:px-0 pt-20 pb-32">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
 
                 {/* ── Page header ── */}

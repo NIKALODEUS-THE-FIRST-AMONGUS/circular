@@ -25,8 +25,8 @@ const STATUSES   = ["pending","reviewing","in_progress","resolved","rejected"];
 const tk = (dark) => ({
   page:      dark ? "bg-black text-white"                : "bg-white text-gray-900",
   panel:     dark ? "bg-[#121212] border-white/8"      : "bg-gray-50 border-gray-200",
-  card:      dark ? "bg-[#121212] border-white/8"      : "bg-white border-gray-200",
-  cardHov:   dark ? "hover:border-white/15 hover:bg-[#1a1a1a]" : "hover:border-gray-300 hover:shadow-md",
+  card:      dark ? "bg-[#121212] border-white/10 shadow-2xl rounded-3xl" : "bg-white border-gray-200 shadow-xl rounded-3xl",
+  cardHov:   dark ? "hover:border-white/20 active:scale-[0.99]" : "hover:border-gray-300 active:scale-[0.99]",
   heading:   dark ? "text-white"                       : "text-gray-900",
   sub:       dark ? "text-gray-400"                    : "text-gray-500",
   muted:     dark ? "text-gray-500"                    : "text-gray-400",
@@ -276,7 +276,7 @@ const FeedbackCard = ({ item, dark, isAdmin, onVote, onComment, onStatus, onDele
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ delay: index * 0.04, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      className={`border rounded-2xl p-5 transition-all duration-200 ${T.card} ${T.cardHov}`}>
+      className={`border p-8 transition-all duration-200 mb-6 ${T.card} ${T.cardHov}`}>
       <div className="flex items-start gap-4">
 
         {/* Vote button */}
@@ -431,13 +431,16 @@ const Feedback = () => {
   // ── Live profanity check as user types ──
   useEffect(() => {
     const text = `${title} ${description}`;
-    if (checkAntiSemitism(text).found) {
+    const anti = checkAntiSemitism(text);
+    if (anti.found) {
       setProfanityWarning({ severity: "extreme", message: "⚠ Anti-Semitic content detected." });
+      notify("⚠ Warning: Hate speech detected!", "error");
       return;
     }
     const extreme = checkExtremeOffensive(text);
     if (extreme.isExtreme) {
       setProfanityWarning({ severity: "extreme", message: "🚫 Extremely offensive content detected. This will be auto-rejected." });
+      notify("🚫 Extremely offensive content detected!", "error");
       return;
     }
     const result = checkProfanity(text);
@@ -449,10 +452,11 @@ const Feedback = () => {
           ? "⚠ Highly offensive language detected. Please be respectful."
           : "⚠ Inappropriate language detected. Keep feedback professional.",
       });
+      if (sev === "high") notify("⚠ Warning: Highly offensive language detected.", "error");
     } else {
       setProfanityWarning(null);
     }
-  }, [title, description]);
+  }, [title, description, notify]);
 
   // ── Fetch ──
   const fetchFeedback = useCallback(async () => {
@@ -584,6 +588,11 @@ const Feedback = () => {
       <div className={`min-h-screen transition-colors duration-300 ${T.page}`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
 
+          {/* India tricolor strip */}
+          <motion.div initial={{ opacity: 0, scaleX: 0 }} animate={{ opacity: 0.5, scaleX: 1 }}
+            className="h-0.5 rounded-full mb-8 origin-left"
+            style={{ background: "linear-gradient(90deg,#FF9933 33%,#fff 33%,#fff 66%,#138808 66%)" }} />
+
           {/* ── Header ── */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-2">
@@ -603,7 +612,7 @@ const Feedback = () => {
             {/* ════════════════════════════════ */}
             {/* LEFT: Submit form               */}
             {/* ════════════════════════════════ */}
-            <div className={`border rounded-3xl p-6 sticky top-6 ${T.panel}`}>
+            <div className={`border rounded-3xl p-8 sticky top-6 shadow-2xl ${T.panel}`}>
               <div className="flex items-center gap-2.5 mb-5">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? "bg-red-500/10" : "bg-red-50"}`}>
                   <Ic size={16}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></Ic>

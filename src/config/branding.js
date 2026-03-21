@@ -34,7 +34,17 @@ export const BRAND_CONFIG = {
         white: '#FFFFFF',
         green: '#138808',
         navy: '#000080',
-        darkSlate: '#1E1E2F'
+        darkSlate: '#1E1E2F',
+        // Royal Dark Premium Palette
+        royalDark: {
+            bg: '#0a0b0f',
+            surface: '#11141b',
+            border: 'rgba(255, 255, 255, 0.08)',
+            text: '#f1f3f9',
+            muted: '#94a3b8',
+            blue: '#3b82f6',
+            accent: 'rgba(59, 130, 246, 0.15)'
+        }
     },
     
     // Font families by language

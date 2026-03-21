@@ -10,7 +10,7 @@ import {
     FileText, Trash2, Edit3, Clock, AlertCircle, Loader2, Eye, Sparkles,
     Calendar, Tag, ChevronRight, X
 } from 'lucide-react';
-import IndianFlagInline from '../components/IndianFlagInline';
+import IndianFlag from '../components/IndianFlag';
 
 const Drafts = () => {
     const { user } = useAuth();
@@ -121,7 +121,7 @@ const Drafts = () => {
                                 <Sparkles size={13} className="animate-pulse" />
                                 Draft Studio
                             </div>
-                            <IndianFlagInline />
+                            <IndianFlag size="sm" />
                         </div>
                         <div>
                             <h1 className="text-3xl font-black text-text-main tracking-tight">

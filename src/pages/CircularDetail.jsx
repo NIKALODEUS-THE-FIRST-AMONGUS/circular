@@ -183,11 +183,7 @@ const CircularDetail = () => {
     useEffect(() => {
         const fetchCircular = async () => {
             try {
-                // Import Firebase functions
                 const { getCircular } = await import('../lib/firebase-db');
-                // const { getDocuments } = await import('../lib/firebase-db');
-                
-                // Fetch circular
                 const circularData = await getCircular(id);
 
                 if (!circularData) {
@@ -195,27 +191,20 @@ const CircularDetail = () => {
                 }
                 
                 setCircular(circularData);
-                setEditData({ 
-                    title: circularData.title || '', 
-                    content: circularData.content || '',
-                    attachments: circularData.attachments || []
-                });
-
-                // Set view count
+                // Initial editData set will be handled by the synchronization useEffect below
+                
                 setViewCount(circularData.view_count || 0);
 
-                // Track view and mark as read (fire and forget - don't wait)
                 if (profile?.id) {
                     Promise.all([
                         createDocument('circular_views', {
                             circular_id: id, 
                             viewer_id: profile.id,
                             viewed_at: new Date().toISOString()
-                        }).catch(() => {}), // Ignore if already exists
+                        }).catch(() => {}),
                         circularFeatures.markAsRead(id)
                     ]).catch(err => console.error('Track view error:', err));
                     
-                    // Sync with local notification manager
                     const localReads = JSON.parse(localStorage.getItem(`read_notifications_${profile.id}`) || '[]');
                     if (!localReads.includes(id)) {
                         localReads.push(id);
@@ -232,8 +221,18 @@ const CircularDetail = () => {
         };
 
         fetchCircular();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, profile, navigate, notify, complete]);
+    }, [id, profile, navigate, notify, complete, circularFeatures]);
+
+    // Synchronize editData with the latest circular data
+    useEffect(() => {
+        if (circular) {
+            setEditData({
+                title: circular.title || '',
+                content: circular.content || '',
+                attachments: circular.attachments || []
+            });
+        }
+    }, [circular]);
 
     if (!circular) return null;
 
@@ -278,14 +277,18 @@ const CircularDetail = () => {
         notify('💾 Saving changes...', 'info');
         try {
             const { updateCircular } = await import('../lib/firebase-db');
-            const updatedData = await updateCircular(id, {
+            const updates = {
                 title: nextTitle,
                 content: nextContent,
                 attachments: editData.attachments
-            });
+            };
+            const updatedData = await updateCircular(id, updates);
             
-            setCircular({ ...circular, ...updatedData });
-            notify('☁️ Circular updated', 'success');
+            // Merge updates into local state
+            setCircular(prev => ({ ...prev, ...updatedData }));
+            // Note: useEffect will handle syncing editData back from circular
+            
+            notify('☁️ Circular updated successfully', 'success');
             setShowEditModal(false);
         } catch (err) {
             notify(`❌ Update failed: ${err.message}`, 'error');

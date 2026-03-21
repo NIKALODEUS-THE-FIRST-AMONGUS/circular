@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { createDocument } from '../../lib/firebase-db';
 import { uploadFile } from '../../lib/storage';
 import { useNotify } from '../../components/Toaster';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ThemeContext } from '../../context/ThemeContext';
 import { 
     X, Send, Loader2, Plus, UploadCloud, Clock, 
     AlertCircle, FileText, Bell, Users, Megaphone, 
@@ -14,11 +15,30 @@ import {
 
 const DRAFT_KEY = 'circular_mobile_draft';
 
+// ─── Theme tokens ─────────────────────────────────────────────────────────────
+const tk = (dark) => ({
+    page:      dark ? "bg-[#0a0b0f]"                 : "bg-[#f8fafc]",
+    card:      dark ? "bg-[#11141b] border-white/5"  : "bg-white border-slate-100",
+    textMain:  dark ? "text-[#f1f3f9]"               : "text-slate-900",
+    textSub:   dark ? "text-[#94a3b8]"               : "text-slate-500",
+    input:     dark ? "bg-white/4 border-white/8 text-[#f1f3f9] focus:border-blue-500/50" 
+                    : "bg-white border-slate-100 text-slate-900 focus:border-blue-400",
+    label:     dark ? "text-slate-500"               : "text-slate-400",
+    badge:     dark ? "bg-white/5 text-slate-400"    : "bg-slate-50 text-slate-400",
+    footer:    dark ? "bg-[#11141b]/90 border-white/10" : "bg-white/80 border-white",
+});
+
 const CreateCircularMobile = () => {
     const navigate = useNavigate();
     const { profile, user } = useAuth();
+    const { theme } = useContext(ThemeContext);
     const notify = useNotify();
+    
+    const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const T = tk(dark);
+
     const [loading, setLoading] = useState(false);
+
     const hasRestored = useRef(false);
     const [formData, setFormData] = useState({
         title: '',
@@ -145,24 +165,23 @@ const CreateCircularMobile = () => {
 
 
     return (
-        <div className="min-h-screen bg-[#fcfbfb] font-sans flex flex-col">
-
-            <main className="flex-1 overflow-y-auto pb-40 px-4 scroll-smooth">
+        <div className={`min-h-screen flex flex-col transition-colors duration-300 ${T.page}`}>
+            <main className="flex-1 overflow-y-auto pt-14 pb-40 px-4 scroll-smooth">
                 {/* Page Title */}
                 <div className="py-6">
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight">Compose Broadcast</h2>
-                    <p className="text-slate-500 text-xs font-medium mt-0.5">Ready to update the campus?</p>
+                    <h2 className={`text-2xl font-bold tracking-tight leading-tight ${T.textMain}`}>Compose Broadcast</h2>
+                    <p className={`${T.textSub} text-xs font-medium mt-0.5`}>Ready to update the campus?</p>
                 </div>
 
                 {/* Content Fields */}
                 <div className="space-y-6">
                     {/* Heading */}
                     <div className="space-y-2">
-                        <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-widest ml-1">Title Heading</label>
+                        <label className={`block text-[10px] font-medium uppercase tracking-widest ml-1 ${T.label}`}>Title Heading</label>
                         <input 
                             value={formData.title}
                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            className="w-full bg-white border-2 border-slate-100 rounded-2xl p-4 text-base font-bold text-slate-900 focus:ring-4 focus:ring-[#ec5b13]/10 focus:border-[#ec5b13] outline-none transition-all duration-300 shadow-sm"
+                            className={`w-full border-2 rounded-2xl p-4 text-base font-bold outline-none transition-all duration-300 shadow-sm ${T.input}`}
                             placeholder="Enter a descriptive heading..." 
                             type="text"
                         />
@@ -170,32 +189,32 @@ const CreateCircularMobile = () => {
 
                     {/* Body Message */}
                     <div className="space-y-2">
-                        <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-widest ml-1">Message Body</label>
+                        <label className={`block text-[10px] font-medium uppercase tracking-widest ml-1 ${T.label}`}>Message Body</label>
                         <textarea 
                             value={formData.content}
                             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                            className="w-full bg-white border-2 border-slate-100 rounded-[28px] p-5 text-base font-medium text-slate-800 focus:ring-4 focus:ring-[#ec5b13]/10 focus:border-[#ec5b13] outline-none transition-all duration-300 shadow-sm resize-none"
+                            className={`w-full border-2 rounded-[28px] p-5 text-base font-medium outline-none transition-all duration-300 shadow-sm resize-none ${T.input}`}
                             placeholder="Type your detailed message here..."
                             rows="5"
                         ></textarea>
                     </div>
 
                     {/* Targeted Options */}
-                    <div className="space-y-5 bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm overflow-hidden transition-all duration-500">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-50">
+                    <div className={`space-y-5 p-5 rounded-[28px] border shadow-sm overflow-hidden transition-all duration-500 ${T.card}`}>
+                        <div className={`flex items-center justify-between pb-2 border-b ${dark ? "border-white/5" : "border-slate-50"}`}>
                             <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-[#ec5b13]/10 rounded-lg">
-                                    <Users size={16} className="text-[#ec5b13]" />
+                                <div className={`p-1.5 rounded-lg ${dark ? "bg-blue-500/10" : "bg-blue-50"}`}>
+                                    <Users size={16} className={dark ? "text-blue-400" : "text-blue-600"} />
                                 </div>
-                                <h3 className="text-[10px] font-medium uppercase tracking-widest text-slate-800">Target Audience</h3>
+                                <h3 className={`text-[10px] font-medium uppercase tracking-widest ${T.textMain}`}>Target Audience</h3>
                             </div>
-                            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                            <div className={`flex p-1 rounded-xl border ${dark ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-100"}`}>
                                 <button 
                                     onClick={() => setFormData({ ...formData, target_scope: 'all' })}
                                     className={`px-4 py-1.5 rounded-lg text-[9px] font-medium transition-all ${
                                         formData.target_scope === 'all' 
-                                        ? 'bg-white text-[#ec5b13] shadow-sm' 
-                                        : 'text-slate-400'
+                                        ? (dark ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-blue-600 shadow-sm')
+                                        : T.textSub
                                     }`}
                                 >
                                     All
@@ -204,8 +223,8 @@ const CreateCircularMobile = () => {
                                     onClick={() => setFormData({ ...formData, target_scope: 'targeted' })}
                                     className={`px-4 py-1.5 rounded-lg text-[9px] font-medium transition-all ${
                                         formData.target_scope === 'targeted' 
-                                        ? 'bg-white text-[#ec5b13] shadow-sm' 
-                                        : 'text-slate-400'
+                                        ? (dark ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-blue-600 shadow-sm')
+                                        : T.textSub
                                     }`}
                                 >
                                     Target
@@ -217,7 +236,7 @@ const CreateCircularMobile = () => {
                             <div className="space-y-5 pt-2 animate-in fade-in slide-in-from-top-4 duration-500">
                                 {/* Year Selection */}
                                 <div className="space-y-2">
-                                    <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest ml-1">Select Year</p>
+                                    <p className={`text-[9px] font-medium uppercase tracking-widest ml-1 ${T.label}`}>Select Year</p>
                                     <div className="flex flex-wrap gap-2">
                                         {years.map(year => (
                                             <button
@@ -225,8 +244,8 @@ const CreateCircularMobile = () => {
                                                 onClick={() => setFormData({ ...formData, year_target: year })}
                                                 className={`px-4 py-1.5 rounded-full text-[9px] font-medium transition-all duration-300 active:scale-95 ${
                                                     formData.year_target === year 
-                                                    ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20 scale-105' 
-                                                    : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                                    ? (dark ? 'bg-blue-600 text-white shadow-lg' : 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-105')
+                                                    : T.badge
                                                 }`}
                                             >
                                                 {year}
@@ -237,7 +256,7 @@ const CreateCircularMobile = () => {
 
                                 {/* Branch Selection */}
                                 <div className="space-y-2">
-                                    <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest ml-1">Select Branch</p>
+                                    <p className={`text-[9px] font-medium uppercase tracking-widest ml-1 ${T.label}`}>Select Branch</p>
                                     <div className="flex flex-wrap gap-2">
                                         {branches.map(branch => (
                                             <button
@@ -245,8 +264,8 @@ const CreateCircularMobile = () => {
                                                 onClick={() => setFormData({ ...formData, department_target: branch })}
                                                 className={`px-4 py-1.5 rounded-xl text-[9px] font-medium transition-all duration-300 active:scale-95 ${
                                                     formData.department_target === branch 
-                                                    ? 'bg-white border-2 border-[#ec5b13] text-[#ec5b13] shadow-sm scale-105 z-10' 
-                                                    : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                                    ? (dark ? 'bg-blue-500/10 border-2 border-blue-500 text-blue-400' : 'bg-white border-2 border-blue-600 text-blue-600 shadow-sm scale-105 z-10')
+                                                    : T.badge
                                                 }`}
                                             >
                                                 {branch}
@@ -257,7 +276,7 @@ const CreateCircularMobile = () => {
 
                                 {/* Section Selection */}
                                 <div className="space-y-2">
-                                    <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest ml-1">Select Section</p>
+                                    <p className={`text-[9px] font-medium uppercase tracking-widest ml-1 ${T.label}`}>Select Section</p>
                                     <div className="flex gap-2">
                                         {sections.map(sec => (
                                             <button
@@ -265,8 +284,8 @@ const CreateCircularMobile = () => {
                                                 onClick={() => setFormData({ ...formData, section_target: sec })}
                                                 className={`flex-1 py-1.5 rounded-xl text-[9px] font-medium transition-all duration-300 active:scale-95 ${
                                                     formData.section_target === sec 
-                                                    ? 'bg-[#ec5b13] text-white shadow-md shadow-[#ec5b13]/20 scale-105' 
-                                                    : 'bg-slate-50 text-slate-500 border border-slate-100'
+                                                    ? 'bg-blue-600 text-white shadow-md scale-105' 
+                                                    : T.badge
                                                 }`}
                                             >
                                                 Section {sec}
@@ -279,7 +298,7 @@ const CreateCircularMobile = () => {
 
                         {formData.target_scope === 'all' && (
                             <div className="py-2 animate-in fade-in duration-500">
-                                <p className="text-[10px] font-semibold text-slate-400 text-center italic">This broadcast will reach every student in the institution.</p>
+                                <p className={`text-[10px] font-semibold text-center italic ${T.textSub}`}>This broadcast will reach every student in the institution.</p>
                             </div>
                         )}
                     </div>
@@ -287,19 +306,19 @@ const CreateCircularMobile = () => {
                     {/* Priority */}
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 pb-1 ml-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#ec5b13]"></div>
-                            <h3 className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Set Priority Level</h3>
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                            <h3 className={`text-[10px] font-medium uppercase tracking-widest ${T.label}`}>Set Priority Level</h3>
                         </div>
                         <div className="flex gap-3">
                             <button 
                                 onClick={() => setFormData({ ...formData, priority: 'standard' })}
                                 className={`flex-1 flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-[24px] border-2 transition-all duration-300 active:scale-95 ${
                                     formData.priority === 'standard'
-                                    ? 'border-[#ec5b13] bg-[#ec5b13]/5 text-[#ec5b13] shadow-md'
-                                    : 'border-white bg-white text-slate-400 shadow-sm'
+                                    ? (dark ? 'border-blue-500 bg-blue-500/10 text-blue-400' : 'border-blue-600 bg-blue-50 text-blue-600 shadow-md')
+                                    : (dark ? 'border-white/5 bg-white/5 text-slate-500' : 'border-white bg-white text-slate-400 shadow-sm')
                                 }`}
                             >
-                                <div className={`p-1.5 rounded-lg transition-colors ${formData.priority === 'standard' ? 'bg-[#ec5b13]/10' : 'bg-slate-50'}`}>
+                                <div className={`p-1.5 rounded-lg transition-colors ${formData.priority === 'standard' ? (dark ? 'bg-blue-500/20' : 'bg-blue-100') : (dark ? 'bg-white/5' : 'bg-slate-50')}`}>
                                     <Clock size={18} />
                                 </div>
                                 <span className="font-semibold text-[10px] uppercase tracking-tight">Standard</span>
@@ -308,11 +327,11 @@ const CreateCircularMobile = () => {
                                 onClick={() => setFormData({ ...formData, priority: 'urgent' })}
                                 className={`flex-1 flex flex-col items-center justify-center gap-1.5 p-3.5 rounded-[24px] border-2 transition-all duration-300 active:scale-95 ${
                                     formData.priority === 'urgent'
-                                    ? 'border-red-500 bg-red-50 text-red-600 shadow-md'
-                                    : 'border-white bg-white text-slate-400 shadow-sm'
+                                    ? (dark ? 'border-red-500 bg-red-500/10 text-red-400' : 'border-red-500 bg-red-50 text-red-600 shadow-md')
+                                    : (dark ? 'border-white/5 bg-white/5 text-slate-500' : 'border-white bg-white text-slate-400 shadow-sm')
                                 }`}
                             >
-                                <div className={`p-1.5 rounded-lg transition-colors ${formData.priority === 'urgent' ? 'bg-red-500/10' : 'bg-slate-50'}`}>
+                                <div className={`p-1.5 rounded-lg transition-colors ${formData.priority === 'urgent' ? 'bg-red-500/20' : 'bg-red-50'}`}>
                                     <AlertCircle size={18} />
                                 </div>
                                 <span className="font-semibold text-[10px] uppercase tracking-tight">Urgent</span>
@@ -323,8 +342,8 @@ const CreateCircularMobile = () => {
                     {/* Attachments */}
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 pb-1 ml-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                            <h3 className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Supporting Docs</h3>
+                            <div className={`w-1.5 h-1.5 rounded-full ${dark ? "bg-slate-600" : "bg-slate-300"}`}></div>
+                            <h3 className={`text-[10px] font-medium uppercase tracking-widest ${T.label}`}>Supporting Docs</h3>
                         </div>
                         
                         {/* File List */}
@@ -334,11 +353,11 @@ const CreateCircularMobile = () => {
                                     {files.map((file, i) => (
                                         <motion.div 
                                             initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                                            key={i} className="flex items-center gap-2 bg-slate-50 border border-slate-100 p-3 rounded-2xl"
+                                            key={i} className={`flex items-center gap-2 border p-3 rounded-2xl ${dark ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-100"}`}
                                         >
-                                            <Paperclip size={14} className="text-slate-400" />
-                                            <span className="flex-1 text-[11px] font-semibold text-slate-700 truncate">{file.name}</span>
-                                            <button onClick={() => removeFile(i)} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 transition-colors">
+                                            <Paperclip size={14} className={T.textSub} />
+                                            <span className={`flex-1 text-[11px] font-semibold truncate ${T.textMain}`}>{file.name}</span>
+                                            <button onClick={() => removeFile(i)} className={`p-1.5 rounded-lg transition-colors ${dark ? "hover:bg-white/10 text-slate-500" : "hover:bg-slate-200 text-slate-400"}`}>
                                                 <X size={14} />
                                             </button>
                                         </motion.div>
@@ -347,13 +366,13 @@ const CreateCircularMobile = () => {
                             )}
                         </AnimatePresence>
 
-                        <label className="border-3 border-dashed border-slate-100 rounded-[32px] p-8 flex flex-col items-center justify-center bg-white shadow-sm active:bg-slate-50 transition-colors cursor-pointer group">
+                        <label className={`border-3 border-dashed rounded-[32px] p-8 flex flex-col items-center justify-center transition-colors cursor-pointer group shadow-sm ${dark ? "border-white/10 bg-white/3 active:bg-white/5" : "border-slate-100 bg-white active:bg-slate-50"}`}>
                             <input type="file" multiple className="hidden" onChange={handleFileChange} />
-                            <UploadCloud size={32} className="text-slate-300" />
+                            <UploadCloud size={32} className={dark ? "text-slate-700" : "text-slate-300"} />
                             <div className="mt-2 text-center">
-                                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">PDF, Images or Documents (Max 100MB)</p>
+                                <p className={`text-[10px] font-medium uppercase tracking-widest ${T.label}`}>PDF, Images or Documents (Max 100MB)</p>
                             </div>
-                            <div className="mt-4 flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[9px] font-semibold shadow-lg shadow-black/10 active:scale-95 transition-all">
+                            <div className={`mt-4 flex items-center gap-2 px-6 py-2.5 rounded-xl text-[9px] font-semibold shadow-lg active:scale-95 transition-all ${dark ? "bg-blue-600 text-white shadow-blue-500/10" : "bg-slate-900 text-white shadow-black/10"}`}>
                                 <Plus size={16} strokeWidth={3} />
                                 Add Files
                             </div>
@@ -363,11 +382,11 @@ const CreateCircularMobile = () => {
             </main>
 
             {/* Footer Buttons - Floating Style */}
-            <footer className="fixed bottom-6 left-4 right-4 bg-white/80 backdrop-blur-xl border border-white rounded-[28px] p-3 flex gap-3 z-50 shadow-2xl shadow-black/10">
+            <footer className={`fixed bottom-6 left-4 right-4 backdrop-blur-xl border rounded-[28px] p-3 flex gap-3 z-50 shadow-2xl ${T.footer}`}>
                 <button 
                     onClick={() => handleSubmit(true)}
                     disabled={loading}
-                    className="flex-1 py-3.5 rounded-[20px] bg-slate-100 text-slate-600 font-semibold text-xs active:scale-95 transition-all flex items-center justify-center gap-2"
+                    className={`flex-1 py-3.5 rounded-[20px] font-semibold text-xs active:scale-95 transition-all flex items-center justify-center gap-2 ${dark ? "bg-white/5 text-slate-400" : "bg-slate-100 text-slate-600"}`}
                 >
                     <FileText size={16} />
                     Draft
@@ -375,7 +394,7 @@ const CreateCircularMobile = () => {
                 <button 
                     onClick={() => handleSubmit(false)}
                     disabled={loading}
-                    className="flex-[2] py-3.5 rounded-[20px] bg-[#ec5b13] text-white font-semibold text-xs shadow-xl shadow-[#ec5b13]/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    className={`flex-[2] py-3.5 rounded-[20px] text-white font-semibold text-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${dark ? "bg-blue-600 shadow-blue-500/20" : "bg-[#ec5b13] shadow-[#ec5b13]/30 shadow-xl"}`}
                 >
                     {loading ? (
                         <>
@@ -392,6 +411,7 @@ const CreateCircularMobile = () => {
             </footer>
         </div>
     );
+
 };
 
 export default CreateCircularMobile;

@@ -140,42 +140,42 @@ const MANAGEMENT = [
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 const tk = (dark) => ({
-  drawer:       dark ? "bg-black"                         : "bg-white",
-  border:       dark ? "border-white/6"                   : "border-gray-200",
-  overlay:      dark ? "bg-black/65"                      : "bg-black/40",
-  profileBg:    dark ? "bg-[#121212]"                     : "bg-gray-50",
-  name:         dark ? "text-white"                       : "text-gray-900",
-  meta:         dark ? "text-gray-400"                    : "text-gray-500",
+  drawer:       dark ? "bg-[#0a0b0f]"                     : "bg-white",
+  border:       dark ? "border-white/8"                   : "border-slate-200",
+  overlay:      dark ? "bg-black/80 backdrop-blur-sm"     : "bg-black/40 backdrop-blur-sm",
+  profileBg:    dark ? "bg-[#11141b]"                     : "bg-slate-50",
+  name:         dark ? "text-[#f1f3f9]"                   : "text-slate-900",
+  meta:         dark ? "text-[#94a3b8]"                   : "text-slate-500",
   liveBg:       dark
-    ? "bg-green-500/10 border-green-500/20 text-green-400"
-    : "bg-green-50 border-green-200 text-green-700",
-  sectionLbl:   dark ? "text-gray-600"                    : "text-gray-400",
-  itemDef:      dark ? "text-gray-400"                    : "text-gray-500",
+    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+    : "bg-emerald-50 border-emerald-200 text-emerald-700",
+  sectionLbl:   dark ? "text-slate-600"                   : "text-slate-400",
+  itemDef:      dark ? "text-slate-400"                   : "text-slate-500",
   itemHover:    dark
-    ? "hover:bg-white/5 hover:text-gray-100"
-    : "hover:bg-gray-50 hover:text-gray-800",
-  iconDefBg:    dark ? "bg-white/5"                       : "bg-gray-100",
+    ? "hover:bg-white/5 hover:text-slate-100"
+    : "hover:bg-slate-50 hover:text-slate-800",
+  iconDefBg:    dark ? "bg-white/5"                       : "bg-slate-100",
   iconHover:    dark
-    ? "group-hover:bg-orange-500/10 group-hover:text-orange-400"
+    ? "group-hover:bg-blue-500/10 group-hover:text-blue-400"
     : "group-hover:bg-orange-50 group-hover:text-orange-500",
-  itemActBg:    dark ? "bg-[#1c2333]"                     : "bg-orange-50",
-  itemActText:  dark ? "text-white"                       : "text-orange-600",
+  itemActBg:    dark ? "bg-blue-500/10"                   : "bg-orange-50",
+  itemActText:  dark ? "text-blue-400"                    : "text-orange-600",
   itemActIcon:  dark
-    ? "bg-orange-500 text-white shadow-sm shadow-orange-500/30"
-    : "bg-orange-500 text-white shadow-sm shadow-orange-500/20",
-  chevron:      dark ? "text-gray-600 group-hover:text-gray-400" : "text-gray-300 group-hover:text-gray-500",
-  footerBg:     dark ? "bg-[#121212]"                     : "bg-gray-50",
-  footerText:   dark ? "text-gray-200"                    : "text-gray-700",
-  footerSub:    dark ? "text-gray-500"                    : "text-gray-400",
-  togOn:        "bg-orange-500 border-orange-500",
-  togOff:       dark ? "bg-white/10 border-white/15"      : "bg-gray-200 border-gray-300",
-  togModeBg:    dark ? "bg-white/5"                       : "bg-white border border-gray-200",
+    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+    : "bg-orange-500 text-white shadow-md shadow-orange-500/20",
+  chevron:      dark ? "text-slate-600 group-hover:text-slate-400" : "text-slate-300 group-hover:text-slate-500",
+  footerBg:     dark ? "bg-[#11141b]"                     : "bg-slate-50",
+  footerText:   dark ? "text-[#f1f3f9]"                   : "text-slate-700",
+  footerSub:    dark ? "text-slate-500"                   : "text-slate-400",
+  togOn:        "bg-blue-600 border-blue-600",
+  togOff:       dark ? "bg-white/10 border-white/15"      : "bg-slate-200 border-slate-300",
+  togModeBg:    dark ? "bg-white/5"                       : "bg-white border border-slate-200",
   userRowBg:    dark ? ""                                 : "",
   signoutBg:    dark
-    ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
-    : "bg-orange-50 text-orange-500 hover:bg-orange-100",
-  avatarRing:   dark ? "ring-orange-500/40"               : "ring-orange-400/50",
-  drag:         dark ? "bg-white/15"                      : "bg-gray-200",
+    ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+    : "bg-red-50 text-red-500 hover:bg-red-100",
+  avatarRing:   dark ? "ring-blue-500/40"                 : "ring-orange-400/50",
+  drag:         dark ? "bg-white/15"                      : "bg-slate-200",
 });
 
 // ─── Nav row ──────────────────────────────────────────────────────────────────

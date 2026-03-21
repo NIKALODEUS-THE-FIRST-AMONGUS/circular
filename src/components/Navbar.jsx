@@ -1,28 +1,30 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
 import { ThemeContext } from "../context/ThemeContext";
 import { useIsMobile } from "../hooks/useIsMobile";
+import NotificationDropdown from "./NotificationDropdown";
+import IndianFlag from "./IndianFlag";
 
 /* ── Design tokens ───────────────────────────────────────── */
 const tk = (dark) => ({
   bar: dark
-    ? "bg-[#0d1117]/95 border-white/8 backdrop-blur-xl"
-    : "bg-white/95 border-gray-200/60 backdrop-blur-xl shadow-[0_1px_0_0_rgba(0,0,0,0.06)]",
+    ? "bg-[#0a0b0f]/80 border-white/8 backdrop-blur-xl"
+    : "bg-white/95 border-slate-200/60 backdrop-blur-xl shadow-sm",
 
-  logo: dark ? "text-white" : "text-gray-900",
-  muted: dark ? "text-gray-500" : "text-gray-400",
+  logo: dark ? "text-[#f1f3f9]" : "text-slate-900",
+  muted: dark ? "text-slate-500" : "text-slate-400",
 
   btn: dark
-    ? "bg-white/5 hover:bg-white/10 border-white/10 text-gray-300 hover:text-white"
-    : "bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-500 hover:text-gray-800",
+    ? "bg-white/5 hover:bg-white/10 border-white/8 text-slate-300 hover:text-[#f1f3f9]"
+    : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-500 hover:text-slate-800",
 
   notif: dark
-    ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
+    ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
     : "bg-orange-50 border-orange-200 text-orange-500",
 
-  divider: dark ? "border-white/8" : "border-gray-200",
+  divider: dark ? "border-white/8" : "border-slate-200",
 });
 
 /* ── Translations ───────────────────────────────────────── */
@@ -35,45 +37,6 @@ const LOGO_TEXT = {
   mr: { s: "सूचना", x: "एक्स", l: "लिंक" },
 };
 
-/* ── Flag ───────────────────────────────────────────────── */
-const Flag = ({ dark }) => (
-  <svg
-    width="20"
-    height="14"
-    viewBox="0 0 900 600"
-    xmlns="http://www.w3.org/2000/svg"
-    style={{
-      borderRadius: 2,
-      flexShrink: 0,
-      boxShadow: dark
-        ? "0 0 0 1px rgba(255,255,255,0.1)"
-        : "0 0 0 1px rgba(0,0,0,0.1)",
-    }}
-  >
-    <rect width="900" height="200" y="0" fill="#FF9933" />
-    <rect width="900" height="200" y="200" fill="#FFFFFF" />
-    <rect width="900" height="200" y="400" fill="#138808" />
-
-    <circle
-      cx="450"
-      cy="300"
-      r="80"
-      fill="none"
-      stroke="#000080"
-      strokeWidth="8"
-    />
-    <circle cx="450" cy="300" r="10" fill="#000080" />
-
-    <g stroke="#000080" strokeWidth="3">
-      <line x1="450" y1="220" x2="450" y2="380" />
-      <line x1="370" y1="300" x2="530" y2="300" />
-      <line x1="393" y1="243" x2="507" y2="357" />
-      <line x1="507" y1="243" x2="393" y2="357" />
-      <line x1="373" y1="277" x2="527" y2="323" />
-      <line x1="527" y1="277" x2="373" y2="323" />
-    </g>
-  </svg>
-);
 
 /* ── Role chip ──────────────────────────────────────────── */
 const ROLE_CHIP = {
@@ -140,6 +103,7 @@ const Navbar = ({
   const { theme } = useContext(ThemeContext);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const dark =
     theme === "dark" ||
@@ -171,6 +135,11 @@ const Navbar = ({
       className={`fixed top-0 left-0 right-0 z-40 border-b transition-colors duration-300 ${T.bar}`}
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
+      {/* Visual Rhythm: Tricolor Strip */}
+      {!isMobile && (
+        <div className="h-0.5 w-full opacity-60" 
+          style={{ background: "linear-gradient(90deg,#FF9933 33%,#fff 33%,#fff 66%,#138808 66%)" }} />
+      )}
       <div
         className={`flex items-center justify-between h-14 gap-2 w-full ${
           isMobile ? "pl-3 pr-5 max-w-lg mx-auto" : "px-6 max-w-7xl mx-auto"
@@ -201,8 +170,8 @@ const Navbar = ({
               <span className="text-[#138808]">{lt.l}</span>
             </span>
 
-            <div className="shrink-0 ml-0.5 mt-0.5">
-              <Flag dark={dark} />
+            <div className="shrink-0 ml-1 mt-0.5">
+              <IndianFlag size="xs" />
             </div>
           </button>
 
@@ -232,7 +201,7 @@ const Navbar = ({
         <div className="flex items-center gap-2 shrink-0">
           {/* Bell */}
           <button
-            onClick={() => navigate("/dashboard/alerts")}
+            onClick={() => setIsNotifOpen(true)}
             className={`relative w-9 h-9 min-w-[36px] rounded-xl border flex items-center justify-center shrink-0 ${
               notifCount > 0 ? T.notif : T.btn
             }`}
@@ -280,6 +249,12 @@ const Navbar = ({
           </button>
         </div>
       </div>
+
+      <NotificationDropdown 
+        isOpen={isNotifOpen} 
+        onClose={() => setIsNotifOpen(false)} 
+        unreadCount={notifCount}
+      />
     </header>
   );
 };

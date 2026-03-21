@@ -5,14 +5,14 @@ import { useAuth } from "../hooks/useAuth";
 
 const tk = (dark) => ({
   bar:      dark
-    ? "bg-black/95 border-white/8 backdrop-blur-xl"
+    ? "bg-black/80 border-white/5 backdrop-blur-xl"
     : "bg-white/95 border-gray-200/80 backdrop-blur-xl",
-  item:     dark ? "text-gray-500"    : "text-gray-400",
+  item:     dark ? "text-slate-500"    : "text-gray-400",
   active:   "text-orange-500",
-  label:    dark ? "text-gray-500"    : "text-gray-400",
+  label:    dark ? "text-slate-500"    : "text-gray-400",
   labelAct: "text-orange-500",
   fab:      "bg-orange-500 text-white shadow-lg shadow-orange-500/30",
-  fabRing:  dark ? "ring-black"       : "ring-white",
+  fabRing:  dark ? "ring-[#0d1117]/80" : "ring-white",
 });
 
 // ─── Nav items ─────────────────────────────────────────────────────────────────

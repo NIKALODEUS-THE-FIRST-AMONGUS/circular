@@ -1,149 +1,127 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getDocuments } from '../lib/firebase-db';
+import { db } from '../lib/firebase-config';
+import { collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 
 /**
- * Notification Manager Hook
- * Handles notification state, read status, and bell shake animation
+ * Real-time Notification Manager Hook
+ * Synchronizes Navbar badge and global state with role-based Firestore listeners.
  */
 export const useNotificationManager = (userId, profile) => {
     const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
+    const [unreadCount, setUnreadCount] = useState(0); // Restored to stabilize hook order
     const [hasNewNotification, setHasNewNotification] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    // Fetch notifications
-    const fetchNotifications = useCallback(async () => {
-        if (!userId || !profile) return;
+    const role = profile?.role || 'student';
 
-        setLoading(true);
-        try {
-            // Fetch multiple statuses: pending (for approvals) and published (for new posts)
-            // Firebase doesn't support OR queries for fields easily in this helper, 
-            // so we'll fetch both and merge if needed.
-            
-            // No changes needed here, just removing the unused variable line
-            
-            const filters = {
-                orderBy: ['created_at', 'desc'],
-                limit: 50
-            };
-
-            let data = await getDocuments('circulars', filters);
-
-            // 1. Filter by status based on role
-            // Admins see pending AND published. 
-            // Students ONLY see published.
-            if (profile.role === 'student') {
-                data = data.filter(c => c.status === 'published');
-            } else {
-                // Admins/Teachers see pending (for approval) and published (new posts)
-                data = data.filter(c => c.status === 'published' || c.status === 'pending');
-            }
-
-            // 2. Filter by target context
-            if (profile.role === 'student') {
-                const studentYear = profile.year || 'ALL';
-                const studentDept = profile.department || 'ALL';
-                
-                data = data.filter(circular => {
-                    const matchesDept = circular.department_target === 'ALL' || circular.department_target === studentDept;
-                    const matchesYear = !circular.target_year || circular.target_year === 'ALL' || circular.target_year === studentYear;
-                    return matchesDept && matchesYear;
-                });
-            }
-
-            // Get read status from localStorage
-            const readNotifications = JSON.parse(localStorage.getItem(`read_notifications_${userId}`) || '[]');
-            
-            // Mark notifications as read/unread
-            const notificationsWithStatus = data.map(notif => ({
-                ...notif,
-                isRead: readNotifications.includes(notif.id),
-                // Add a specifically labeled type for the UI
-                type: notif.status === 'pending' ? 'approval' : 'post'
-            }));
-
-            setNotifications(notificationsWithStatus);
-            
-            // Count unread
-            const unread = notificationsWithStatus.filter(n => !n.isRead).length;
-            setUnreadCount(unread);
-
-            // Check for new notifications (created in last 10 seconds)
-            const now = new Date();
-            const hasNew = notificationsWithStatus.some(n => {
-                const createdAt = new Date(n.created_at);
-                const diffSeconds = (now - createdAt) / 1000;
-                return diffSeconds < 10 && !n.isRead;
-            });
-            
-            if (hasNew) {
-                setHasNewNotification(true);
-            }
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        } finally {
-            setLoading(false);
+    // Helper to determine if a circular passes role filters (identical to NotificationDropdown logic)
+    const passesRoleFilterLocal = useCallback((circular, p) => {
+        if (!p) return false;
+        const { role: r, department, year_of_study, section } = p;
+        if (r === "admin") return true;
+        if (r === "dept_admin") {
+            return circular.department_target === "ALL" || circular.department_target === department || circular.author_role === "admin";
         }
-    }, [userId, profile]);
-
-    // Mark notification as read
-    const markAsRead = useCallback((notificationId) => {
-        if (!userId) return;
-
-        const readNotifications = JSON.parse(localStorage.getItem(`read_notifications_${userId}`) || '[]');
-        
-        if (!readNotifications.includes(notificationId)) {
-            readNotifications.push(notificationId);
-            localStorage.setItem(`read_notifications_${userId}`, JSON.stringify(readNotifications));
-            
-            // Update local state
-            setNotifications(prev => 
-                prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-            );
-            
-            setUnreadCount(prev => Math.max(0, prev - 1));
+        if (r === "teacher") {
+            return circular.author_role === "admin" || circular.author_role === "dept_admin" || circular.department_target === "ALL";
         }
-    }, [userId]);
-
-    // Mark all as read
-    const markAllAsRead = useCallback(() => {
-        if (!userId) return;
-
-        const allIds = notifications.map(n => n.id);
-        localStorage.setItem(`read_notifications_${userId}`, JSON.stringify(allIds));
-        
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
-    }, [userId, notifications]);
-
-    // Clear new notification flag
-    const clearNewNotificationFlag = useCallback(() => {
-        setHasNewNotification(false);
+        const deptOk    = circular.department_target === "ALL" || circular.department_target === department;
+        const yearOk    = !circular.target_year || circular.target_year === "All" || circular.target_year === year_of_study;
+        const sectionOk = !circular.target_section || circular.target_section === "All" || circular.target_section === section;
+        return deptOk && yearOk && sectionOk;
     }, []);
 
-    // Poll for updates (Firebase doesn't have realtime subscriptions like Supabase)
     useEffect(() => {
         if (!userId || !profile) return;
+        // Sync loading state correctly without synchronous setState warning
 
-        fetchNotifications();
+        const readKey = `read_notifications_${userId}`;
+        const getReadIds = () => JSON.parse(localStorage.getItem(readKey) || "[]");
 
-        // Poll every 30 seconds for new notifications
-        const intervalId = setInterval(fetchNotifications, 30000);
+        // 1. Circulars Listener (Real-time)
+        const qC = query(collection(db, "circulars"), where("status", "==", "published"), limit(40));
+        const unsubC = onSnapshot(qC, (snap) => {
+            const reads = new Set(getReadIds());
+            const items = snap.docs
+                .map(d => ({ id: d.id, ...d.data(), _type: "circular" }))
+                .filter(c => passesRoleFilterLocal(c, profile))
+                .map(c => ({ ...c, isRead: reads.has(c.id) }));
+            setNotifications(p => {
+                const combined = [...items, ...(p.filter(x => x._type === "approval"))];
+                return combined.sort((a,b) => {
+                    const tA = (a.created_at?.seconds || 0) * 1000 || (a.created_at ? new Date(a.created_at).getTime() : 0);
+                    const tB = (b.created_at?.seconds || 0) * 1000 || (b.created_at ? new Date(b.created_at).getTime() : 0);
+                    return tB - tA;
+                });
+            });
+            setLoading(false);
+        }, (err) => {
+            console.error("Realtime Circulars Err:", err);
+            setLoading(false);
+        });
 
-        return () => {
-            clearInterval(intervalId);
-        };
-    }, [userId, profile, fetchNotifications]);
+        // 2. Approvals Listener (Real-time, privileged roles only)
+        let unsubA = null;
+        if (role !== "student") {
+            const qA = query(collection(db, "profiles"), where("status", "==", "pending"), limit(20));
+            unsubA = onSnapshot(qA, (snap) => {
+                const reads = new Set(getReadIds());
+                const items = snap.docs.map(d => ({
+                    id: d.id, ...d.data(), _type: "approval",
+                    isRead: reads.has(d.id),
+                    type: 'approval'
+                }));
+                setNotifications(p => {
+                    const combined = [...(p.filter(x => x._type === "circular")), ...items];
+                    return combined.sort((a, b) => {
+                        const tA = (a.created_at?.seconds || 0) * 1000 || (a.created_at ? new Date(a.created_at).getTime() : 0);
+                        const tB = (b.created_at?.seconds || 0) * 1000 || (b.created_at ? new Date(b.created_at).getTime() : 0);
+                        return tB - tA;
+                    });
+                });
+            }, (err) => console.error("Realtime Approvals Err:", err));
+        }
+
+        return () => { unsubC(); if(unsubA) unsubA(); };
+    }, [userId, profile, role, passesRoleFilterLocal]);
+
+    // Recalculate unread count whenever notifications change
+    useEffect(() => {
+        const unread = notifications.filter(n => !n.isRead).length;
+        // Use timeout to avoid synchronous setState warning in effect
+        setTimeout(() => setUnreadCount(unread), 0);
+        
+        // Vibration/Shake trigger for new items
+        if (notifications.length > 0) {
+            const latest = notifications[0];
+            if (!latest.isRead) {
+                const ageSec = (Date.now() - (latest.created_at?.seconds * 1000 || new Date(latest.created_at).getTime())) / 1000;
+                if (ageSec < 10) setTimeout(() => setHasNewNotification(true), 0);
+            }
+        }
+    }, [notifications]);
+
+    const markAsRead = useCallback((id) => {
+        const key = `read_notifications_${userId}`;
+        const ids = new Set(JSON.parse(localStorage.getItem(key) || "[]"));
+        ids.add(id);
+        localStorage.setItem(key, JSON.stringify([...ids]));
+        setNotifications(p => p.map(n => n.id === id ? { ...n, isRead: true } : n));
+    }, [userId]);
+
+    const markAllAsRead = useCallback(() => {
+        const key = `read_notifications_${userId}`;
+        localStorage.setItem(key, JSON.stringify(notifications.map(n => n.id)));
+        setNotifications(p => p.map(n => ({ ...n, isRead: true })));
+    }, [userId, notifications]);
 
     return {
         notifications,
         unreadCount,
         hasNewNotification,
         loading,
-        fetchNotifications,
         markAsRead,
         markAllAsRead,
-        clearNewNotificationFlag
+        clearNewNotificationFlag: () => setHasNewNotification(false)
     };
 };

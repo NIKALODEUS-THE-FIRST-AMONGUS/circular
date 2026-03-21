@@ -6,46 +6,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSimulatedProgress } from "../hooks/useSimulatedProgress";
 import { getBrandName, getSlogan } from "../config/branding";
 import { signInWithGoogle, signInWithEmail } from "../context/FirebaseAuthContext";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, query, collection, limit, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase-config";
-
-
-// ─── Crisp SVG Indian Flag ────────────────────────────────────────────────────
-const IndianFlagSVG = ({ width = 32, height = 22, className = "" }) => (
-  <svg width={width} height={height} viewBox="0 0 900 600"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    style={{ borderRadius: 4, flexShrink: 0 }}>
-    <rect width="900" height="200" y="0"   fill="#FF9933"/>
-    <rect width="900" height="200" y="200" fill="#FFFFFF"/>
-    <rect width="900" height="200" y="400" fill="#138808"/>
-    <circle cx="450" cy="300" r="88" fill="none" stroke="#000080" strokeWidth="9"/>
-    <circle cx="450" cy="300" r="11" fill="#000080"/>
-    <g stroke="#000080" strokeWidth="3">
-      <line x1="450" y1="212" x2="450" y2="388"/>
-      <line x1="362" y1="300" x2="538" y2="300"/>
-      <line x1="388" y1="238" x2="512" y2="362"/>
-      <line x1="512" y1="238" x2="388" y2="362"/>
-      <line x1="368" y1="274" x2="532" y2="326"/>
-      <line x1="532" y1="274" x2="368" y2="326"/>
-      <line x1="374" y1="324" x2="526" y2="276"/>
-      <line x1="526" y1="324" x2="374" y2="276"/>
-      <line x1="348" y1="260" x2="552" y2="340"/>
-      <line x1="552" y1="260" x2="348" y2="340"/>
-      <line x1="357" y1="294" x2="543" y2="306"/>
-      <line x1="543" y1="294" x2="357" y2="306"/>
-    </g>
-  </svg>
-);
+import IndianFlag from "../components/IndianFlag";
 
 // ─── Tricolor accent bar ──────────────────────────────────────────────────────
 const TricolorBar = ({ className = "" }) => (
-  <div className={`flex h-[3px] rounded-full overflow-hidden ${className}`}>
-    <div className="flex-1 bg-[#FF9933]" />
-    <div className="flex-1 bg-white"     />
-    <div className="flex-1 bg-[#138808]" />
+  <div className={`flex h-[2px] rounded-full overflow-hidden ${className}`}>
+    <div className="flex-1 bg-[#FF9933] shadow-[0_0_8px_rgba(255,153,51,0.4)]" />
+    <div className="flex-1 bg-white/90"     />
+    <div className="flex-1 bg-[#138808] shadow-[0_0_8px_rgba(19,136,8,0.4)]" />
   </div>
 );
+
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 const Logo = ({ language, size = "md" }) => {
@@ -58,7 +31,7 @@ const Logo = ({ language, size = "md" }) => {
   return (
     <div className="flex items-center gap-3">
       {/* Icon */}
-      <div className={`${size === "lg" ? "w-12 h-12" : "w-9 h-9"} rounded-2xl bg-red-500 flex items-center justify-center shadow-lg shadow-red-500/30 shrink-0`}>
+      <div className={`${size === "lg" ? "w-12 h-12" : "w-9 h-9"} rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30 shrink-0`}>
         <svg width={size === "lg" ? 24 : 18} height={size === "lg" ? 24 : 18}
           viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M25 25L75 75" stroke="white" strokeWidth="14" strokeLinecap="round"/>
@@ -69,7 +42,7 @@ const Logo = ({ language, size = "md" }) => {
       {/* Text */}
       <div className="flex items-baseline gap-0 leading-none">
         <span className={`${textCls} text-white`}>{parts[0] || "Suchna"}</span>
-        <span className={`${textCls} text-red-400`}>X</span>
+        <span className={`${textCls} text-orange-400`}>X</span>
         <span className={`${textCls} text-[#4ade80] ml-1`}>{parts[1] || " Link"}</span>
       </div>
     </div>
@@ -104,7 +77,7 @@ const InputField = ({ label, type, value, onChange, placeholder, autoComplete, r
       autoComplete={autoComplete}
       required={required}
       style={{ fontSize: 16 }}
-      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 text-sm outline-none transition-all focus:border-red-400 focus:bg-white focus:ring-2 focus:ring-red-500/10"
+      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 text-sm outline-none transition-all focus:border-orange-400 focus:bg-white focus:ring-2 focus:ring-orange-500/10"
     />
   </div>
 );
@@ -112,10 +85,11 @@ const InputField = ({ label, type, value, onChange, placeholder, autoComplete, r
 // ─── Main LandingPage ─────────────────────────────────────────────────────────
 const LandingPage = () => {
   const navigate                        = useNavigate();
-  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { language }                    = useLanguage();
   const [loading,    setLoading]        = useState(false);
   const [error,      setError]          = useState(null);
+  const [isFirstUser, setIsFirstUser]   = useState(false);
   const [emailData,  setEmailData]      = useState({ email: "", password: "" });
   const [deletionMessage, setDeletionMessage] = useState(() => {
     const msg = sessionStorage.getItem("deletion_message");
@@ -123,13 +97,25 @@ const LandingPage = () => {
     return null;
   });
 
-  const { progress } = useSimulatedProgress(loading || authLoading, { slowdownPoint: 92 });
+  const { progress } = useSimulatedProgress(loading, { slowdownPoint: 92 });
+
+  // Bootstrap check
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, "profiles"), limit(1)));
+        setIsFirstUser(snap.empty);
+      } catch {
+        // Silent error for bootstrap check
+      }
+    };
+    check();
+  }, []);
 
   // Redirect if logged in
   useEffect(() => {
-    if (authLoading) return;
     if (user && profile && profile.status !== "pending") navigate("/dashboard");
-  }, [user, profile, navigate, authLoading]);
+  }, [user, profile, navigate]);
 
   const handleGoogleLogin = async () => {
     if (loading) return;
@@ -159,15 +145,53 @@ const LandingPage = () => {
     }
   };
 
-  // ── Onboarding (user exists but no profile) — redirect to /onboarding ──
-  useEffect(() => {
-    if (authLoading) return;
-    if (user && !profile) {
-      navigate("/onboarding", { replace: true });
-    }
-  }, [user, profile, navigate, authLoading]);
-
-  if (authLoading || (user && !profile)) return null;
+  // ── Onboarding (user exists but no profile) ──
+  if (user && !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[#0A1628]">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-sm w-full"
+        >
+          <div className="bg-white rounded-3xl p-8 shadow-2xl text-center">
+            <div className="w-16 h-16 rounded-2xl bg-orange-500 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-orange-500/30">
+              <svg width="28" height="28" viewBox="0 0 100 100" fill="none">
+                <path d="M25 25L75 75" stroke="white" strokeWidth="14" strokeLinecap="round"/>
+                <path d="M25 75L75 25" stroke="rgba(255,255,255,0.5)" strokeWidth="14" strokeLinecap="round"/>
+                <circle cx="50" cy="50" r="8" fill="white"/>
+              </svg>
+            </div>
+            <TricolorBar className="w-16 mx-auto mb-5" />
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Welcome aboard!</h2>
+            <p className="text-sm text-gray-500 mb-6">Setting up your institutional profile…</p>
+            <button
+              onClick={async () => {
+                const email = user.email?.toLowerCase() || "";
+                const isMethodist = email.endsWith("@methodist.edu.in");
+                await setDoc(doc(db, "profiles", user.uid), {
+                  email:               user.email,
+                  full_name:           user.displayName || email.split("@")[0] || "User",
+                  role:                isFirstUser ? "admin" : "student",
+                  department:          "ALL",
+                  status:              isFirstUser || isMethodist ? "active" : "pending",
+                  created_at:          new Date().toISOString(),
+                  daily_intro_enabled: true,
+                  greeting_language:   "Mixed",
+                  intro_frequency:     "daily",
+                });
+                await refreshProfile();
+                navigate("/dashboard");
+              }}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl transition-colors active:scale-[0.98] shadow-lg shadow-orange-500/20"
+            >
+              Continue to Dashboard →
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
@@ -209,7 +233,7 @@ const LandingPage = () => {
           >
             <Logo language={language} size="md" />
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/6 border border-white/10">
-              <IndianFlagSVG width={18} height={12} />
+              <IndianFlag size="xs" />
               <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest hidden sm:block">
                 Made in India
               </span>
@@ -226,8 +250,8 @@ const LandingPage = () => {
           >
             {/* Label */}
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-6 h-[2px] bg-red-400 rounded-full" />
-              <span className="text-[10px] font-bold text-red-400 uppercase tracking-[2px]">
+              <div className="w-6 h-[2px] bg-orange-400 rounded-full" />
+              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-[2px]">
                 Administrative Node
               </span>
             </div>
@@ -235,7 +259,7 @@ const LandingPage = () => {
             {/* Headline */}
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight mb-4">
               Streamlined<br/>
-              <span className="text-red-400">Institutional</span><br/>
+              <span className="text-orange-400">Institutional</span><br/>
               Communication
             </h1>
 
@@ -261,7 +285,7 @@ const LandingPage = () => {
           transition={{ delay: 0.8 }}
           className="relative z-10 flex items-center gap-3"
         >
-          <IndianFlagSVG width={28} height={19} />
+          <IndianFlag size="sm" />
           <div>
             <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">
               Proudly Built for India
@@ -308,7 +332,7 @@ const LandingPage = () => {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="absolute inset-0 z-20 bg-white/92 backdrop-blur-sm flex flex-col items-center justify-center rounded-3xl"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-red-500 flex items-center justify-center mb-4 shadow-lg shadow-red-500/30">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center mb-4 shadow-lg shadow-orange-500/30">
                       <motion.svg
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
@@ -319,7 +343,7 @@ const LandingPage = () => {
                     </div>
                     {/* Progress bar */}
                     <div className="w-32 h-1 bg-gray-100 rounded-full overflow-hidden">
-                      <motion.div className="h-full bg-red-500 rounded-full"
+                      <motion.div className="h-full bg-orange-500 rounded-full"
                         style={{ width: `${progress}%` }}
                         transition={{ duration: 0.3 }} />
                     </div>
@@ -397,7 +421,7 @@ const LandingPage = () => {
                   autoComplete="current-password"
                   required
                   extra={
-                    <a href="#" className="text-[10px] font-bold text-red-500 hover:text-red-600">
+                    <a href="#" className="text-[10px] font-bold text-orange-500 hover:text-orange-600">
                       Forgot password?
                     </a>
                   }
@@ -421,7 +445,7 @@ const LandingPage = () => {
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-2xl text-sm transition-all disabled:opacity-50 shadow-lg shadow-red-500/20 active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-2xl text-sm transition-all disabled:opacity-50 shadow-lg shadow-orange-500/20 active:scale-[0.98]"
                 >
                   {loading ? (
                     <>

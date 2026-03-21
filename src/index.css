@@ -21,19 +21,23 @@
   --text-muted: #4b5563;
 }
 
-/* Deep Black Dark Mode */
+/* Premium Deep Dark Mode */
 .dark {
-  --bg-main: #000000;
-  --bg-surface: #121212;
-  --border-main: #1f1f1f;
+  --bg-main: #0a0b0f;
+  --bg-surface: #11141b;
+  --border-main: rgba(255, 255, 255, 0.08);
 
-  --text-primary: #ffffff;
-  --text-muted: #9aa0a6;
+  --text-primary: #f1f3f9;
+  --text-muted: #94a3b8;
   
   /* Enhanced colors for dark mode */
-  --royal-blue: #4a9eff;
-  --royal-blue-hover: #6bb0ff;
+  --royal-blue: #3b82f6;
+  --royal-blue-hover: #60a5fa;
+  
+  /* Accent colors */
+  --accent-glow: rgba(59, 130, 246, 0.15);
 }
+
 
 /* Dark mode enhancements */
 .dark .glass-card {

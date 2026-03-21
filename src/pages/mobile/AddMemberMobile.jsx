@@ -97,13 +97,13 @@ const AddMemberMobile = () => {
                         onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                         className="w-full px-4 py-3 rounded-lg border border-border-light bg-surface-light text-text-main outline-none focus:border-primary"
                     >
-                        <option value="CSE">Computer Science</option>
-                        <option value="AIDS">AI & Data Science</option>
-                        <option value="AIML">AI & Machine Learning</option>
-                        <option value="ECE">Electronics</option>
-                        <option value="MECH">Mechanical</option>
-                        <option value="CIVIL">Civil</option>
-                        <option value="EEE">Electrical</option>
+                        <option value="CSE">CSE</option>
+                        <option value="AIDS">AIDS</option>
+                        <option value="AIML">AIML</option>
+                        <option value="ECE">ECE</option>
+                        <option value="EEE">EEE</option>
+                        <option value="MECH">MECH</option>
+                        <option value="CIVIL">CIVIL</option>
                     </select>
                 </div>
                 <div className="pt-6">

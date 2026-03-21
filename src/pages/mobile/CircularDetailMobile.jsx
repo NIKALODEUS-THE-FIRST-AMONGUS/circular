@@ -1,5 +1,7 @@
 import { useEffect, useState, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { deleteCircular, createDocument } from '../../lib/firebase-db';
 import { uploadFile } from '../../lib/storage';
@@ -13,22 +15,22 @@ import { ThemeContext } from '../../context/ThemeContext';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const tk = (dark) => ({
-  page:     dark ? "bg-[#0d1117]"                 : "bg-[#f4f6f9]",
-  heading:  dark ? "text-white"                   : "text-gray-900",
-  sub:      dark ? "text-gray-300"                : "text-gray-700",
-  muted:    dark ? "text-gray-500"                : "text-gray-400",
-  card:     dark ? "bg-[#161b22] border-white/8"  : "bg-white border-gray-200",
-  divider:  dark ? "border-white/6"               : "border-gray-100",
+  page:     dark ? "bg-[#0a0b0f]"                 : "bg-[#f8fafc]",
+  heading:  dark ? "text-[#f1f3f9]"               : "text-slate-900",
+  sub:      dark ? "text-[#94a3b8]"               : "text-slate-700",
+  muted:    dark ? "text-slate-500"               : "text-slate-400",
+  card:     dark ? "bg-[#11141b] border-white/5"  : "bg-white border-slate-200",
+  divider:  dark ? "border-white/6"               : "border-slate-100",
   input:    dark
-    ? "bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-orange-500/50"
-    : "bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-orange-400",
-  iconBtn:  dark ? "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
-                 : "bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200",
-  overlay:  dark ? "bg-black/80"                  : "bg-black/50",
-  sheet:    dark ? "bg-[#161b22] border-white/10" : "bg-white border-gray-200",
-  drag:     dark ? "bg-white/20"                  : "bg-gray-300",
-  attach:   dark ? "bg-white/4 border-white/8 hover:bg-white/7"
-                 : "bg-gray-50 border-gray-200 hover:bg-gray-100",
+    ? "bg-white/4 border-white/8 text-[#f1f3f9] placeholder-slate-600 focus:border-blue-500/50"
+    : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-blue-400",
+  iconBtn:  dark ? "bg-white/5 border-white/8 text-slate-300 hover:bg-white/10"
+                 : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200",
+  overlay:  dark ? "bg-black/85 backdrop-blur-sm" : "bg-black/50 backdrop-blur-sm",
+  sheet:    dark ? "bg-[#11141b] border-white/8"  : "bg-white border-slate-200",
+  drag:     dark ? "bg-white/10"                  : "bg-slate-300",
+  attach:   dark ? "bg-white/3 border-white/6 hover:bg-white/6"
+                 : "bg-slate-50 border-slate-200 hover:bg-slate-100",
   priority: {
     urgent:    { bg: dark ? "bg-red-500/15 border-red-500/25"    : "bg-red-50 border-red-200",    text: dark ? "text-red-400"    : "text-red-600",    dot: "bg-red-500"    },
     important: { bg: dark ? "bg-orange-500/15 border-orange-500/25" : "bg-orange-50 border-orange-200", text: dark ? "text-orange-400" : "text-orange-600", dot: "bg-orange-500" },
@@ -83,71 +85,102 @@ const fmtTimeAgo = (ts) => {
 };
 
 // ─── Fullscreen Image/PDF viewer ──────────────────────────────────────────────
-const FullscreenViewer = ({ url, onClose, dark }) => {
+const FullscreenViewer = ({ url, onClose }) => {
+  const [showUi, setShowUi] = useState(true);
   const isImg = isImageURL(url);
   const isPdf = getFileExtension(url) === "PDF" || url.includes(".pdf");
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className={`fixed inset-0 z-[300] flex flex-col ${dark ? "bg-black" : "bg-gray-100"}`}
-      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[99999] bg-black flex flex-col"
     >
-      {/* Top bar */}
-      <div className={`flex items-center justify-between px-4 py-3 shrink-0 border-b relative z-10 shadow-lg ${dark ? "bg-[#161b22] border-white/10" : "bg-white border-gray-200"}`}>
-        <button onClick={onClose}
-          className={`px-3 h-10 rounded-xl flex items-center gap-2 transition-all shrink-0 ${dark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}>
-          <Ic size={18} className="currentColor"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></Ic>
-          <span className="text-sm font-bold">Back</span>
-        </button>
-        <span className={`text-sm font-bold truncate mx-4 flex-1 text-center ${dark ? "text-white" : "text-gray-900"}`}>
-          {getSafeFilename(url)}
-        </span>
-        <button onClick={async () => {
-          try {
-            const res = await fetch(url);
-            const blob = await res.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = objectUrl;
-            a.download = getSafeFilename(url);
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(objectUrl);
-          } catch {
-            window.open(url, "_blank", "noreferrer");
-          }
-        }}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${dark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}>
-          <Ic size={18} className="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Ic>
-        </button>
-      </div>
+      {/* Floating interactive UI */}
+      <AnimatePresence>
+        {showUi && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 z-50 pointer-events-none"
+            style={{ paddingTop: "max(16px, env(safe-area-inset-top))" }}
+          >
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full backdrop-blur-md bg-black/40 hover:bg-black/60 transition pointer-events-auto shadow-lg"
+            >
+              <Ic size={22} className="text-white">
+                <path d="m12 19-7-7 7-7" />
+                <path d="M19 12H5" />
+              </Ic>
+            </button>
+
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(url);
+                  const blob = await res.blob();
+                  const objectUrl = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = objectUrl;
+                  a.download = getSafeFilename(url);
+                  a.click();
+                  URL.revokeObjectURL(objectUrl);
+                } catch {
+                  window.open(url, "_blank");
+                }
+              }}
+              className="p-2 rounded-full backdrop-blur-md bg-black/40 hover:bg-black/60 transition pointer-events-auto shadow-lg"
+            >
+              <Ic size={20} className="text-white">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </Ic>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
-      <div className={`flex-1 overflow-auto relative ${dark ? "bg-black" : "bg-gray-100"}`} style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div
+        className="flex-1 flex items-center justify-center overflow-hidden relative"
+      >
         {isImg ? (
-          <img
-            src={url}
-            alt="Attachment"
-            className="w-full h-auto min-h-full object-contain mx-auto block"
-            style={{ maxWidth: "100%" }}
-          />
+          <TransformWrapper
+            initialScale={1}
+            minScale={1}
+            maxScale={8}
+            centerOnInit
+            wheel={{ step: 0.1 }}
+            pinch={{ step: 5 }}
+            doubleClick={{ disabled: false, mode: "toggle" }}
+          >
+            {() => (
+              <TransformComponent wrapperClass="w-full h-full" contentClass="w-full h-full flex items-center justify-center">
+                <img
+                  src={url}
+                  alt="Attachment"
+                  className="max-w-full max-h-full object-contain select-none cursor-pointer"
+                  onClick={() => setShowUi((prev) => !prev)}
+                />
+              </TransformComponent>
+            )}
+          </TransformWrapper>
         ) : isPdf ? (
-          <iframe src={url} className="w-full h-full border-0" title="PDF" />
+          <iframe src={url} className="w-full h-full border-0 absolute inset-0" title="PDF" />
         ) : (
-          <div className="flex flex-col items-center gap-5 text-center px-8 mt-20">
-            <span className="text-6xl">📄</span>
-            <p className={`text-sm ${dark ? "text-white/50" : "text-gray-500"}`}>Preview not available for this file type</p>
-            <a href={url} target="_blank" rel="noreferrer"
-              className="flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-2xl text-sm font-bold">
-              <Ic size={15} className="text-white"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Ic>
-              Download File
-            </a>
+          <div className="text-center text-white/60 flex items-center justify-center w-full h-full">
+            <p className="text-sm">Preview not available</p>
           </div>
         )}
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };
 
@@ -281,13 +314,24 @@ const EditSheet = ({ circular, onSave, onClose, dark }) => {
   const T = tk(dark);
   const notify = useNotify();
   const [editData,          setEditData]          = useState({
-    title:       circular.title       || "",
-    content:     circular.content     || "",
-    attachments: circular.attachments || [],
+    title:       "",
+    content:     "",
+    attachments: [],
   });
   const [newUrl,    setNewUrl]    = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving,    setSaving]    = useState(false);
+
+  // Synchronize with latest data when opened or circular changes
+  useEffect(() => {
+    if (circular) {
+      setEditData({
+        title:       circular.title       || "",
+        content:     circular.content     || "",
+        attachments: circular.attachments || [],
+      });
+    }
+  }, [circular]);
 
   const handleSave = async () => {
     if (!editData.title.trim() || !editData.content.trim()) {
@@ -434,6 +478,7 @@ const EditSheet = ({ circular, onSave, onClose, dark }) => {
 const CircularDetailMobile = () => {
   const { id }        = useParams();
   const navigate      = useNavigate();
+  const location      = useLocation();
   const { profile, user, isStudent } = useAuth();
   const notify        = useNotify();
   const { darkMode }  = useContext(ThemeContext);
@@ -448,6 +493,14 @@ const CircularDetailMobile = () => {
   const [fullscreenUrl, setFullscreen]    = useState(null);
 
   const circularFeatures = useCircularFeatures(user?.uid || user?.id);
+
+  useEffect(() => {
+    if (location.state?.action === 'edit') {
+      setShowEdit(true);
+      // Clear state so it doesn't re-open on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Fetch + track view
   useEffect(() => {
@@ -510,8 +563,22 @@ const CircularDetailMobile = () => {
 
   const handleSave = async (editData) => {
     const { updateCircular } = await import("../../lib/firebase-db");
-    const updated = await updateCircular(id, editData);
-    setCircular((p) => ({ ...p, ...updated }));
+    // Only send the fields we want to update
+    const updates = {
+      title:       editData.title,
+      content:     editData.content,
+      attachments: editData.attachments,
+    };
+    const updated = await updateCircular(id, updates);
+    
+    // Merge updates into local state, but be careful with serverTimestamp
+    setCircular((p) => {
+      const next = { ...p, ...updated };
+      // If updated_at is a FieldValue sentinel from firebase-db, 
+      // it might break some components if we don't reload.
+      // For now, simple spread is okay as we mostly use created_at for UI.
+      return next;
+    });
     notify("Circular updated", "success");
   };
 
@@ -539,32 +606,43 @@ const CircularDetailMobile = () => {
     <>
       <div className={`min-h-screen pb-36 transition-colors duration-300 ${T.page}`}>
 
-        {/* ── Sticky header ── */}
-        <div className={`sticky top-0 z-40 flex items-center gap-3 px-4 border-b transition-colors ${dark ? "bg-[#0d1117]/95 border-white/6 backdrop-blur-xl" : "bg-white/95 border-gray-100 backdrop-blur-xl"}`}
-          style={{ paddingTop: "calc(10px + env(safe-area-inset-top))", paddingBottom: 10 }}>
-          <button onClick={() => navigate(-1)}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${T.iconBtn}`}>
-            <Ic size={16}><polyline points="15 18 9 12 15 6"/></Ic>
+        {/* ── Top Spacing ── */}
+        <div className="h-14" />
+
+        {/* ── Back Navigation ── */}
+        <div className="px-4 pt-6 pb-2">
+          <button 
+            onClick={() => navigate(-1)} 
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors ${T.iconBtn || "bg-white/5 border-white/10 text-[#94a3b8]"}`}
+          >
+            <Ic size={14}><polyline points="15 18 9 12 15 6"/></Ic>
+            <span className="text-[10px] font-black uppercase tracking-widest">Back to Hub</span>
           </button>
-          <p className={`flex-1 text-sm font-semibold truncate ${T.heading}`}>{circular.title}</p>
-          {/* Share */}
-          <button onClick={() => navigator.share?.({ title: circular.title, text: circular.content, url: window.location.href }).catch(() => {})}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${T.iconBtn}`}>
-            <Ic size={14}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Ic>
-          </button>
-          {/* Edit/delete for owners */}
-          {canManage && (
-            <>
-              <button onClick={() => setShowEdit(true)}
-                className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${T.iconBtn}`}>
-                <Ic size={14}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Ic>
-              </button>
-              <button onClick={() => setShowDelete(true)}
-                className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${dark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-200 text-red-500"}`}>
-                <Ic size={14}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></Ic>
-              </button>
-            </>
-          )}
+        </div>
+
+        {/* ── Actions Bar (Secondary) ── */}
+        <div className={`px-4 pb-4 flex items-center justify-end gap-2 border-b transition-colors ${dark ? "border-white/5" : "border-slate-50"}`}>
+
+          <div className="flex items-center gap-2">
+            {/* Share */}
+            <button onClick={() => navigator.share?.({ title: circular.title, text: circular.content, url: window.location.href }).catch(() => {})}
+              className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${T.iconBtn}`}>
+              <Ic size={14}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Ic>
+            </button>
+            {/* Edit/delete for owners */}
+            {canManage && (
+              <>
+                <button onClick={() => setShowEdit(true)}
+                  className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${T.iconBtn}`}>
+                  <Ic size={14}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Ic>
+                </button>
+                <button onClick={() => setShowDelete(true)}
+                  className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${dark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-200 text-red-500"}`}>
+                  <Ic size={14}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></Ic>
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* ── HIGH PRIORITY banner ── */}

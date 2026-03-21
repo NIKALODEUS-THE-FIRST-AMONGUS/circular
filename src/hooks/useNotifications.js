@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { requestForToken, onMessageListener } from '../lib/firebase';
+import { requestForToken, onMessageListener } from '../lib/firebase-config';
 import { useNotify } from '../components/Toaster';
 import { createDocument } from '../lib/firebase-db';
 

@@ -7,6 +7,7 @@ import {
   reauthenticateWithCredential, deleteUser, updateProfile,
 } from "firebase/auth";
 import { useAuth } from "../../hooks/useAuth";
+import { useTutorial } from "../../hooks/useTutorial";
 import { ThemeContext } from "../../context/ThemeContext";
  // useNavigate and useLocation removed
 import BottomNav from "../../components/BottomNav";
@@ -27,39 +28,39 @@ const INTRO_OPTIONS = [
 ];
 const DEPTS    = ["CSE","AIDS","AIML","ECE","EEE","MECH","CIVIL"];
 const YEARS    = ["1st Year","2nd Year","3rd Year","4th Year"];
-const SECTIONS = ["A","B","C"];
+const SECTIONS = ["A","B","C","D"];
 const CLOUDINARY_CLOUD  = "dzw0mxfzq";
 const CLOUDINARY_PRESET = "circular-attachments";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const tk = (dark) => ({
-  page:      dark ? "bg-black"                     : "bg-[#f4f6f9]",
-  heading:   dark ? "text-white"                   : "text-gray-900",
-  sub:       dark ? "text-gray-400"                : "text-gray-500",
-  muted:     dark ? "text-gray-500"                : "text-gray-400",
-  card:      dark ? "bg-[#121212] border-white/8"  : "bg-white border-gray-200",
+  page:      dark ? "bg-[#0a0b0f]"                 : "bg-[#f4f6f9]",
+  heading:   dark ? "text-[#f1f3f9]"               : "text-gray-900",
+  sub:       dark ? "text-[#94a3b8]"               : "text-gray-500",
+  muted:     dark ? "text-slate-500"               : "text-gray-400",
+  card:      dark ? "bg-[#11141b] border-white/8"  : "bg-white border-gray-200",
   border:    dark ? "border-white/5"               : "border-gray-100",
-  rowHov:    dark ? "active:bg-white/5"            : "active:bg-gray-50",
-  iconBg:    dark ? "bg-white/5"                   : "bg-gray-100",
-  sLabel:    dark ? "text-gray-600"                : "text-gray-400",
-  togOn:     "bg-orange-500 border-orange-500",
+  rowHov:    dark ? "active:bg-white/8"            : "active:bg-gray-50",
+  iconBg:    dark ? "bg-white/10"                   : "bg-gray-100",
+  sLabel:    dark ? "text-slate-600 font-black tracking-widest" : "text-gray-400",
+  togOn:     dark ? "bg-blue-500 border-blue-500"  : "bg-orange-500 border-orange-500",
   togOff:    dark ? "bg-white/10 border-white/15"  : "bg-gray-200 border-gray-300",
   // inline card — slightly elevated from page, distinct from row
-  inCard:    dark ? "bg-[#1a1a1a] border-white/10" : "bg-orange-50/60 border-orange-200/60",
-  overlay:   dark ? "bg-black/72"                  : "bg-black/50",
+  inCard:    dark ? "bg-[#161b22] border-white/10" : "bg-orange-50/60 border-orange-200/60",
+  overlay:   dark ? "bg-black/80 backdrop-blur-sm" : "bg-black/50",
   drag:      dark ? "bg-white/20"                  : "bg-gray-300",
   input:     dark
-    ? "bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-orange-500/60"
+    ? "bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-blue-500/60"
     : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-orange-400",
   select:    dark
     ? "bg-white/5 border-white/10 text-white"
     : "bg-white border-gray-200 text-gray-900",
   infoVal:   dark ? "text-gray-200"                : "text-gray-700",
-  pageBg:    dark ? "#000000"                      : "#f4f6f9",
+  pageBg:    dark ? "#0a0b0f"                      : "#f4f6f9",
   navBg:     dark ? "bg-[#0d1117] border-white/8"  : "bg-white border-gray-200",
   navItem:   dark ? "text-gray-500"                : "text-gray-400",
-  navAct:    "text-orange-500",
-  sheet:     dark ? "bg-[#121212] border-white/10" : "bg-white border-gray-200",
+  navAct:    dark ? "text-blue-500"                : "text-orange-500",
+  sheet:     dark ? "bg-[#11141b] border-white/10" : "bg-white border-gray-200",
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -552,6 +553,7 @@ const DeleteModal = ({ onClose, dark }) => {
 const SettingsMobile = () => {
   const { profile, stats, signOut, refreshProfile } = useAuth();
   const { theme, toggleTheme }                       = useContext(ThemeContext);
+  const { startTutorial } = useTutorial();
 
   const dark = theme === "dark" ||
     (theme === "system" && typeof window !== "undefined" &&
@@ -761,6 +763,18 @@ const SettingsMobile = () => {
                   onCancel={close} dark={dark} />
               )}
             </AnimatePresence>
+
+            <SR dark={dark}
+              icon={<Ic><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></Ic>}
+              iconBg={dark ? "bg-amber-500/10" : "bg-amber-50"}
+              title="Replay Tutorial" sub="Walkthrough key features"
+              onClick={() => {
+                startTutorial();
+                // We should navigate to dashboard to show it if needed, 
+                // but since Dashboard renders it, we just need to set the state.
+                // Redirecting to home just in case they are deep in settings
+                window.location.href = "/dashboard";
+              }} noBorder />
           </div>
         </motion.div>
 

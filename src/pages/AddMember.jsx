@@ -342,7 +342,6 @@ const AddMember = () => {
                                                     onChange={(e) => setDept(e.target.value)} 
                                                     className="w-full px-6 py-5 rounded-2xl bg-surface-light border-2 border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold text-[15px] transition-all"
                                                 >
-                                                    <option value="">Select Department</option>
                                                     <option value="CSE">CSE</option>
                                                     <option value="AIDS">AIDS</option>
                                                     <option value="AIML">AIML</option>
@@ -362,7 +361,6 @@ const AddMember = () => {
                                                     onChange={(e) => setYear(e.target.value)} 
                                                     className="w-full px-6 py-5 rounded-2xl bg-surface-light border-2 border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold text-[15px] transition-all"
                                                 >
-                                                    <option value="">Year</option>
                                                     <option value="1">1st Year</option>
                                                     <option value="2">2nd Year</option>
                                                     <option value="3">3rd Year</option>
@@ -376,10 +374,10 @@ const AddMember = () => {
                                                     onChange={(e) => setSection(e.target.value)} 
                                                     className="w-full px-6 py-5 rounded-2xl bg-surface-light border-2 border-border-light focus:border-primary focus:bg-bg-light outline-none font-bold text-[15px] transition-all"
                                                 >
-                                                    <option value="">Section</option>
                                                     <option value="A">Section A</option>
                                                     <option value="B">Section B</option>
                                                     <option value="C">Section C</option>
+                                                    <option value="D">Section D</option>
                                                 </select>
                                             </div>
                                         </div>

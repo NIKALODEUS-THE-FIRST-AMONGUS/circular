@@ -13,32 +13,31 @@ import { useAuth } from "../hooks/useAuth";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const tkCard = (dark) => ({
-  card:       dark ? "bg-[#161b22] border-white/8"   : "bg-white border-gray-200",
-  cardHover:  dark ? "hover:border-white/15 hover:bg-[#1c2333]" : "hover:border-gray-300 hover:shadow-sm",
-  title:      dark ? "text-white"                    : "text-gray-900",
-  body:       dark ? "text-gray-400"                 : "text-gray-500",
-  meta:       dark ? "text-gray-500"                 : "text-gray-400",
-  divider:    dark ? "border-white/5"                : "border-gray-100",
-  attachBg:   dark ? "bg-white/5 border-white/8"     : "bg-gray-50 border-gray-200",
-  attachText: dark ? "text-gray-300"                 : "text-gray-600",
-  actionBtn:  dark ? "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+  card:       dark ? "bg-gradient-to-br from-[#1c2128] to-[#12161c] border-white/5 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.4)]" : "bg-white border-gray-200",
+  cardHover:  dark ? "hover:border-[#38bdf8]/30 hover:shadow-[#38bdf8]/5 transition-all duration-300" : "hover:border-gray-300 hover:shadow-sm transition-all duration-200",
+  title:      dark ? "text-slate-100 font-bold tracking-tight" : "text-gray-900 font-bold tracking-tight",
+  body:       dark ? "text-slate-400" : "text-gray-500",
+  meta:       dark ? "text-slate-500" : "text-gray-400",
+  divider:    dark ? "border-white/5" : "border-gray-100",
+  attachBg:   dark ? "bg-white/5 border-white/5 backdrop-blur-md" : "bg-gray-50 border-gray-200",
+  attachText: dark ? "text-slate-300" : "text-gray-600",
+  actionBtn:  dark ? "text-slate-500 hover:text-white hover:bg-white/5 transition-colors"
                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-100",
-  expandBtn:  dark ? "text-orange-400 hover:text-orange-300"
-                   : "text-orange-500 hover:text-orange-600",
+  expandBtn:  dark ? "text-orange-400/90 hover:text-orange-300" : "text-orange-500 hover:text-orange-600",
 });
 
 const tkSearch = (dark) => ({
-  bar:       dark ? "bg-[#161b22] border-white/8"   : "bg-white border-gray-200",
-  input:     dark ? "text-white placeholder-gray-500" : "text-gray-800 placeholder-gray-400",
-  icon:      dark ? "text-gray-500"   : "text-gray-400",
+  bar:       dark ? "bg-[#1c2128] border-white/5 shadow-xl shadow-black/10" : "bg-white border-gray-200",
+  input:     dark ? "text-slate-100 placeholder-slate-600" : "text-gray-800 placeholder-gray-400",
+  icon:      dark ? "text-orange-500/80" : "text-gray-400",
   filterBtn: dark
-    ? "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+    ? "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 transition-all"
     : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100",
   filterActive: dark
-    ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
+    ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
     : "bg-orange-50 border-orange-300 text-orange-600",
   resetBtn:  dark
-    ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+    ? "bg-white/5 border-white/5 text-slate-500 hover:bg-white/10 transition-colors"
     : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100",
 });
 

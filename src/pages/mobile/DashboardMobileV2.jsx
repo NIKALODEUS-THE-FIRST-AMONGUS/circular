@@ -14,9 +14,34 @@ import BottomNav from '../../components/BottomNav';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { CircularCard, CircularSearchBar } from '../../components/CircularMobile';
 import { useCircularFilters } from '../../hooks/useCircularFilters';
+import { ThemeContext } from '../../context/ThemeContext';
+import { useContext } from 'react';
+
+// ─── Theme Tokens ─────────────────────────────────────────────────────────────
+const tkDashboard = (dark) => ({
+    header: dark 
+        ? "bg-gradient-to-br from-[#1c2128] to-[#0d1117] border-white/5 shadow-2xl" 
+        : "bg-white border-slate-100 shadow-premium",
+    title:  dark ? "text-slate-100" : "text-slate-900",
+    textMuted: dark ? "text-slate-500" : "text-slate-500",
+    label:  dark ? "text-orange-400/80" : "text-blue-500",
+    hr:     dark ? "bg-orange-500/30" : "bg-blue-400",
+    accent: dark ? "bg-orange-500/10" : "bg-blue-50",
+    
+    // Stat boxes
+    statBlue: dark ? "bg-blue-500/10 border border-blue-500/20 text-blue-400" : "bg-blue-50 text-blue-600",
+    statEmerald: dark ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-emerald-50 text-emerald-600",
+    statAmber: dark ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "bg-amber-50 text-amber-600",
+    
+    empty: dark ? "bg-[#1c2128] border-white/5 shadow-xl" : "bg-white border-slate-100 shadow-premium",
+});
 
 const DashboardMobileV2 = () => {
     const { profile, user, stats } = useAuth();
+    const { theme } = useContext(ThemeContext);
+    const dark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const T = tkDashboard(dark);
+    
     const navigate = useNavigate();
     const notify = useNotify();
     const [unreadCount, setUnreadCount] = useState(0);
@@ -159,54 +184,56 @@ const DashboardMobileV2 = () => {
     return (
         <div className="min-h-screen bg-[#fcfbfb] dark:bg-[#0d1117] font-sans flex flex-col">
 
-            <main className="p-4 space-y-6 pb-32">
+            <main className="px-4 pt-[88px] space-y-6 pb-32">
                 {/* HeaderCard */}
-                <section className="bg-white rounded-3xl p-6 custom-shadow relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                <section className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 border ${T.header}`}>
+                    <div className={`absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16 opacity-20 pointer-events-none ${dark ? 'bg-orange-500' : 'bg-blue-100'}`}></div>
                     <div className="relative z-10">
                         <div className="mb-4">
-                            <p className="text-[10px] font-medium text-slate-400 tracking-wide">Proudly Made in India by SxL Labs</p>
+                            <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase opacity-70">Proudly Made in India · SxL Labs</p>
                         </div>
                         <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-px bg-blue-400"></div>
-                            <span className="text-[10px] font-bold text-blue-500 tracking-widest uppercase">
+                            <div className={`w-8 h-[2px] rounded-full ${T.hr}`}></div>
+                            <span className={`text-[10px] font-black tracking-widest uppercase ${T.label}`}>
                                 {profile?.role === 'admin' ? 'Administrative Node' : 'Student Hub'}
                             </span>
                         </div>
                         <div className="flex items-center flex-wrap gap-2 mb-1">
-                            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tighter">Circular <span className="text-blue-600">CENTER.</span></h1>
+                            <h1 className={`text-3xl font-black tracking-tighter ${T.title}`}>Circular <span className="text-orange-500">CENTER.</span></h1>
                             {/* Indian Flag */}
-                            <div className="w-6 h-4 bg-white border border-slate-100 flex flex-col shadow-sm shrink-0">
+                            <div className="w-6 h-4 bg-white border border-slate-200 flex flex-col shadow-sm shrink-0 rounded-[1px] overflow-hidden">
                                 <div className="h-1/3 bg-[#FF9933]"></div>
                                 <div className="h-1/3 bg-white flex items-center justify-center">
-                                    <div className="w-1 h-1 rounded-full bg-blue-900"></div>
+                                    <div className="w-1.5 h-1.5 rounded-full border-[0.5px] border-[#000080] flex items-center justify-center">
+                                        <div className="w-0.5 h-0.5 rounded-full bg-[#000080]"></div>
+                                    </div>
                                 </div>
-                                <div className="h-1/3 bg-[#128807]"></div>
+                                <div className="h-1/3 bg-[#138808]"></div>
                             </div>
                         </div>
-                        <p className="text-slate-500 text-sm font-medium mb-6">System metrics and approvals consolidated.</p>
+                        <p className={`text-sm font-medium mb-6 ${T.textMuted}`}>System metrics and approvals consolidated.</p>
                         
                         <div className="grid grid-cols-2 gap-3">
                             {profile?.role === 'admin' ? (
                                 <>
-                                    <div onClick={() => navigate('/dashboard/approvals')} className="bg-blue-50 rounded-2xl p-4 text-center cursor-pointer active:scale-95 transition-transform">
-                                        <span className="block text-[10px] font-bold text-blue-400 tracking-wider mb-1">WAITLIST</span>
-                                        <span className="text-4xl font-extrabold text-blue-600 leading-none">{stats.pendingApprovals || 0}</span>
+                                    <div onClick={() => navigate('/dashboard/approvals')} className={`rounded-2xl p-4 text-center cursor-pointer active:scale-95 transition-transform ${T.statBlue}`}>
+                                        <span className={`block text-[10px] font-black tracking-widest mb-1 opacity-80`}>WAITLIST</span>
+                                        <span className="text-4xl font-black leading-none">{stats.pendingApprovals || 0}</span>
                                     </div>
-                                    <div className="bg-emerald-50 rounded-2xl p-4 text-center">
-                                        <span className="block text-[10px] font-bold text-emerald-400 tracking-wider mb-1">TOTAL USERS</span>
-                                        <span className="text-4xl font-extrabold text-emerald-600 leading-none">{stats.totalUsers || 0}</span>
+                                    <div className={`rounded-2xl p-4 text-center ${T.statEmerald}`}>
+                                        <span className={`block text-[10px] font-black tracking-widest mb-1 opacity-80`}>TOTAL USERS</span>
+                                        <span className="text-4xl font-black leading-none">{stats.totalUsers || 0}</span>
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <div className="bg-blue-50 rounded-2xl p-4 text-center">
-                                        <span className="block text-[10px] font-bold text-blue-400 tracking-wider mb-1">TOTAL</span>
-                                        <span className="text-4xl font-extrabold text-blue-600 leading-none">{circulars.length}</span>
+                                    <div className={`rounded-2xl p-4 text-center ${T.statBlue}`}>
+                                        <span className={`block text-[10px] font-black tracking-widest mb-1 opacity-80`}>TOTAL</span>
+                                        <span className="text-4xl font-black leading-none">{circulars.length}</span>
                                     </div>
-                                    <div className="bg-amber-50 rounded-2xl p-4 text-center">
-                                        <span className="block text-[10px] font-bold text-amber-400 tracking-wider mb-1">UNREAD</span>
-                                        <span className="text-4xl font-extrabold text-amber-600 leading-none">
+                                    <div className={`rounded-2xl p-4 text-center ${T.statAmber}`}>
+                                        <span className={`block text-[10px] font-black tracking-widest mb-1 opacity-80`}>UNREAD</span>
+                                        <span className="text-4xl font-black leading-none">
                                             {unreadCount}
                                         </span>
                                     </div>
@@ -232,12 +259,14 @@ const DashboardMobileV2 = () => {
                 {/* EmptyState / List */}
                 <section className="space-y-4">
                     {loading ? (
-                        <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-600 w-8 h-8" /></div>
+                        <div className="flex justify-center py-10"><Loader2 className="animate-spin text-orange-500 w-8 h-8" /></div>
                     ) : filteredCirculars.length === 0 ? (
-                        <div className="bg-white rounded-3xl p-10 custom-shadow text-center">
-                            <FileText size={48} className="mx-auto text-slate-200 mb-4" />
-                            <h3 className="text-xl font-bold text-slate-700 mb-2">No Circulars Found</h3>
-                            <p className="text-slate-500 font-medium">Try checking back later.</p>
+                        <div className={`rounded-3xl p-10 text-center border transition-colors ${T.empty}`}>
+                            <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${dark ? 'bg-white/5' : 'bg-slate-50'}`}>
+                                <FileText size={24} className={dark ? 'text-slate-600' : 'text-slate-300'} />
+                            </div>
+                            <h3 className={`text-xl font-black tracking-tight mb-2 ${T.title}`}>No Circulars Found</h3>
+                            <p className={`${T.textMuted} font-medium`}>Try checking back later.</p>
                         </div>
                     ) : (
                         filteredCirculars.map(c => (
@@ -245,7 +274,7 @@ const DashboardMobileV2 = () => {
                                 key={c.id}
                                 circular={c}
                                 onView={(doc) => navigate(`/dashboard/center/${doc.id}`)}
-                                onEdit={(profile?.role === 'admin' || c.author_id === user?.uid) ? (doc) => navigate(`/dashboard/center/${doc.id}`) : null}
+                                onEdit={(profile?.role === 'admin' || c.author_id === user?.uid) ? (doc) => navigate(`/dashboard/center/${doc.id}`, { state: { action: 'edit' } }) : null}
                                 onDelete={(profile?.role === 'admin' || c.author_id === user?.uid) ? (doc) => handleDelete(doc.id, { stopPropagation: () => {} }) : null}
                             />
                         ))
