@@ -35,9 +35,17 @@ service cloud.firestore {
       return isAuthenticated() && hasProfile() && (getProfile().status == 'active' || getProfile().status == 'skipped');
     }
     
-    // Rate limiting: max 10 writes per minute per user
-    function isRateLimited() {
-      return request.time < resource.data.rateLimitReset;
+    // Institutional data validation
+    function isValidDept(dept) {
+      return dept in ['CSE', 'AIDS', 'AIML', 'ECE', 'EEE', 'MECH', 'CIVIL'];
+    }
+    
+    function isValidYear(year) {
+      return year in ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+    }
+    
+    function isValidSection(sec) {
+      return ['A', 'B', 'C', 'D'].hasAny([sec]);
     }
     
     // Profiles collection
@@ -47,7 +55,10 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow get: if isAuthenticated(); // Individual profile reads require auth
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                       (!('department' in request.resource.data) || isValidDept(request.resource.data.department)) &&
+                       (!('year_of_study' in request.resource.data) || isValidYear(request.resource.data.year_of_study)) &&
+                       (!('section' in request.resource.data) || isValidSection(request.resource.data.section));
       allow delete: if isAdmin();
     }
     
