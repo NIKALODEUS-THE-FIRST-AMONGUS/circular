@@ -83,45 +83,62 @@ const fmtTimeAgo = (ts) => {
 };
 
 // ─── Fullscreen Image/PDF viewer ──────────────────────────────────────────────
-const FullscreenViewer = ({ url, onClose }) => {
+const FullscreenViewer = ({ url, onClose, dark }) => {
   const isImg = isImageURL(url);
   const isPdf = getFileExtension(url) === "PDF" || url.includes(".pdf");
 
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[300] bg-black flex flex-col"
+      className={`fixed inset-0 z-[300] flex flex-col ${dark ? "bg-black" : "bg-gray-100"}`}
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 shrink-0 bg-black/60">
+      <div className={`flex items-center justify-between px-4 py-3 shrink-0 border-b relative z-10 shadow-lg ${dark ? "bg-[#161b22] border-white/10" : "bg-white border-gray-200"}`}>
         <button onClick={onClose}
-          className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-          <Ic size={16} className="text-white"><polyline points="15 18 9 12 15 6"/></Ic>
+          className={`px-3 h-10 rounded-xl flex items-center gap-2 transition-all shrink-0 ${dark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}>
+          <Ic size={18} className="currentColor"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></Ic>
+          <span className="text-sm font-bold">Back</span>
         </button>
-        <span className="text-white/60 text-xs font-medium truncate mx-4 flex-1 text-center">
+        <span className={`text-sm font-bold truncate mx-4 flex-1 text-center ${dark ? "text-white" : "text-gray-900"}`}>
           {getSafeFilename(url)}
         </span>
-        <a href={url} target="_blank" rel="noreferrer"
-          className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-          <Ic size={15} className="text-white"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Ic>
-        </a>
+        <button onClick={async () => {
+          try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = objectUrl;
+            a.download = getSafeFilename(url);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(objectUrl);
+          } catch {
+            window.open(url, "_blank", "noreferrer");
+          }
+        }}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 ${dark ? "bg-white/10 hover:bg-white/20 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}>
+          <Ic size={18} className="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Ic>
+        </button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden flex items-center justify-center">
+      <div className={`flex-1 overflow-auto relative ${dark ? "bg-black" : "bg-gray-100"}`} style={{ WebkitOverflowScrolling: 'touch' }}>
         {isImg ? (
           <img
-            src={optimizeCloudinaryUrl(url, { width: 1200, quality: "auto:good", format: "auto" })}
+            src={url}
             alt="Attachment"
-            className="max-w-full max-h-full object-contain"
+            className="w-full h-auto min-h-full object-contain mx-auto block"
+            style={{ maxWidth: "100%" }}
           />
         ) : isPdf ? (
           <iframe src={url} className="w-full h-full border-0" title="PDF" />
         ) : (
-          <div className="flex flex-col items-center gap-5 text-center px-8">
+          <div className="flex flex-col items-center gap-5 text-center px-8 mt-20">
             <span className="text-6xl">📄</span>
-            <p className="text-white/50 text-sm">Preview not available for this file type</p>
+            <p className={`text-sm ${dark ? "text-white/50" : "text-gray-500"}`}>Preview not available for this file type</p>
             <a href={url} target="_blank" rel="noreferrer"
               className="flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-2xl text-sm font-bold">
               <Ic size={15} className="text-white"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Ic>
@@ -429,7 +446,6 @@ const CircularDetailMobile = () => {
   const [deleting,      setDeleting]      = useState(false);
   const [showEdit,      setShowEdit]      = useState(false);
   const [fullscreenUrl, setFullscreen]    = useState(null);
-  const [showFeatures,  setShowFeatures]  = useState(false);
 
   const circularFeatures = useCircularFeatures(user?.uid || user?.id);
 
@@ -643,35 +659,10 @@ const CircularDetailMobile = () => {
         </div>
       </div>
 
-      {/* ── Fixed bottom bar: Comment + Stats ── */}
-      <div className={`fixed bottom-0 left-0 right-0 z-50 border-t transition-colors ${dark ? "bg-[#0d1117]/95 border-white/6 backdrop-blur-xl" : "bg-white/95 border-gray-100 backdrop-blur-xl"}`}
-        style={{ paddingBottom: "max(12px,env(safe-area-inset-bottom))" }}>
-        <div className="max-w-lg mx-auto px-4 pt-3">
-          <div className="flex gap-2">
-            {/* COMMENT button */}
-            <button
-              onClick={() => setShowFeatures(true)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border text-xs font-bold transition-colors ${T.iconBtn}`}>
-              <Ic size={14}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Ic>
-              COMMENT
-            </button>
-            {/* VIEW STATISTICS button */}
-            {!isStudent && (
-              <button
-                onClick={() => setShowFeatures(true)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border text-xs font-bold transition-colors ${T.iconBtn}`}>
-                <Ic size={14}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Ic>
-                VIEW STATISTICS
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* ── Fullscreen viewer ── */}
       <AnimatePresence>
         {fullscreenUrl && (
-          <FullscreenViewer key="fs" url={fullscreenUrl} onClose={() => setFullscreen(null)} />
+          <FullscreenViewer key="fs" url={fullscreenUrl} onClose={() => setFullscreen(null)} dark={dark} />
         )}
       </AnimatePresence>
 
@@ -688,30 +679,6 @@ const CircularDetailMobile = () => {
         {showEdit && (
           <EditSheet key="edit" dark={dark} circular={circular}
             onSave={handleSave} onClose={() => setShowEdit(false)} />
-        )}
-      </AnimatePresence>
-      
-      {/* ── Features Sheet (Scroll-to-Features pseudo-modal) ── */}
-      <AnimatePresence>
-        {showFeatures && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-[60] bg-black/40 flex items-end`}
-            onClick={() => setShowFeatures(false)}>
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              className={`w-full ${T.sheet} rounded-t-3xl p-6 border-t`}
-              onClick={e => e.stopPropagation()}>
-              <div className={`w-10 h-1 rounded-full mx-auto mb-6 ${T.drag}`} />
-              <div className="flex justify-between items-center mb-6">
-                <h3 className={`text-lg font-bold ${T.heading}`}>Circular Interaction</h3>
-                <button onClick={() => setShowFeatures(false)} className={`w-8 h-8 rounded-full flex items-center justify-center ${T.iconBtn}`}>
-                  <Ic size={16}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Ic>
-                </button>
-              </div>
-              <div className="max-h-[60vh] overflow-y-auto pb-6">
-                <CircularFeatures circular={circular} />
-              </div>
-            </motion.div>
-          </motion.div>
         )}
       </AnimatePresence>
     </>

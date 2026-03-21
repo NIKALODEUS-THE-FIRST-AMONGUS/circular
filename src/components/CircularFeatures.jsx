@@ -135,14 +135,14 @@ const CircularFeatures = ({ circular }) => {
                     </button>
                 )}
 
-                {/* View Acknowledgments (Teachers/Admins) */}
+                {/* View Statistics (Teachers/Admins) */}
                 {(profile?.role === 'teacher' || profile?.role === 'admin') && requiresAck && (
                     <button
                         onClick={() => setShowAcknowledgments(!showAcknowledgments)}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-light text-text-muted hover:bg-bg-light font-semibold text-sm transition-all"
                     >
                         <Users size={16} />
-                        Acknowledgments ({acknowledgments.length})
+                        Statistics ({acknowledgments.length})
                     </button>
                 )}
             </div>
@@ -225,7 +225,7 @@ const CircularFeatures = ({ circular }) => {
                 )}
             </AnimatePresence>
 
-            {/* Acknowledgments Section (Teachers/Admins only) */}
+            {/* Statistics Section (Teachers/Admins only) */}
             <AnimatePresence>
                 {showAcknowledgments && (profile?.role === 'teacher' || profile?.role === 'admin') && (
                     <motion.div
@@ -236,11 +236,11 @@ const CircularFeatures = ({ circular }) => {
                     >
                         <div className="border-t border-border-light pt-4">
                             <h3 className="text-sm font-semibold text-text-main mb-3">
-                                Acknowledgments ({acknowledgments.length})
+                                Statistics ({acknowledgments.length})
                             </h3>
                             <div className="space-y-2 max-h-64 overflow-y-auto">
                                 {acknowledgments.length === 0 ? (
-                                    <p className="text-sm text-text-muted italic text-center py-4">No acknowledgments yet</p>
+                                    <p className="text-sm text-text-muted italic text-center py-4">No statistics yet</p>
                                 ) : (
                                     acknowledgments.map((ack, index) => (
                                         <div key={index} className="p-2 bg-surface-light rounded-lg flex items-center justify-between">
