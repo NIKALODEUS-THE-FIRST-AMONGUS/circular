@@ -410,55 +410,75 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
         }
     };
 
-    // Real-time updates - DISABLED to prevent console freeze
-    // TODO: Re-enable after optimizing
-    /*
+    // Real-time Firebase listener for circulars
     useEffect(() => {
-        if (!profile) return;
+        if (!profile || profile.status !== 'active') return;
 
-        const channel = supabase
-            .channel('circulars_feed')
-            .on('postgres_changes', { 
-                event: 'INSERT', 
-                schema: 'public', 
-                table: 'circulars' 
-            }, (payload) => {
-                const np = payload.new;
-                const deptMatch = np.department_target === 'ALL' || np.department_target === profile?.department;
-                const yearMatch = np.target_year === 'ALL' || np.target_year === profile?.year_of_study;
-                const sectionMatch = np.target_section === 'ALL' || np.target_section === profile?.section;
+        // Import Firebase real-time listener
+        import('../lib/firebase-db').then(({ onSnapshotQuery }) => {
+            const filters = {
+                orderBy: ['created_at', 'desc']
+            };
 
-                if (deptMatch && yearMatch && sectionMatch) {
-                    setCirculars(prev => {
-                        // Prevent duplicates
-                        if (prev.find(c => c.id === np.id)) return prev;
-                        notify(`New Circular: ${np.title}`, 'info');
-                        return [{ ...np, isNew: true }, ...prev];
-                    });
-                }
-            })
-            .on('postgres_changes', { 
-                event: 'UPDATE', 
-                schema: 'public', 
-                table: 'circulars' 
-            }, (payload) => {
-                setCirculars(prev => prev.map(c => c.id === payload.new.id ? payload.new : c));
-            })
-            .on('postgres_changes', { 
-                event: 'DELETE', 
-                schema: 'public', 
-                table: 'circulars' 
-            }, (payload) => {
-                setCirculars(prev => prev.filter(c => c.id !== payload.old.id));
-            })
-            .subscribe();
-        
-        return () => {
-            supabase.removeChannel(channel);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [profile?.id, profile?.department, profile?.year_of_study, profile?.section, notify]);
-    */
+            const unsubscribe = onSnapshotQuery('circulars', filters, (snapshot) => {
+                const updates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Filter based on current filters
+                const filtered = updates.filter(circular => {
+                    // Skip drafts unless user is author or admin
+                    if (circular.status === 'draft') {
+                        if (profile.role !== 'admin' && circular.author_id !== user?.uid) {
+                            return false;
+                        }
+                    }
+
+                    // Department filter
+                    if (selectedDept !== 'ALL') {
+                        if (circular.department_target !== 'ALL' && circular.department_target !== selectedDept) {
+                            return false;
+                        }
+                    }
+
+                    // Role-based filters
+                    if (profile.role !== 'admin') {
+                        const cDept = (circular.department_target || 'ALL').toString().toUpperCase();
+                        const cYear = (circular.year_target || circular.target_year || 'ALL').toString().toUpperCase();
+                        const cSec = (circular.section_target || circular.target_section || 'ALL').toString().toUpperCase();
+
+                        const pDept = (profile.department || '').toString().toUpperCase();
+                        const pYear = (profile.year_of_study || '').toString().toUpperCase();
+                        const pSec = (profile.section || '').toString().toUpperCase();
+
+                        const deptMatch = cDept === 'ALL' || cDept === pDept;
+                        const yearMatch = cYear === 'ALL' || cYear === pYear;
+                        const sectionMatch = cSec === 'ALL' || cSec === pSec;
+                        
+                        if (!deptMatch || !yearMatch || !sectionMatch) {
+                            return false;
+                        }
+                    }
+
+                    // Priority filter
+                    if (priorityFilter === 'important' && circular.priority !== 'important') {
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                // Update circulars with real-time data
+                setCirculars(filtered.slice(0, (page + 1) * PAGE_SIZE));
+                setLoading(false);
+            }, (error) => {
+                console.error('Real-time listener error:', error);
+                notify('Failed to sync updates', 'error');
+            });
+
+            return () => {
+                if (unsubscribe) unsubscribe();
+            };
+        });
+    }, [profile, selectedDept, priorityFilter, user?.uid, page, notify]);
 
     return (
         <div className="max-w-5xl mx-auto space-y-6 py-8 px-4 lg:px-0">

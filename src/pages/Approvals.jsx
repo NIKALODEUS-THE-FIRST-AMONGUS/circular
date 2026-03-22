@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getDocuments, updateDocument, createAuditLog } from '../lib/firebase-db';
+import { getDocuments, updateDocument, createAuditLog, onSnapshotQuery } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -56,16 +56,33 @@ const Approvals = () => {
     }, [notify, complete]);
 
     useEffect(() => {
-        fetchRequests();
-        
-        // TODO: Implement real-time listener with Firebase onSnapshot
-        // For now, poll every 30 seconds
-        const interval = setInterval(fetchRequests, 30000);
-        
+        // Set up real-time listener for pending approvals
+        const unsubscribe = onSnapshotQuery(
+            'profiles',
+            {
+                where: [['status', '==', 'pending']],
+                orderBy: ['created_at', 'desc']
+            },
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setRequests(data || []);
+                setLoading(false);
+                complete();
+            },
+            (error) => {
+                console.error('Real-time listener error:', error);
+                notify('Failed to sync approval requests', 'error');
+                setLoading(false);
+            }
+        );
+
         return () => {
-            clearInterval(interval);
+            if (unsubscribe) unsubscribe();
         };
-    }, [fetchRequests]);
+    }, [notify, complete]);
 
     const handleApproval = async (id, email, role) => {
         setActioningState(id);

@@ -16,6 +16,7 @@ import {
   where,
   orderBy,
   limit,
+  onSnapshot,
   Timestamp,
   serverTimestamp
 } from 'firebase/firestore';
@@ -322,4 +323,41 @@ export default {
   toTimestamp,
   fromTimestamp,
   serverTimestamp
+};
+
+// REAL-TIME LISTENER - Subscribe to collection changes
+export const onSnapshotQuery = (collectionName, filters = {}, onUpdate, onError) => {
+  try {
+    const colRef = collection(db, collectionName);
+    const constraints = [];
+
+    // Add where clauses
+    if (filters.where) {
+      filters.where.forEach(([field, operator, value]) => {
+        constraints.push(where(field, operator, value));
+      });
+    }
+
+    // Add orderBy
+    if (filters.orderBy) {
+      const [field, direction = 'asc'] = filters.orderBy;
+      constraints.push(orderBy(field, direction));
+    }
+
+    // Add limit
+    if (filters.limit) {
+      constraints.push(limit(filters.limit));
+    }
+
+    const q = query(colRef, ...constraints);
+    
+    // Subscribe to real-time updates
+    const unsubscribe = onSnapshot(q, onUpdate, onError);
+    
+    return unsubscribe;
+  } catch (error) {
+    console.error(`Error setting up listener for ${collectionName}:`, error);
+    if (onError) onError(error);
+    return () => {}; // Return no-op unsubscribe function
+  }
 };
