@@ -70,22 +70,7 @@ export default async function handler(req, res) {
         circularId,
         priority: priority || 'normal',
         authorRole: authorRole || 'teacher'
-      },
-      // Priority settings
-      priority: priority === 'urgent' ? 10 : 5,
-      // Android specific
-      android_channel_id: priority === 'urgent' ? 'urgent-circulars' : 'circulars',
-      // iOS specific
-      ios_badgeType: 'Increase',
-      ios_badgeCount: 1,
-      // Web push specific
-      web_buttons: [
-        {
-          id: 'view-circular',
-          text: 'View Details',
-          icon: '/logo.svg'
-        }
-      ]
+      }
     };
 
     // Send notification via OneSignal
