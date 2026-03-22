@@ -27,9 +27,12 @@ export default async function handler(req, res) {
     const ONESIGNAL_API_URL = 'https://onesignal.com/api/v1/notifications';
     const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
     const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+    const APP_URL = process.env.VITE_APP_URL || process.env.VERCEL_URL || 'https://sxl-lake.vercel.app';
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
       console.error('OneSignal credentials not configured');
+      console.error('ONESIGNAL_APP_ID:', ONESIGNAL_APP_ID ? 'Set' : 'Missing');
+      console.error('ONESIGNAL_REST_API_KEY:', ONESIGNAL_REST_API_KEY ? 'Set' : 'Missing');
       return res.status(500).json({ error: 'OneSignal not configured' });
     }
 
@@ -45,7 +48,7 @@ export default async function handler(req, res) {
       big_picture: imageUrl || undefined,
       large_icon: imageUrl || undefined,
       // URL to open when clicked
-      url: `${process.env.VITE_APP_URL || 'http://localhost:5173'}/dashboard/center/${circularId}`,
+      url: `${APP_URL}/dashboard/center/${circularId}`,
       // Custom data
       data: {
         circularId,
