@@ -19,6 +19,8 @@ export default async function handler(req, res) {
   try {
     const { title, body, circularId, priority, authorRole, imageUrl, content } = req.body;
 
+    console.log('📬 Notification request received:', { title, circularId, priority });
+
     if (!title || !circularId) {
        return res.status(400).json({ error: 'Missing required fields: title, circularId' });
     }
@@ -29,11 +31,23 @@ export default async function handler(req, res) {
     const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
     const APP_URL = process.env.VITE_APP_URL || process.env.VERCEL_URL || 'https://sxl-lake.vercel.app';
 
+    console.log('🔑 Environment check:', {
+      hasAppId: !!ONESIGNAL_APP_ID,
+      hasApiKey: !!ONESIGNAL_REST_API_KEY,
+      appUrl: APP_URL
+    });
+
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
       console.error('OneSignal credentials not configured');
       console.error('ONESIGNAL_APP_ID:', ONESIGNAL_APP_ID ? 'Set' : 'Missing');
       console.error('ONESIGNAL_REST_API_KEY:', ONESIGNAL_REST_API_KEY ? 'Set' : 'Missing');
-      return res.status(500).json({ error: 'OneSignal not configured' });
+      return res.status(500).json({ 
+        error: 'OneSignal not configured',
+        details: {
+          hasAppId: !!ONESIGNAL_APP_ID,
+          hasApiKey: !!ONESIGNAL_REST_API_KEY
+        }
+      });
     }
 
     // Prepare notification payload
