@@ -60,14 +60,32 @@ service cloud.firestore {
       // Regular users can only read their own profile
       allow list: if isAdmin();
       allow get: if isAuthenticated(); // Individual profile reads require auth
-      allow create: if isOwner(userId);
-      // Admins can update any profile field without validation
-      // Regular users (owners) still have field validation applied
+      
+      // CREATE: Validate required fields and prevent role/status manipulation
+      allow create: if isOwner(userId) &&
+                       // Required fields must exist
+                       request.resource.data.keys().hasAll(['email', 'full_name', 'role', 'department', 'status']) &&
+                       // Field validation
+                       isValidDept(request.resource.data.department) &&
+                       (!('year_of_study' in request.resource.data) || isValidYear(request.resource.data.year_of_study)) &&
+                       (!('section' in request.resource.data) || isValidSection(request.resource.data.section)) &&
+                       // Security: Can't set yourself as active on creation (must be pending or approved by admin)
+                       (request.resource.data.status == 'pending' || 
+                        request.resource.data.status == 'skipped' ||
+                        request.auth.token.email.matches('.*@methodist[.]edu[.]in$')); // Methodist emails auto-approved
+      
+      // UPDATE: Admins can update anything, users can only update their own with restrictions
       allow update: if isAdmin() ||
                        (isOwner(userId) &&
+                        // Can't change role (prevents privilege escalation)
+                        (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
+                        // Can't change status (only admins can approve)
+                        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status) &&
+                        // Field validation
                         (!('department' in request.resource.data) || isValidDept(request.resource.data.department)) &&
                         (!('year_of_study' in request.resource.data) || isValidYear(request.resource.data.year_of_study)) &&
                         (!('section' in request.resource.data) || isValidSection(request.resource.data.section)));
+      
       allow delete: if isAdmin();
     }
     
@@ -119,12 +137,14 @@ service cloud.firestore {
     }
     
     // Notification tokens
-    match /notification_tokens/{tokenId} {
-      allow read: if isOwner(resource.data.user_id) || isAdmin();
+    match /notification_tokens/{userId} {
+      // Use userId as document ID for uniqueness (prevents duplicate tokens)
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isAuthenticated() && 
+                      userId == request.auth.uid &&
                       request.resource.data.user_id == request.auth.uid;
-      allow update: if isOwner(resource.data.user_id);
-      allow delete: if isOwner(resource.data.user_id) || isAdmin();
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId) || isAdmin();
     }
     
     // Audit logs

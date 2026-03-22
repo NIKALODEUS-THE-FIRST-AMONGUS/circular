@@ -22,12 +22,13 @@ export const useNotifications = (user, userRole = 'student', profile = null) => 
                     // Get subscription ID and store it
                     const subscriptionId = await getSubscriptionId();
                     if (subscriptionId) {
+                        // Use user.uid as document ID for uniqueness
                         await createDocument('notification_tokens', {
                             user_id: user.uid,
                             subscription_id: subscriptionId,
                             role: userRole,
                             created_at: new Date().toISOString()
-                        }).catch(() => {
+                        }, user.uid).catch(() => {
                             // Try updating if document exists
                             updateDocument('notification_tokens', user.uid, {
                                 subscription_id: subscriptionId,
@@ -77,7 +78,7 @@ export const useNotifications = (user, userRole = 'student', profile = null) => 
                         subscription_id: subscriptionId,
                         role: userRole,
                         created_at: new Date().toISOString()
-                    }).catch(() => {
+                    }, user.uid).catch(() => {
                         updateDocument('notification_tokens', user.uid, {
                             subscription_id: subscriptionId,
                             updated_at: new Date().toISOString()
