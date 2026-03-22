@@ -2,7 +2,8 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+// FCM imports disabled - using OneSignal for push notifications
+// import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,6 +30,8 @@ export const googleProvider = new GoogleAuthProvider();
 
 // Initialize messaging only in browser context
 let messaging = null;
+// FCM disabled - using OneSignal for push notifications
+/*
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   try {
     messaging = getMessaging(app);
@@ -61,15 +64,20 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     console.info('FCM not initialized - notifications disabled');
   }
 }
+*/
 
 export { messaging };
 
 /**
- * Request FCM token for a user
+ * Request FCM token for a user (DISABLED - using OneSignal)
  * @param {string} _userId - User ID
  * @returns {Promise<string|null>}
  */
 export const requestForToken = async (_userId) => {
+  console.info('ℹ️ FCM disabled - using OneSignal for push notifications');
+  return null;
+  
+  /* FCM code disabled
   if (!messaging) {
     return null;
   }
@@ -101,13 +109,18 @@ export const requestForToken = async (_userId) => {
     }
     return null;
   }
+  */
 };
 
 /**
- * Listen for foreground messages
+ * Listen for foreground messages (DISABLED - using OneSignal)
  * @returns {Promise<object>}
  */
 export const onMessageListener = () => {
+  console.info('ℹ️ FCM disabled - using OneSignal for push notifications');
+  return Promise.reject('FCM not initialized - using OneSignal');
+  
+  /* FCM code disabled
   if (!messaging) return Promise.reject('FCM not initialized');
   
   return new Promise((resolve) => {
@@ -115,6 +128,7 @@ export const onMessageListener = () => {
       resolve(payload);
     });
   });
+  */
 };
 
 export default app;
