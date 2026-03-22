@@ -102,9 +102,12 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error('OneSignal API error:', result);
+      console.error('OneSignal API status:', response.status);
+      console.error('Payload sent:', JSON.stringify(notificationPayload, null, 2));
       return res.status(response.status).json({ 
         error: 'Failed to send notification', 
-        details: result 
+        details: result,
+        payload: notificationPayload
       });
     }
 
