@@ -1,26 +1,64 @@
 // OneSignal Web SDK Configuration
 // Uses the native OneSignal SDK loaded via CDN
 
+// Track if OneSignal has been initialized
+let isOneSignalInitialized = false;
+let initializationPromise = null;
+
 /**
  * Initialize OneSignal for push notifications
  * @param {string} userId - User ID to tag the subscriber
  * @returns {Promise<boolean>}
  */
 export const initOneSignal = async (userId) => {
+  // Return existing initialization promise if already initializing
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+
+  // If already initialized, just login the user
+  if (isOneSignalInitialized && userId) {
+    return new Promise((resolve) => {
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          await OneSignal.login(userId);
+          console.info('✅ OneSignal user logged in:', userId);
+          resolve(true);
+        } catch (err) {
+          console.warn('⚠️ OneSignal login failed:', err.message);
+          resolve(false);
+        }
+      });
+    });
+  }
+
   // Wait for OneSignal to be loaded
   if (!window.OneSignalDeferred) {
     console.warn('⚠️ OneSignal SDK not loaded');
     return false;
   }
 
-  return new Promise((resolve) => {
+  // Create initialization promise
+  initializationPromise = new Promise((resolve) => {
     window.OneSignalDeferred.push(async function(OneSignal) {
       try {
+        // Check if already initialized
+        if (isOneSignalInitialized) {
+          if (userId) {
+            await OneSignal.login(userId);
+            console.info('✅ OneSignal user logged in:', userId);
+          }
+          resolve(true);
+          return;
+        }
+
         // Initialize OneSignal
         await OneSignal.init({
           appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
           allowLocalhostAsSecureOrigin: true,
         });
+
+        isOneSignalInitialized = true;
 
         // Login user for targeting
         if (userId) {
@@ -38,9 +76,13 @@ export const initOneSignal = async (userId) => {
       } catch (err) {
         console.warn('⚠️ OneSignal initialization failed:', err.message);
         resolve(false);
+      } finally {
+        initializationPromise = null;
       }
     });
   });
+
+  return initializationPromise;
 };
 
 /**
