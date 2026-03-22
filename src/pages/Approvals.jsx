@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getDocuments, updateDocument, createAuditLog } from '../lib/firebase-db';
 import { useNotify } from '../components/Toaster';
+import { useAuth } from '../hooks/useAuth';
 import {
     CheckCircle2,
     XCircle,
@@ -23,6 +24,7 @@ import { useConfirm } from '../components/ConfirmDialog';
 
 const Approvals = () => {
     const notify = useNotify();
+    const { user: currentUser } = useAuth();
     const confirm = useConfirm();
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -70,14 +72,16 @@ const Approvals = () => {
         try {
             // Approve user by updating status to active
             await updateDocument('profiles', id, {
-                status: 'active'
+                status: 'active',
+                approved_by: currentUser?.uid || currentUser?.id,
+                approved_at: new Date().toISOString()
             });
 
             // Log the action
             await createAuditLog({
-                actor_id: id,
+                actor_id: currentUser?.uid || currentUser?.id,
                 action: 'approve_member',
-                details: { target: email, role }
+                details: { target: email, role, target_id: id }
             });
 
             notify(`✓ Account approved for ${email}. They can now log in immediately.`, 'success', {
@@ -110,14 +114,16 @@ const Approvals = () => {
         try {
             // Decline user by updating status to suspended
             await updateDocument('profiles', id, {
-                status: 'suspended'
+                status: 'suspended',
+                rejected_by: currentUser?.uid || currentUser?.id,
+                rejected_at: new Date().toISOString()
             });
 
             // Log the action
             await createAuditLog({
-                actor_id: id,
+                actor_id: currentUser?.uid || currentUser?.id,
                 action: 'decline_member',
-                details: { target: email }
+                details: { target: email, target_id: id }
             });
 
             notify(`Request declined for ${email}`, 'error');
@@ -162,7 +168,9 @@ const Approvals = () => {
                         full_name: req.full_name?.trim().substring(0, 100) || 'User',
                         email: req.email?.toLowerCase().trim(),
                         mobile_number: req.mobile_number?.replace(/[^\d+\-() ]/g, '').substring(0, 20),
-                        status: 'active'
+                        status: 'active',
+                        approved_by: currentUser?.uid || currentUser?.id,
+                        approved_at: new Date().toISOString()
                     };
 
                     // Approve by updating profile
@@ -179,6 +187,7 @@ const Approvals = () => {
             // Log bulk approval
             await createAuditLog({
                 action: 'bulk_approve_members',
+                actor_id: currentUser?.uid || currentUser?.id,
                 details: {
                     total: requests.length,
                     success: successCount,

@@ -6,7 +6,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where, Timestamp, limit } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase-config';
 import { useSimulatedProgress } from '../hooks/useSimulatedProgress';
 import ProgressLoader from '../components/ProgressLoader';
@@ -133,7 +133,7 @@ export const AuthProvider = ({ children }) => {
         // 2. Listen for total users & pending users (Admins Only)
         // This is where the permission-denied error was coming from for students!
         if (profile?.role === 'admin') {
-            const profilesQuery = query(collection(db, 'profiles'));
+            const profilesQuery = query(collection(db, 'profiles'), limit(100));
             const unsubscribeUsers = onSnapshot(profilesQuery, (snapshot) => {
                 setStats(prev => ({ ...prev, totalUsers: snapshot.size, membersManaged: snapshot.size }));
             });

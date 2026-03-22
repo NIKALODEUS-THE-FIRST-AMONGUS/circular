@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../lib/firebase-config";
 import {
-  collection, query, onSnapshot,
+  collection, query, onSnapshot, limit,
   doc, updateDoc, serverTimestamp
 } from "firebase/firestore";
 import { useAuth } from "../../hooks/useAuth";
@@ -359,7 +359,7 @@ const ApprovalsMobile = () => {
   // Real-time listener for profiles
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, "profiles"));
+    const q = query(collection(db, "profiles"), limit(100));
     const unsubscribe = onSnapshot(q, (snap) => {
       setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
@@ -385,7 +385,8 @@ const ApprovalsMobile = () => {
       // UI updates via onSnapshot
       setSelected(null);
       showToast(`✓ ${user.full_name || "User"} approved`, "success");
-    } catch {
+    } catch (err) {
+      console.error("Approval error:", err);
       showToast("Approval failed. Try again.", "error");
     } finally {
       setProcessing(false);
@@ -411,7 +412,8 @@ const ApprovalsMobile = () => {
       // UI updates via onSnapshot
       setRejectUser(null);
       showToast(`Rejected ${rejectUser.full_name || "user"}`, "error");
-    } catch {
+    } catch (err) {
+      console.error("Decline error:", err);
       showToast("Rejection failed. Try again.", "error");
     } finally {
       setProcessing(false);

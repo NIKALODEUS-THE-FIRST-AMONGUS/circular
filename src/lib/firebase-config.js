@@ -19,7 +19,8 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
+  // Use default WebSockets for more stable real-time listeners
+  // experimentalForceLongPolling: true,
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 
