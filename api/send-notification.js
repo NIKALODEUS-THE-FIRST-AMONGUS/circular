@@ -27,14 +27,16 @@ export default async function handler(req, res) {
 
     // OneSignal API endpoint
     const ONESIGNAL_API_URL = 'https://onesignal.com/api/v1/notifications';
-    const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
-    const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
+    // Try both VITE_ and non-VITE_ versions for compatibility
+    const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID;
+    const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || process.env.VITE_ONESIGNAL_REST_API_KEY;
     const APP_URL = process.env.VITE_APP_URL || process.env.VERCEL_URL || 'https://sxl-lake.vercel.app';
 
     console.log('🔑 Environment check:', {
       hasAppId: !!ONESIGNAL_APP_ID,
       hasApiKey: !!ONESIGNAL_REST_API_KEY,
-      appUrl: APP_URL
+      appUrl: APP_URL,
+      envKeys: Object.keys(process.env).filter(k => k.includes('ONESIGNAL') || k.includes('NOTIFICATION'))
     });
 
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {

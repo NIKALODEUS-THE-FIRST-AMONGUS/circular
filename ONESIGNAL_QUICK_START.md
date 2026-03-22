@@ -1,68 +1,48 @@
-# OneSignal Quick Start - 5 Minutes Setup
+# OneSignal Quick Start Guide
 
-## What You Need to Do:
+## Current Status
+✅ OneSignal SDK integrated  
+✅ Service worker configured  
+✅ API endpoint created  
+✅ Environment variables set in Vercel  
 
-### 1. Create OneSignal Account (2 minutes)
-- Go to https://onesignal.com/
-- Sign up free
-- Create new app/project called "SuchnaX Link"
-- Choose "Web" platform
+## Environment Variables in Vercel
 
-### 2. Get Your Credentials (1 minute)
-After creating the app:
-- Go to **Settings** (gear icon) > **Keys & IDs**
-- Copy your **App ID**
-- Copy your **REST API Key**
-
-### 3. Add to .env File (1 minute)
-Add these two lines to your `.env` file:
-
-```env
-VITE_ONESIGNAL_APP_ID=paste-your-app-id-here
-VITE_ONESIGNAL_REST_API_KEY=paste-your-rest-api-key-here
-```
-
-### 4. Add to Vercel Environment Variables (1 minute)
-Go to Vercel project > Settings > Environment Variables:
+Make sure these are set in your Vercel project settings:
 
 ```
-ONESIGNAL_APP_ID=paste-your-app-id-here
-ONESIGNAL_REST_API_KEY=paste-your-rest-api-key-here
-VITE_APP_URL=https://your-domain.vercel.app
+ONESIGNAL_APP_ID=0cc061a3-f282-46e9-b4e5-1b3217adf6e2
+ONESIGNAL_REST_API_KEY=ehs57fxbsend5q5oqkplxlnuz
+NOTIFICATION_SECRET_KEY=MySuperSecretPassword123!@#
 ```
 
-Then **redeploy** your app.
+## Testing Push Notifications
 
-### 5. Restart Dev Server (1 minute)
-```bash
-# Stop current server (Ctrl + C)
-npm run dev
-```
+1. Open your deployed site: https://sxl-lake.vercel.app
+2. Allow notifications when prompted
+3. Create a new circular
+4. Click "Broadcast" button
+5. Check if notification appears
 
-### 6. Test It!
-- Open your app
-- Log in
-- Allow notifications when prompted
-- Create a test circular with:
-  - Title: "Test Notification"
-  - Content: "This is a test message"
-  - Attach an image (optional)
-- Click "Broadcast" (publish button)
-- You should receive a push notification showing:
-  - ✅ Exact title
-  - ✅ Full content
-  - ✅ Image (if attached)
+## Troubleshooting
 
-## That's It!
+### 500 Error on /api/send-notification
+- Check Vercel function logs
+- Verify environment variables are set
+- Check that ONESIGNAL_REST_API_KEY is correct
 
-OneSignal is now integrated and will:
-- ✅ Show the exact circular title in notification
-- ✅ Show the full circular content/message
-- ✅ Display attached images in notification
-- ✅ Work even when the app is closed
-- ✅ Support up to 30,000 users for free
-- ✅ No Firebase Blaze plan needed!
+### 404 Errors (dashboard, favicon)
+- These are now fixed with vercel.json rewrites
+- Redeploy to apply changes
 
-## Need Help?
+### Service Worker Warnings
+- "Could not get ServiceWorkerRegistration" - Harmless, OneSignal SDK internal
+- "SDK already initialized" - Harmless, happens on hot reload
+- "Event handler of 'message'" - Harmless, OneSignal SDK warning
 
-See the full guide: `ONESIGNAL_SETUP_GUIDE.md`
+## Files Modified
+- `api/send-notification.js` - OneSignal API integration
+- `src/lib/onesignal-config.js` - SDK initialization
+- `public/OneSignalSDKWorker.js` - Service worker
+- `index.html` - SDK script tag
+- `vercel.json` - SPA routing fix
