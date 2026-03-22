@@ -226,7 +226,7 @@ const Navbar = ({
 
           {/* Avatar */}
           <button
-            onClick={() => navigate("/dashboard/profile")}
+            onClick={() => navigate("/dashboard/settings")}
             className={`w-9 h-9 min-w-[36px] rounded-xl border overflow-hidden shrink-0 ${
               dark
                 ? "border-white/10 hover:border-white/20"

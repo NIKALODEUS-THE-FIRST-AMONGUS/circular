@@ -449,10 +449,10 @@ const Dashboard = () => {
                                         } />
                                         <Route path="search-members" element={
                                             <RoleGuard allowedRoles={['admin']}>
-                                                <SearchMembers />
+                                                {isMobile ? <ManageUsersMobile /> : <SearchMembers />}
                                             </RoleGuard>
                                         } />
-                                        <Route path="profile" element={<ProfilePage />} />
+                                        <Route path="profile" element={isMobile ? <SettingsMobile /> : <ProfilePage />} />
                                         <Route path="settings" element={isMobile ? <SettingsMobile /> : <ProfilePage />} />
                                         <Route path="audit-logs" element={
                                             <RoleGuard allowedRoles={['admin']}>
