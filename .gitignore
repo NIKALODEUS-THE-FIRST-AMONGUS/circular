@@ -31,14 +31,16 @@ dist-ssr
 # Vercel
 .vercel
 
-# Supabase
-.temp
-supabase/.temp
-
 # Firebase
 *firebase*.json
 !firebase.json
 !public/firebase-messaging-sw.js
 
-.vercel
-.env*.local
+# Temporary files
+*.tmp
+*.temp
+lint_output.txt
+
+# Build artifacts
+dist/
+build/
