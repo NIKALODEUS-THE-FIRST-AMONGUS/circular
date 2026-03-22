@@ -39,3 +39,6 @@ supabase/.temp
 *firebase*.json
 !firebase.json
 !public/firebase-messaging-sw.js
+
+.vercel
+.env*.local

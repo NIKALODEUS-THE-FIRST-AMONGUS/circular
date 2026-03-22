@@ -7,6 +7,7 @@ import { User, Shield, Palette, Info, LogOut, Trash2, Camera, Check, Globe, Bell
 import { useAuth } from "../hooks/useAuth";
 import { useTutorial } from "../hooks/useTutorial";
 import { ThemeContext } from "../context/ThemeContext";
+import { useNotifications } from "../hooks/useNotifications";
 
 const LANGUAGES = [
   { id: "en",    label: "English",    native: "English",    flag: "🇬🇧" },
@@ -69,6 +70,8 @@ const ProfilePage = () => {
   const { profile, stats, signOut, refreshProfile } = useAuth();
   const { theme, toggleDarkMode } = useContext(ThemeContext);
   const { startTutorial } = useTutorial();
+  const { permission, enableNotifications } = useNotifications(auth.currentUser, profile?.role);
+  const notificationsEnabled = permission === "granted";
   const fileRef = useRef(null);
 
   const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -333,6 +336,34 @@ const ProfilePage = () => {
                           {profile?.greeting_language === l.id && <Check size={16} strokeWidth={3} />}
                         </button>
                       ))}
+                    </div>
+                  </section>
+
+                  <section className="space-y-6">
+                    <div className="flex items-center gap-3">
+                      <Bell size={20} className="text-green-500" />
+                      <h3 className="text-xl font-black tracking-tight">Push Notifications</h3>
+                    </div>
+                    <div className={`p-6 rounded-3xl border transition-all ${
+                      notificationsEnabled ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-transparent hover:border-white/10"
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-black">Critical Alerts</h4>
+                          <p className={`text-xs mt-1 ${T.muted}`}>{notificationsEnabled ? "You are receiving instant push notifications." : "Enable cross-device notifications for alerts."}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!notificationsEnabled) enableNotifications();
+                            else alert("To disable push notifications, please change your browser's site settings.");
+                          }}
+                          className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors ${
+                            notificationsEnabled ? "bg-green-500" : "bg-slate-300 dark:bg-slate-700"
+                          } ${notificationsEnabled ? "justify-end" : "justify-start"}`}
+                        >
+                          <motion.div layout className="w-6 h-6 bg-white rounded-full shadow-md" />
+                        </button>
+                      </div>
                     </div>
                   </section>
 

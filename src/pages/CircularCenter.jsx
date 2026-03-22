@@ -143,9 +143,17 @@ const CircularCenter = ({ externalSearchTerm = '' }) => {
 
                 // Role-based filters
                 if (profile && profile.role !== 'admin') {
-                    const deptMatch = circular.department_target === 'ALL' || circular.department_target === profile.department;
-                    const yearMatch = circular.target_year === 'ALL' || circular.target_year === profile.year_of_study;
-                    const sectionMatch = circular.target_section === 'ALL' || circular.target_section === profile.section;
+                    const cDept = (circular.department_target || 'ALL').toString().toUpperCase();
+                    const cYear = (circular.year_target || circular.target_year || 'ALL').toString().toUpperCase();
+                    const cSec = (circular.section_target || circular.target_section || 'ALL').toString().toUpperCase();
+
+                    const pDept = (profile.department || '').toString().toUpperCase();
+                    const pYear = (profile.year_of_study || '').toString().toUpperCase();
+                    const pSec = (profile.section || '').toString().toUpperCase();
+
+                    const deptMatch = cDept === 'ALL' || cDept === pDept;
+                    const yearMatch = cYear === 'ALL' || cYear === pYear;
+                    const sectionMatch = cSec === 'ALL' || cSec === pSec;
                     
                     if (!deptMatch || !yearMatch || !sectionMatch) {
                         return false;

@@ -152,7 +152,36 @@ const CreateCircularMobile = () => {
                 created_at: new Date()
             };
 
-            await createDocument('circulars', finalData);
+            const createdDoc = await createDocument('circulars', finalData);
+            
+            // Send push notification via Vercel serverless function
+            if (!isDraft && createdDoc?.id) {
+                setUploadProgress('Sending notifications...');
+                try {
+                    // Get the first image attachment if available
+                    const firstImage = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
+                    
+                    await fetch('/api/send-notification', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${import.meta.env.VITE_NOTIFICATION_SECRET_KEY}`
+                        },
+                        body: JSON.stringify({
+                            title: finalData.title,
+                            content: finalData.content, // Full content
+                            body: `Posted by ${finalData.author_name}`, // Short description
+                            imageUrl: firstImage, // First attached image
+                            circularId: createdDoc.id,
+                            priority: finalData.priority,
+                            authorRole: profile?.role || 'teacher'
+                        })
+                    });
+                } catch (notiErr) {
+                    console.error('Failed to trigger push notifications:', notiErr);
+                }
+            }
+
             notify(isDraft ? '💾 Draft saved' : '✅ Broadcast sent', 'success');
             clearLocalDraft();
             navigate('/dashboard');

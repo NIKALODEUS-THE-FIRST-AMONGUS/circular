@@ -12,6 +12,15 @@ import { setupGlobalErrorHandling } from './utils/errorTracking';
 import { performanceMonitor } from './utils/performanceMonitor';
 import OfflineBanner from './components/OfflineBanner';
 import AccessibilityHelper from './components/AccessibilityHelper';
+import { useAuth } from './hooks/useAuth';
+import { useNotifications } from './hooks/useNotifications';
+
+// Silently manages FCM token registration + foreground message toasts
+function FcmManager() {
+  const { user } = useAuth();
+  useNotifications(user);
+  return null;
+}
 
 // Lazy load pages for better performance on slow networks
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -101,6 +110,7 @@ function App() {
             <ThemeProvider>
               <LanguageProvider>
                 <NetworkProvider>
+                  <FcmManager />
                   <AccessibilityHelper />
                   <OfflineBanner />
                   <AppContent />

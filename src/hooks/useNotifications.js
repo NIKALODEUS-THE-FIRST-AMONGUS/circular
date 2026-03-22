@@ -1,70 +1,102 @@
 import { useState, useEffect } from 'react';
-import { requestForToken, onMessageListener } from '../lib/firebase-config';
+import { initOneSignal, subscribeToNotifications, getSubscriptionId, tagUser } from '../lib/onesignal-config';
 import { useNotify } from '../components/Toaster';
-import { createDocument } from '../lib/firebase-db';
+import { createDocument, updateDocument } from '../lib/firebase-db';
 
-export const useNotifications = (user) => {
+export const useNotifications = (user, userRole = 'student', profile = null) => {
     const [permission, setPermission] = useState(Notification.permission);
+    const [isInitialized, setIsInitialized] = useState(false);
     const notify = useNotify();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || isInitialized) return;
 
-        // If permission is already granted, ensure we have the token
-        if (Notification.permission === 'granted') {
-            requestForToken(user.uid).then(token => {
-                if (token) {
-                    // Store token in Firestore
-                    createDocument('notification_tokens', {
-                        user_id: user.uid,
-                        token: token
-                    }).catch(() => {});
+        // Initialize OneSignal
+        const initNotifications = async () => {
+            try {
+                const success = await initOneSignal(user.uid);
+                
+                if (success) {
+                    setIsInitialized(true);
+                    
+                    // Get subscription ID and store it
+                    const subscriptionId = await getSubscriptionId();
+                    if (subscriptionId) {
+                        await createDocument('notification_tokens', {
+                            user_id: user.uid,
+                            subscription_id: subscriptionId,
+                            role: userRole,
+                            created_at: new Date().toISOString()
+                        }).catch(() => {
+                            // Try updating if document exists
+                            updateDocument('notification_tokens', user.uid, {
+                                subscription_id: subscriptionId,
+                                role: userRole,
+                                updated_at: new Date().toISOString()
+                            }).catch(() => {});
+                        });
+
+                        // Tag user with role and department for targeted notifications
+                        if (profile) {
+                            await tagUser({
+                                role: userRole,
+                                department: profile.department || 'all',
+                                user_id: user.uid
+                            });
+                        }
+                    }
+
+                    // Subscribe to notification events
+                    subscribeToNotifications((event) => {
+                        notify(event.heading || 'New Notification', 'info', {
+                            description: event.content || 'You have a new notification'
+                        });
+                    });
+
+                    setPermission(Notification.permission);
                 }
-            }).catch(() => {
-                // Silently fail - user can retry manually
-            });
-        }
+            } catch (error) {
+                console.warn('OneSignal initialization failed:', error);
+            }
+        };
 
-        // Listen for foreground messages
-        onMessageListener()
-            .then((payload) => {
-                notify(payload.notification.title, 'info', {
-                    description: payload.notification.body
-                });
-            })
-            .catch(() => {
-                // Silently fail - messaging not available
-            });
-
-    }, [user, notify]);
+        initNotifications();
+    }, [user, userRole, profile, isInitialized, notify]);
 
     const enableNotifications = async () => {
         try {
-            const status = await Notification.requestPermission();
-            setPermission(status);
+            // OneSignal handles permission request internally
+            const success = await initOneSignal(user.uid);
             
-            if (status === 'granted') {
-                const token = await requestForToken(user.uid);
-                if (token) {
-                    // Store token in Firestore
+            if (success) {
+                const subscriptionId = await getSubscriptionId();
+                
+                if (subscriptionId) {
                     await createDocument('notification_tokens', {
                         user_id: user.uid,
-                        token: token
+                        subscription_id: subscriptionId,
+                        role: userRole,
+                        created_at: new Date().toISOString()
+                    }).catch(() => {
+                        updateDocument('notification_tokens', user.uid, {
+                            subscription_id: subscriptionId,
+                            updated_at: new Date().toISOString()
+                        }).catch(() => {});
                     });
-                    notify('High Alert Notifications enabled!', 'success');
+
+                    notify('Push notifications enabled!', 'success');
+                    setPermission('granted');
                 } else {
-                    notify('Notifications enabled, but token generation failed. Please try again.', 'warning');
+                    notify('Notifications enabled, but subscription failed. Please try again.', 'warning');
                 }
-            } else if (status === 'denied') {
-                notify('Notifications blocked. Enable them in browser settings.', 'error');
             } else {
-                notify('Notification permission dismissed.', 'info');
+                notify('Failed to enable notifications. Please try again.', 'error');
             }
         } catch (error) {
-            console.error('Permission error:', error);
+            console.error('Notification enable error:', error);
             notify('Failed to enable notifications. Please try again.', 'error');
         }
     };
 
-    return { permission, enableNotifications };
+    return { permission, enableNotifications, isInitialized };
 };

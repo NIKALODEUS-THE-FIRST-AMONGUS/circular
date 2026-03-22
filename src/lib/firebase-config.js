@@ -36,19 +36,29 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     // Register service worker
     navigator.serviceWorker.register('/firebase-messaging-sw.js')
       .then((registration) => {
-        // Send Firebase config to service worker
-        if (registration.active) {
-          registration.active.postMessage({
-            type: 'FIREBASE_CONFIG',
-            config: firebaseConfig
-          });
+        // Send Firebase config to whichever SW state is active
+        const sendConfig = (worker) => {
+          worker.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+        };
+        const sw = registration.active || registration.waiting || registration.installing;
+        if (sw) {
+          if (sw.state === 'activated') {
+            sendConfig(sw);
+          } else {
+            sw.addEventListener('statechange', function handler() {
+              if (this.state === 'activated') {
+                sendConfig(this);
+                this.removeEventListener('statechange', handler);
+              }
+            });
+          }
         }
       })
-      .catch((err) => {
-        console.warn('FCM Service Worker registration failed:', err);
+      .catch(() => {
+        console.info('FCM Service Worker not available');
       });
-  } catch (err) {
-    console.warn('FCM Initialization failed:', err);
+  } catch {
+    console.info('FCM not initialized - notifications disabled');
   }
 }
 
@@ -60,7 +70,9 @@ export { messaging };
  * @returns {Promise<string|null>}
  */
 export const requestForToken = async (_userId) => {
-  if (!messaging) return null;
+  if (!messaging) {
+    return null;
+  }
 
   try {
     // Wait for service worker to be ready
@@ -75,9 +87,18 @@ export const requestForToken = async (_userId) => {
       vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
     });
     
-    return currentToken || null;
+    if (currentToken) {
+      console.info('✅ FCM token generated successfully');
+      return currentToken;
+    } else {
+      return null;
+    }
   } catch (err) {
-    console.error('FCM Token error:', err);
+    // Silently handle FCM errors - notifications will be disabled but app works fine
+    if (err.code === 'messaging/token-subscribe-failed') {
+      // This is expected on Spark plan - FCM requires Blaze plan for full functionality
+      console.info('ℹ️ Push notifications unavailable (requires Firebase Blaze plan)');
+    }
     return null;
   }
 };

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { doc, setDoc, getDocs, query, collection, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase-config';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
 import {
   getPersistedStep,
   getPersistedData,
@@ -20,7 +21,7 @@ const SECTIONS = ['A', 'B', 'C', 'D'];
 const LANGUAGES = ['English', 'हिन्दी', 'తెలుగు', 'தமிழ்', 'ಕನ್ನಡ'];
 const LANG_CODES = { 'English': 'en', 'हिन्दी': 'hi', 'తెలుగు': 'te', 'தமிழ்': 'ta', 'ಕನ್ನಡ': 'kn' };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 // Access Codes from .env
 const CODES = {
@@ -99,6 +100,7 @@ const STEP_META = [
   { icon: '🏛️', title: 'Your Department', sub: 'Select your branch and year' },
   { icon: '⚙️', title: 'Preferences', sub: 'Personalise your experience' },
   { icon: '🔑', title: 'Access Key', sub: 'Enter your institutional invite code' },
+  { icon: '🔔', title: 'Stay Updated', sub: 'Never miss an urgent circular' },
   { icon: '✅', title: 'All Set!', sub: 'Review and launch your account' },
 ];
 
@@ -123,6 +125,13 @@ const Onboarding = () => {
     access_code: '',
     ...getPersistedData(),
   }));
+
+  const deriveRole = () => {
+    const code = form.access_code.trim().toLowerCase();
+    return isFirstUser || code === CODES.ADMIN ? 'admin' : (code === CODES.TEACHER ? 'teacher' : 'student');
+  };
+
+  const { permission, enableNotifications } = useNotifications(user, deriveRole());
 
 
   // Bootstrap: is this the very first user?
@@ -182,6 +191,7 @@ const Onboarding = () => {
       const code = form.access_code.trim().toLowerCase();
       return code === CODES.ADMIN || code === CODES.TEACHER || code === CODES.STUDENT;
     }
+    if (step === 4) return true; // Optional notification step
     return true;
   };
 
@@ -435,8 +445,38 @@ const Onboarding = () => {
                   </div>
                 )}
 
-                {/* ── Step 4: Review ── */}
+                {/* ── Step 4: Notifications ── */}
                 {step === 4 && (
+                  <div className="space-y-6 text-center py-4">
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2 border-4 border-white shadow-xl shadow-red-500/10">
+                      <span className="text-4xl animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]">🔔</span>
+                    </div>
+                    <p className="text-[13px] font-semibold text-gray-600 px-6">
+                      Get instantly notified when important circulars, holidays, or urgent updates are published.
+                    </p>
+                    
+                    {permission === 'granted' ? (
+                      <div className="p-4 rounded-xl bg-green-50 border-2 border-green-200 text-green-700 font-bold shadow-inner">
+                        ✅ Push Notifications Enabled!
+                      </div>
+                    ) : permission === 'denied' ? (
+                      <div className="p-4 rounded-xl bg-red-50 border-2 border-red-200 text-red-700 font-bold shadow-inner">
+                        ❌ Notifications Blocked
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => { await enableNotifications(); }}
+                        className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98] text-[15px] flex items-center justify-center gap-2"
+                      >
+                        Enable Push Notifications
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Step 5: Review ── */}
+                {step === 5 && (
                   <div className="space-y-4">
                     <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100 space-y-3">
                       {[

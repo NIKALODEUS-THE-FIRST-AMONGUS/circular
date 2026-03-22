@@ -6,17 +6,17 @@ import { ThemeContext } from "../context/ThemeContext";
 
 // ─── Nav config ───────────────────────────────────────────────────────────────
 const WORKSPACE = [
-  { id: "center",    label: "Circular Center", path: "/dashboard/center"       },
-  { id: "post",      label: "Post",            path: "/dashboard/create"       },
-  { id: "drafts",    label: "Drafts",          path: "/dashboard/drafts"       },
-  { id: "hub",       label: "My Hub",          path: "/dashboard/my-posts"     },
-  { id: "approvals", label: "Approvals",       path: "/dashboard/approvals", badge: true },
-  { id: "members",   label: "Members",         path: "/dashboard/manage-users" },
+  { id: "center",    label: "Circular Center", path: "/dashboard/center",       icon: "radio_button_checked" },
+  { id: "post",      label: "Post",            path: "/dashboard/create",       icon: "edit_note" },
+  { id: "drafts",    label: "Drafts",          path: "/dashboard/drafts",       icon: "drafts" },
+  { id: "hub",       label: "My Hub",          path: "/dashboard/my-posts",     icon: "hub" },
+  { id: "approvals", label: "Approvals",       path: "/dashboard/approvals",    icon: "task_alt", badge: true },
+  { id: "members",   label: "Members",         path: "/dashboard/manage-users", icon: "group" },
 ];
 const MANAGEMENT = [
-  { id: "logs",     label: "Logs",     path: "/dashboard/audit-logs" },
-  { id: "feedback", label: "Feedback", path: "/dashboard/feedback"   },
-  { id: "settings", label: "Settings", path: "/dashboard/settings"   },
+  { id: "logs",     label: "Logs",     path: "/dashboard/audit-logs", icon: "history" },
+  { id: "feedback", label: "Feedback", path: "/dashboard/feedback",   icon: "chat" },
+  { id: "settings", label: "Settings", path: "/dashboard/settings",   icon: "settings" },
 ];
 
 // Role-specific nav — students don't see admin items
@@ -32,7 +32,12 @@ const filterMgmtByRole = (items, role) => {
   return items.filter((i) => ["feedback", "settings"].includes(i.id)); // students see feedback & settings
 };
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+// ─── Material Icon Component ──────────────────────────────────────────────────
+const MaterialIcon = ({ icon, className = '', size = 20 }) => {
+  return <span className={`material-symbols-outlined ${className}`} style={{ fontSize: size }}>{icon}</span>;
+};
+
+// ─── Icons for theme toggle and close ─────────────────────────────────────────
 const Ic = ({ size = 16, children }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
@@ -42,15 +47,6 @@ const Ic = ({ size = 16, children }) => (
 );
 
 const ICONS = {
-  center:    <Ic><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></Ic>,
-  post:      <Ic><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Ic>,
-  drafts:    <Ic><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></Ic>,
-  hub:       <Ic><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/></Ic>,
-  approvals: <Ic><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Ic>,
-  members:   <Ic><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></Ic>,
-  logs:      <Ic><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Ic>,
-  feedback:  <Ic><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></Ic>,
-  settings:  <Ic><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></Ic>,
   signout:   <Ic size={15}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Ic>,
   close:     <Ic size={14}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Ic>,
   moon:      <Ic size={14}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></Ic>,
@@ -155,36 +151,37 @@ const MiniAvatar = ({ name, photoURL, size = 30 }) => {
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 const tk = (dark) => ({
-  drawer:     dark ? "bg-[#0a0b0f] border-white/8 shadow-2xl"     : "bg-white border-slate-200 shadow-xl",
+  drawer:     dark ? "bg-[#0f172a] border-white/10 shadow-2xl"    : "bg-white border-slate-200 shadow-xl",
   overlay:    dark ? "bg-black/80 backdrop-blur-sm"               : "bg-black/40 backdrop-blur-sm",
-  profileBg:  dark ? "bg-[#11141b]"                                : "bg-slate-50",
-  name:       dark ? "text-[#f1f3f9]"                             : "text-slate-900",
-  meta:       dark ? "text-[#94a3b8]"                             : "text-slate-500",
-  live:       dark ? "bg-blue-500/12 border-blue-500/20 text-blue-400"
+  profileBg:  dark ? "bg-[#0f172a]"                               : "bg-slate-50",
+  name:       dark ? "text-white"                                 : "text-slate-900",
+  meta:       dark ? "text-slate-400"                             : "text-slate-500",
+  live:       dark ? "bg-green-500/10 border-green-500/20 text-green-400"
                    : "bg-green-50 border-green-200 text-green-700",
-  sLbl:       dark ? "text-slate-600 font-black tracking-[0.2em]" : "text-slate-400 font-bold tracking-widest",
-  item:       dark ? "text-slate-400 hover:bg-white/5 hover:text-[#f1f3f9]"
+  sLbl:       dark ? "text-slate-500 font-bold tracking-widest"   : "text-slate-400 font-bold tracking-widest",
+  item:       dark ? "text-slate-400 hover:bg-white/5 hover:text-white"
                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
-  iconBg:     dark ? "bg-white/5 group-hover:bg-blue-500/10 group-hover:text-blue-400"
+  iconBg:     dark ? "bg-white/5 group-hover:bg-[#ec5b13]/10 group-hover:text-[#ec5b13]"
                    : "bg-slate-100 group-hover:bg-orange-50 group-hover:text-orange-500",
-  actBg:      dark ? "bg-blue-500/10 text-blue-400"               : "bg-orange-50 text-orange-600",
-  actIcon:    dark ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
+  actBg:      dark ? "border-l-4 border-[#ec5b13] bg-white/5 text-white"
+                   : "bg-orange-50 text-orange-600",
+  actIcon:    dark ? "bg-[#ec5b13] text-white shadow-lg shadow-[#ec5b13]/30"
                    : "bg-orange-500 text-white shadow-lg shadow-orange-500/30",
-  footerBg:   dark ? "bg-[#11141b] border-white/8"                : "bg-slate-50 border-slate-200",
-  footerTxt:  dark ? "text-[#f1f3f9]"                             : "text-slate-700",
+  footerBg:   dark ? "bg-[#0f172a] border-white/10"               : "bg-slate-50 border-slate-200",
+  footerTxt:  dark ? "text-white"                                 : "text-slate-700",
   footerSub:  dark ? "text-slate-500"                             : "text-slate-400",
-  togOn:      dark ? "bg-blue-500 border-blue-500"                : "bg-orange-500 border-orange-500",
+  togOn:      dark ? "bg-[#ec5b13] border-[#ec5b13]"              : "bg-orange-500 border-orange-500",
   togOff:     dark ? "bg-white/10 border-white/15"                : "bg-slate-200 border-slate-300",
   togRow:     dark ? "bg-white/5"                                 : "bg-white border border-slate-200",
   signout:    dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                    : "bg-red-50 text-red-500 hover:bg-red-100",
-  divider:    dark ? "border-white/8"                             : "border-slate-200",
-  closeBtn:   dark ? "bg-white/8 text-slate-400 hover:bg-white/15 hover:text-[#f1f3f9]"
+  divider:    dark ? "border-white/10"                            : "border-slate-200",
+  closeBtn:   dark ? "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
                    : "bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600",
 });
 
 // ─── Nav row ──────────────────────────────────────────────────────────────────
-const NavRow = ({ id, label, _path, badge, active, dark, approvalCount, onClick }) => {
+const NavRow = ({ _id, label, _path, icon, badge, active, dark, approvalCount, onClick }) => {
   const T = tk(dark);
   return (
     <motion.button whileTap={{ scale: 0.97 }} onClick={onClick}
@@ -199,7 +196,7 @@ const NavRow = ({ id, label, _path, badge, active, dark, approvalCount, onClick 
       <span className={`rounded-lg flex items-center justify-center transition-all duration-150 shrink-0
         ${active ? T.actIcon : T.iconBg}`}
         style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
-        {ICONS[id]}
+        <MaterialIcon icon={icon} size={20} />
       </span>
       <span className="flex-1 truncate leading-none">{label}</span>
       {badge && approvalCount > 0 && (

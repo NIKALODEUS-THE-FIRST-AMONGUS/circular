@@ -305,12 +305,35 @@ const CreateCircular = () => {
                 }
             })();
 
-            // TODO: Send FCM notifications for published circulars
-            // This requires Firebase Cloud Functions or a backend API
+            // Send push notification via Vercel serverless function
             if (forcedStatus === 'published' && created?.id) {
+                setUploadProgress('Sending notifications...');
+                try {
+                    // Get the first image attachment if available
+                    const firstImage = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
+                    
+                    await fetch('/api/send-notification', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${import.meta.env.VITE_NOTIFICATION_SECRET_KEY}`
+                        },
+                        body: JSON.stringify({
+                            title: circularData.title,
+                            content: circularData.content, // Full content
+                            body: `Posted by ${circularData.author_name}`, // Short description
+                            imageUrl: firstImage, // First attached image
+                            circularId: created.id,
+                            priority: circularData.priority,
+                            authorRole: profile?.role || 'teacher'
+                        })
+                    });
+                } catch (notiErr) {
+                    console.error('Failed to trigger push notifications:', notiErr);
+                }
+
                 setUploadProgress('Circular published!');
                 notify('🔔 Circular published successfully', 'success');
-                console.log('📢 Notification system: TODO - Implement Firebase Cloud Functions for push notifications');
             }
 
             safeGroupEnd();

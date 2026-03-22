@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import { useTutorial } from "../../hooks/useTutorial";
 import { ThemeContext } from "../../context/ThemeContext";
+import { useNotifications } from "../../hooks/useNotifications";
  // useNavigate and useLocation removed
 import BottomNav from "../../components/BottomNav";
 
@@ -564,7 +565,9 @@ const SettingsMobile = () => {
   const isStudent = role === "student";
   const isGoogle  = auth.currentUser?.providerData?.some((p) => p.providerId === "google.com");
 
-  const [notifications, setNotifications] = useState(true);
+  const { permission, enableNotifications } = useNotifications(auth.currentUser, profile?.role);
+  const notifications = permission === "granted";
+
   const [language,      setLanguage]      = useState(profile?.greeting_language || "en");
   const [introMode,     setIntroMode]     = useState(profile?.intro_frequency   || "daily");
   const [photoURL,      setPhotoURL]      = useState(profile?.photoURL || profile?.avatar_url || null);
@@ -726,7 +729,10 @@ const SettingsMobile = () => {
               icon={<Ic><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></Ic>}
               iconBg={dark ? "bg-blue-500/10" : "bg-blue-50"}
               title="Push Notifications" sub={notifications ? "Receiving alerts" : "Alerts disabled"}
-              right={<Toggle on={notifications} onToggle={() => setNotifications((p) => !p)} dark={dark} />} />
+              right={<Toggle on={notifications} onToggle={() => {
+                if (!notifications) enableNotifications();
+                else alert("To disable push notifications, please change your browser's site settings.");
+              }} dark={dark} />} />
 
             <SR dark={dark}
               icon={<Ic><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Ic>}
