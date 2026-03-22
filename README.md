@@ -148,41 +148,11 @@ src/
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Environment Setup
 
-Create `.env` file:
+The application requires environment variables for Firebase, Cloudinary, and OneSignal. See `.env.example` for the complete list of required variables.
 
-```env
-# Firebase
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=circular2-15417.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=circular2-15417
-VITE_FIREBASE_STORAGE_BUCKET=circular2-15417.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# Cloudinary (File Storage)
-VITE_CLOUDINARY_CLOUD_NAME=dzw0mxfzq
-VITE_CLOUDINARY_UPLOAD_PRESET=circular-attachments
-VITE_CLOUDINARY_API_KEY=your_api_key
-VITE_CLOUDINARY_API_SECRET=your_api_secret
-
-# OneSignal (Push Notifications)
-VITE_ONESIGNAL_APP_ID=your_app_id
-VITE_ONESIGNAL_REST_API_KEY=your_rest_api_key
-ONESIGNAL_APP_ID=your_app_id
-ONESIGNAL_REST_API_KEY=your_rest_api_key
-
-# API Security
-NOTIFICATION_SECRET_KEY=your_secret_key
-VITE_NOTIFICATION_SECRET_KEY=your_secret_key
-
-# Admin Access
-VITE_ADMIN_SECRET_KEY=CircularAdmin2024!
-VITE_TEACHER_SECRET_KEY=CircularTeacher2024!
-VITE_STUDENT_SECRET_KEY=CircularStudent2024!
-VITE_MASTER_ADMIN_EMAIL=admin@methodist.edu.in
-```
+**Note**: Never commit `.env` files to version control. All sensitive credentials are managed securely.
 
 ---
 
@@ -257,54 +227,49 @@ VITE_MASTER_ADMIN_EMAIL=admin@methodist.edu.in
 
 ## 🚀 Deployment
 
-### Vercel (Current)
+### Production Deployment
+
+The application is deployed on Vercel with automatic deployments from the main branch.
+
+**Live URL**: [https://sxl-lake.vercel.app](https://sxl-lake.vercel.app)
+
+### Manual Deployment
 
 ```bash
-# Install Vercel CLI
-npm i -g vercel
+# Build for production
+npm run build
 
-# Deploy
-vercel
-
-# Production
+# Deploy to Vercel
 vercel --prod
 ```
 
-### Firebase Hosting (Alternative)
-
-```bash
-# Build
-npm run build
-
-# Deploy
-firebase deploy
-```
+**Note**: Environment variables must be configured in the Vercel dashboard for production deployments.
 
 ---
 
 ## 🔒 Security
 
-### Implemented
+### Security Features
 
 - ✅ Firebase Authentication with email verification
 - ✅ Firestore Security Rules with comprehensive validation
 - ✅ Role-based access control (RBAC)
-- ✅ Methodist email auto-approval via regex
+- ✅ Institutional email verification
 - ✅ Input validation and sanitization
-- ✅ XSS protection
+- ✅ XSS and CSRF protection
 - ✅ API endpoint authentication
-- ✅ Audit logging for all actions
-- ✅ Debug endpoints removed from production
+- ✅ Complete audit logging
+- ✅ Secure file upload validation
 
-### Security Rules
+### Security Best Practices
 
-See `firestore.rules` for complete Firestore security implementation including:
+- All sensitive credentials stored in environment variables
+- Debug endpoints removed from production
+- Firestore rules enforce server-side validation
+- User actions logged for accountability
+- Regular security audits and updates
 
-- User authentication checks
-- Role-based permissions
-- Field-level validation
-- Institutional data validation (departments, years, sections)
-- Onboarding security (prevents role escalation, status bypass)
+**Security Rules**: See `firestore.rules` for complete implementation.
 
 ---
 
@@ -392,10 +357,12 @@ This project is proprietary and confidential.
 
 ### Getting Help
 
-1. Check browser console for errors
-2. Review Firebase Console for backend errors
-3. Check Vercel deployment logs
-4. Review Firestore rules and indexes
+For technical support:
+
+1. Check browser console for client-side errors
+2. Review application logs in Vercel dashboard
+3. Verify Firebase configuration and rules
+4. Check service status for Firebase and OneSignal
 
 ---
 
